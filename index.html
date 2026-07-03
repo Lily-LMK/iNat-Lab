@@ -1532,6 +1532,16 @@
     @media (max-width: 560px){ .onboard .feat{ border-right:0; border-bottom:1px solid var(--hair); } .onboard .feat:last-child{ border-bottom:0; } }
     .onboard .feat b{ color: var(--ink); font-weight: 600; display:block; margin-bottom:5px; font-size: 11px; letter-spacing:.08em; text-transform:uppercase; }
 
+    /* Mobile onboarding: the two actions are the central focus — full-width,
+       stacked, prominent, above the fold. */
+    @media (max-width: 560px){
+      .onboard{ margin: 12vh auto 6vh; padding: 20px 16px; }
+      .onboard .rule{ margin: 18px auto 24px; }
+      .onboard .cta{ flex-direction: column; gap: 10px; }
+      .onboard .cta button{ width: 100%; font-size: 15px; padding: 15px 22px; }
+      .onboard .feats{ margin-top: 36px; }
+    }
+
     /* ════════════════════════════════════════════════════════════════
        Mobile: filters become an off-canvas drawer; compact header
        ════════════════════════════════════════════════════════════════ */
@@ -3602,7 +3612,6 @@ function refreshStaticFilters(){
       view.innerHTML = `<div class="onboard">
         <h1 class="mark">iNat Lab</h1>
         <hr class="rule"/>
-        <p class="tagline">A quiet instrument for looking closely at your iNaturalist records — filter a full taxonomic cascade, compare observers, map observations, and build image metadata, all in your browser.</p>
         <div class="cta">
           <button id="emptyLoadBtn" class="btn-primary" type="button">Load a CSV export</button>
           <button id="emptyApiBtn" type="button">Pull from iNaturalist</button>
