@@ -158,6 +158,76 @@
     .headerToggleBtn:hover{ background: var(--raised-hi); color: var(--ink); }
     .headerToggleBtn svg{ width:16px; height:16px; display:block; }
 
+    /* ── Active-filters chip bar (occupies the header's centre slot) ── */
+    .chip-bar{
+      flex: 1 1 240px; min-width: 0;
+      display:flex; align-items:center; gap:6px;
+      overflow-x:auto; overflow-y:hidden;
+      padding: 2px 0; margin: 0;
+      scrollbar-width: thin;
+      -webkit-overflow-scrolling: touch;
+    }
+    .chip-bar::-webkit-scrollbar{ height:5px; }
+    .chip-bar::-webkit-scrollbar-thumb{ background: var(--hair-strong); border-radius:99px; }
+    /* Taxonomy renders as a breadcrumb of values joined by "›"; no pills,
+       no rank labels. Each value is a click-to-remove control. */
+    .chip-bar .fcrumbs{ display:inline-flex; align-items:center; gap:7px; flex:0 0 auto; }
+    .chip-bar .fsep{ color:var(--muted); font-size:12px; user-select:none; }
+    .chip-bar .fchip{
+      display:inline-flex; align-items:center; gap:5px; flex:0 0 auto;
+      font-family: var(--font); font-size:12px; font-weight:500;
+      color: var(--ink); background:none; border:none; padding:3px 0;
+      cursor:pointer; white-space:nowrap;
+      animation: chipIn .12s ease;
+    }
+    .chip-bar .fchip .fk{
+      font-family: var(--sans); font-size:9px; font-weight:600;
+      color: var(--muted); text-transform:uppercase; letter-spacing:.06em;
+    }
+    .chip-bar .fchip .fx{ color: var(--muted); font-size:14px; line-height:1; transition: color var(--dur-fast); }
+    .chip-bar .fchip:hover{ color: var(--ink); }
+    .chip-bar .fchip:hover .fx{ color: var(--warn); }
+    .chip-bar .fchip:focus-visible{ outline:2px solid var(--ink); outline-offset:2px; border-radius:2px; }
+    .chip-clear{
+      flex:0 0 auto; margin-left:2px;
+      font-family: var(--font); font-size:11px; font-weight:500;
+      color: var(--muted); cursor:pointer; white-space:nowrap;
+      padding:3px 9px; border-radius:4px;
+      border:1px solid var(--hair); background:transparent;
+      transition: color var(--dur-fast), border-color var(--dur-fast);
+    }
+    .chip-clear:hover{ color: var(--ink); border-color: var(--hair-strong); }
+    @keyframes chipIn{ from{opacity:0; transform: translateY(-2px);} to{opacity:1; transform:none;} }
+    @media (prefers-reduced-motion: reduce){ .chip-bar .fchip{ animation:none; } }
+
+    /* ── Minimal search box (lives in the sidebar) ── */
+    .searchbox{ position:relative; display:flex; align-items:center; }
+    .searchbox .s-ic{
+      position:absolute; left:10px; top:50%; transform:translateY(-50%);
+      width:15px; height:15px; color:var(--muted); pointer-events:none;
+    }
+    .searchbox input{
+      width:100%; box-sizing:border-box;
+      font-family: var(--font); font-size:13px; color:var(--ink);
+      padding: 9px 40px 9px 32px;
+      border:1px solid var(--hair); border-radius:6px;
+      background: var(--panel); outline:none;
+      transition: border-color var(--dur-fast);
+    }
+    .searchbox input:focus{ border-color: var(--ink); }
+    .searchbox input::placeholder{ color: var(--muted); }
+    .searchbox .s-clr{
+      position:absolute; right:4px; top:50%; transform:translateY(-50%);
+      width:30px; height:30px; padding:0;
+      display:none; align-items:center; justify-content:center;
+      border:none; border-radius:6px; background:transparent;
+      color:var(--muted); cursor:pointer;
+      transition: background var(--dur-fast), color var(--dur-fast);
+    }
+    .searchbox .s-clr.vis{ display:inline-flex; }
+    .searchbox .s-clr:hover{ background: var(--raised-hi); color: var(--ink); }
+    .searchbox .s-clr svg{ width:13px; height:13px; display:block; }
+
     .pill{
       border:1px solid var(--hair);
       background: var(--panel);
@@ -1216,12 +1286,17 @@
     .guideCard{
       border: 1px solid var(--hair);
       border-radius: var(--card-radius);
-      padding: 10px;
+      padding: 0;
+      overflow: hidden;
       background: var(--raised);
       cursor:pointer;
+      display:flex; flex-direction:column;
       transition: box-shadow .2s, transform .2s;
     }
     .guideCard:hover{ box-shadow: 0 6px 20px rgba(0,0,0,0.10); transform: translateY(-1px); }
+    /* Image first: the photograph leads, occurrence info follows below. */
+    .guideCard .thumb{ aspect-ratio: 4/3; background: var(--raised-hi); }
+    .guideCard .gc-body{ padding: 10px; }
     .guideCard .nm{ font-weight: 600; font-family: var(--font); line-height: 1.25; font-size: 13px; }
     .guideCard .sm{ font-size: 11px; color: var(--muted); margin-top: 4px; font-family: var(--sans); }
 
@@ -1560,7 +1635,9 @@
       header .brand .title{ font-size:16px; }
       header .brand .sub{ font-size:9px; }
       #themeToggle{ margin-left:auto; }
-      header > .pill{ order:10; flex:1 1 100% !important; box-sizing:border-box; }
+      header > .pill, header > #chipBar{ order:10; flex:1 1 100% !important; box-sizing:border-box; }
+      #chipBar .fchip{ padding:8px 0; }
+      #chipBar .fchip .fx{ font-size:16px; }
 
       /* Content fills the width; the sidebar is an off-canvas drawer */
       main{ grid-template-columns: 1fr !important; gap:0; padding:10px; }
@@ -1638,14 +1715,11 @@
 
     <input id="csvA" class="fileInputHidden" type="file" accept=".csv,text/csv"/>
 
-    <div class="pill" style="flex:1 1 320px;">
-      <input id="q" type="text" placeholder="Search taxa, places, users…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="flex:1;">
-    </div>
+    <div id="chipBar" class="chip-bar" role="region" aria-live="polite" aria-label="Active filters"></div>
 
     <button id="resetBtn" class="headerResetBtn" title="Clear all filters">Reset</button>
 
     <div class="headerMeta">
-      <span class="fileName" id="fileNameDisplay"></span>
       <button id="loadCsvBtn" class="headerSmBtn" title="Open a CSV file">Open file…</button>
       <button id="taxonSyncBtn" class="headerSmBtn" title="Check iNaturalist for updated taxonomy fields">Update taxa</button>
     </div>
@@ -1673,52 +1747,10 @@
         <summary>Filters</summary>
         <div class="accBody">
           <div class="stack">
-            <div class="row">
-              <div class="field">
-                <label>User</label>
-                <select id="userFilter"></select>
-              </div>
-              <div class="field">
-                <label>Quality grade</label>
-                <select id="gradeFilter"></select>
-              </div>
-            </div>
 
-            <div class="row">
-              <div class="field">
-                <label>Compare A</label>
-                <select id="cmpA"></select>
-              </div>
-              <div class="field">
-                <label>Compare B</label>
-                <select id="cmpB"></select>
-              </div>
-            </div>
-            <div class="muted small">Pick any two users to enable comparison chips.</div>
-
-
-            <div class="row">
-              <div class="field">
-                <label>Date from</label>
-                <input id="dateFrom" type="date"/>
-              </div>
-              <div class="field">
-                <label>Date to</label>
-                <input id="dateTo" type="date"/>
-              </div>
-            </div>
-
-            <div class="bar">
-              <button data-range="7">Last 7 days</button>
-              <button data-range="365">Last 365 days</button>
-              <button data-range="year">This year</button>
-              <button data-range="all">All time</button>
-            </div>
-
-            <div class="rule"></div>
-
+            <!-- Taxon menu (the taxonomic cascade) comes first -->
             <div class="field compact">
-              <label>Taxon menu order</label>
+              <label for="taxonSort">Taxon menu order</label>
               <select id="taxonSort">
                 <option value="count">Most common → least</option>
                 <option value="alpha">Alphabetical (A → Z)</option>
@@ -1745,8 +1777,7 @@
                 <select id="ord"></select>
               </div>
             </div>
-
-<div class="field">
+            <div class="field">
               <label>Superfamily</label>
               <select id="superfam"></select>
             </div>
@@ -1772,6 +1803,65 @@
               <label>Species</label>
               <select id="species"></select>
             </div>
+
+            <div class="rule"></div>
+
+            <!-- Search comes after the taxon menu -->
+            <div class="field">
+              <label for="q">Search</label>
+              <div class="searchbox">
+                <svg class="s-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                <input id="q" type="text" placeholder="" aria-label="Search taxa, places, users" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                <button id="searchClear" class="s-clr" type="button" aria-label="Clear search" title="Clear search">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="rule"></div>
+
+            <!-- Then the remaining filters, as before -->
+            <div class="row">
+              <div class="field">
+                <label>User</label>
+                <select id="userFilter"></select>
+              </div>
+              <div class="field">
+                <label>Quality grade</label>
+                <select id="gradeFilter"></select>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="field">
+                <label>Compare A</label>
+                <select id="cmpA"></select>
+              </div>
+              <div class="field">
+                <label>Compare B</label>
+                <select id="cmpB"></select>
+              </div>
+            </div>
+            <div class="muted small">Pick any two users to enable comparison chips.</div>
+
+            <div class="row">
+              <div class="field">
+                <label>Date from</label>
+                <input id="dateFrom" type="date"/>
+              </div>
+              <div class="field">
+                <label>Date to</label>
+                <input id="dateTo" type="date"/>
+              </div>
+            </div>
+
+            <div class="bar">
+              <button data-range="7">Last 7 days</button>
+              <button data-range="365">Last 365 days</button>
+              <button data-range="year">This year</button>
+              <button data-range="all">All time</button>
+            </div>
+
           </div>
         </div>
       </details>
@@ -2938,9 +3028,120 @@ function refreshStaticFilters(){
     app.page = 1;
     refreshTaxonSelectors();
     render();
+    renderFilterChips();
   }
 
-  
+  // ----------------- Active-filters chip bar -----------------
+  // A single horizontal row of removable chips reflecting the central filter
+  // state (app.f). Chips render dynamically from state, in a deterministic
+  // order. The taxonomy is treated as one hierarchy (RANKS): removing a rank
+  // clears that rank *and every rank beneath it*. Non-hierarchical filters
+  // (user, quality, date, search) each clear only themselves. Built generically
+  // so the same renderer works for any hierarchical taxonomy.
+
+  // Clear a taxonomic rank and all downstream (deeper) ranks in the cascade.
+  function clearTaxonFromRank(rankIdx){
+    for(let i=rankIdx; i<RANKS.length; i++){
+      const el = $("#"+RANKS[i][2]);
+      if(el) el.value = "All";
+    }
+  }
+
+  function renderFilterChips(){
+    const bar = $("#chipBar");
+    if(!bar) return;
+    bar.innerHTML = "";
+    if(!app.loaded) return;
+
+    // Build the chip model from the central state object, deterministically.
+    // Taxonomy is one hierarchy → rendered as a "›" breadcrumb of values (no
+    // rank labels). Other filters carry a short label since a bare value would
+    // be ambiguous. Each item is a click-to-remove control.
+    const taxa = [];   // hierarchical: { value, clear }
+    const other = [];  // independent: { label, value, clear }
+
+    // 1) Hierarchical taxonomy, in canonical RANKS order.
+    RANKS.forEach(([label, colKey, fKey], idx)=>{
+      const val = app.f[fKey];
+      if(!val || val === "All") return;
+      taxa.push({ label, value: val, clear: ()=>{ clearTaxonFromRank(idx); recompute(); } });
+    });
+
+    // 2) Independent, non-hierarchical filters (each clears only itself).
+    if(app.f.user && app.f.user !== "All"){
+      other.push({ label:"User", value:app.f.user,
+        clear:()=>{ const e=$("#userFilter"); if(e) e.value="All"; recompute(); } });
+    }
+    if(app.f.grade && app.f.grade !== "All"){
+      other.push({ label:"Quality", value:app.f.grade,
+        clear:()=>{ const e=$("#gradeFilter"); if(e) e.value="All"; recompute(); } });
+    }
+    // Date: only a chip when the range actually narrows the dataset (the inputs
+    // default to the full data span on load — that isn't an active filter).
+    const fromNarrows = app.f.from && (!app.dateMin || app.f.from > app.dateMin);
+    const toNarrows   = app.f.to   && (!app.dateMax || app.f.to   < app.dateMax);
+    if(fromNarrows || toNarrows){
+      const dv = `${app.f.from || "…"} → ${app.f.to || "…"}`;
+      other.push({ label:"Date", value:dv,
+        clear:()=>{ $("#dateFrom").value=""; $("#dateTo").value=""; recompute(); } });
+    }
+    if(app.f.q && app.f.q.trim()){
+      other.push({ label:"Search", value:app.f.q.trim(),
+        clear:()=>{ const e=$("#q"); if(e) e.value=""; syncSearchClear(); recompute(); } });
+    }
+
+    if(!taxa.length && !other.length) return;
+
+    // A click-to-remove item: value + "×", optional muted label prefix.
+    const makeItem = (c)=>{
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "fchip";
+      b.title = `Remove ${c.label} filter`;
+      b.setAttribute("aria-label", `Remove ${c.label} filter: ${c.value}`);
+      const lab = c.showLabel ? `<span class="fk">${escapeHtml(c.label)}</span>` : "";
+      b.innerHTML = `${lab}<span class="fv">${escapeHtml(c.value)}</span><span class="fx" aria-hidden="true">×</span>`;
+      b.addEventListener("click", ()=> c.clear());
+      return b;
+    };
+
+    // Taxonomy breadcrumb: values joined by "›".
+    if(taxa.length){
+      const crumbs = document.createElement("span");
+      crumbs.className = "fcrumbs";
+      taxa.forEach((c, i)=>{
+        if(i>0){
+          const sep = document.createElement("span");
+          sep.className = "fsep"; sep.setAttribute("aria-hidden","true");
+          sep.textContent = "›";
+          crumbs.appendChild(sep);
+        }
+        crumbs.appendChild(makeItem({ ...c, showLabel:false }));
+      });
+      bar.appendChild(crumbs);
+    }
+
+    // Independent filters, each with a short label.
+    for(const c of other) bar.appendChild(makeItem({ ...c, showLabel:true }));
+
+    // Clear-all control, pinned to the far right, resets every filter.
+    const clr = document.createElement("button");
+    clr.type = "button";
+    clr.className = "chip-clear";
+    clr.textContent = "Clear all";
+    clr.setAttribute("aria-label", "Clear all active filters");
+    clr.addEventListener("click", ()=>{ const rb=$("#resetBtn"); if(rb) rb.click(); });
+    bar.appendChild(clr);
+  }
+
+  // Toggle the sidebar search's clear (✕) button visibility from input state.
+  function syncSearchClear(){
+    const inp = $("#q"), btn = $("#searchClear");
+    if(!inp || !btn) return;
+    btn.classList.toggle("vis", !!inp.value.trim());
+  }
+
+
   // ----------------- Field Guide helpers -----------------
   function lineageArrayFromRow(r){
     const ord = safe(r.taxon_order_name).trim();
@@ -3160,10 +3361,23 @@ function refreshStaticFilters(){
         const card = document.createElement("div");
         card.className = "guideCard";
         const span = (g.first && g.last) ? `${g.first} → ${g.last}` : (g.last || g.first || "—");
+
+        // Image first (web-optimised): a representative photo from our own
+        // records leads each tile; the occurrence info follows below it.
+        const repImg = safe(r._img).trim();
+        const thumbHtml = repImg
+          ? `<div class="thumb"><img loading="lazy" src="${escapeAttr(repImg)}" alt=""/></div>`
+          : `<div class="thumb"><div class="thumb-placeholder"><svg class="ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="1.5"/><circle cx="8.5" cy="10" r="1.4"/><path d="M4 16.5l4.5-4 3.5 3 3-2.5 5 4.5"/></svg></div></div>`;
+
         card.innerHTML = `
-          <div class="nm">${rankIdx >= 5 ? '<em>' + escapeHtml(g.name) + '</em>' : escapeHtml(g.name)}</div>
-          <div class="sm">${escapeHtml(GUIDE_RANKS[rankIdx][0])} • ${g.count.toLocaleString()} records • ${escapeHtml(span)}</div>
+          ${thumbHtml}
+          <div class="gc-body">
+            <div class="nm">${rankIdx >= 5 ? '<em>' + escapeHtml(g.name) + '</em>' : escapeHtml(g.name)}</div>
+            <div class="sm">${escapeHtml(GUIDE_RANKS[rankIdx][0])} • ${g.count.toLocaleString()} records • ${escapeHtml(span)}</div>
+          </div>
         `;
+        const gimg = card.querySelector(".thumb img");
+        if(gimg) attachImgFallback(gimg, safe(r._iconic));
         card.addEventListener("click", ()=> applyLineageKey(pk, "guide"));
         list.appendChild(card);
       }
@@ -7910,9 +8124,6 @@ $("#q").value = "";
       await loadCSVFile(f);
       setStatus(`Loaded ${app.rows.length.toLocaleString()} rows`);
       showToast(`✓ Loaded ${app.rows.length.toLocaleString()} observations from ${f.name}`);
-      // Show filename in header
-      const fnEl = document.querySelector(".fileName");
-      if(fnEl) fnEl.textContent = f.name;
     }catch(err){
       console.error(err);
       setStatus("Load failed: " + safe(err && (err.message || err)));
@@ -7993,10 +8204,18 @@ $("#apiUsers").addEventListener("blur", async ()=>{
 
   // ----------------- filter events -----------------
   $("#q").addEventListener("input", ()=>{
+    syncSearchClear();
     if(!app.loaded) return;
     // small debounce
     clearTimeout(app._qT);
     app._qT = setTimeout(recompute, 160);
+  });
+
+  $("#searchClear")?.addEventListener("click", ()=>{
+    const inp = $("#q");
+    if(inp){ inp.value = ""; try{ inp.focus(); }catch(e){} }
+    syncSearchClear();
+    if(app.loaded) recompute();
   });
 
   $("#userFilter").addEventListener("change", recompute);
@@ -8153,6 +8372,7 @@ $$(".bar button").forEach(btn=>{
     app.mapBox = null;
     app.guideScopeOrder = "";
     app.guideRank = 0;
+    syncSearchClear();
     recompute();
   });
 
