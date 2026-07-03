@@ -1106,7 +1106,48 @@
       font-size: 12px;
       color: var(--muted);
     }
-    .guideCrumb a{ color: var(--accent); }
+    .guideCrumb a{ color: var(--ink); }
+
+    /* Breadcrumb trail (taxonomic path) — semantic <nav><ol>. */
+    .crumbs{ margin: 0 0 8px; }
+    .crumbs ol{
+      list-style: none; margin: 0; padding: 0;
+      display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0;
+      font-size: 12px; line-height: 1.4;
+    }
+    .crumbs li{ display: inline-flex; align-items: center; }
+    .crumbs li + li::before{
+      content: "";
+      width: 5px; height: 5px; margin: 0 9px;
+      border-right: 1.5px solid var(--muted2);
+      border-bottom: 1.5px solid var(--muted2);
+      transform: rotate(-45deg);
+      flex: none;
+    }
+    .crumbs a{
+      color: var(--muted); text-decoration: none;
+      padding: 2px 0; transition: color var(--dur-fast);
+    }
+    .crumbs a:hover{ color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
+    .crumbs [aria-current="page"]{ color: var(--ink); font-weight: 600; }
+    .crumbs em{ font-style: italic; }
+
+    /* Segmented control (e.g. Immediate children / One of each species) */
+    .fgModeRow{ margin: 0 0 12px; }
+    .segmented{
+      display: inline-flex; border: 1px solid var(--hair-strong);
+      border-radius: 4px; overflow: hidden; background: var(--panel);
+    }
+    .segmented .seg{
+      font-family: var(--font); font-size: 12px; font-weight: 500;
+      padding: 8px 14px; min-height: 38px;
+      border: 0; border-right: 1px solid var(--hair);
+      background: transparent; color: var(--muted); cursor: pointer;
+      transition: background var(--dur-fast), color var(--dur-fast);
+    }
+    .segmented .seg:last-child{ border-right: 0; }
+    .segmented .seg:hover{ color: var(--ink); background: var(--raised-hi); }
+    .segmented .seg.active{ background: var(--ink); color: var(--bg); }
     .guideRow{
       display:grid;
       grid-template-columns: 0.9fr 1.1fr;
@@ -3095,36 +3136,38 @@ function refreshStaticFilters(){
     const header = document.createElement("div");
     header.className = "guideHeader";
 
-    const crumbParts = [];
-    const fvals = [
-      {label:"Order", key:"ord"},
-      {label:"Family", key:"fam"},
-      {label:"Superfamily", key:"superfam"},
-      {label:"Subfamily", key:"subfam"},
-      {label:"Tribe", key:"tribe"},
-      {label:"Genus", key:"genus"},
-      {label:"Species", key:"species"}
-    ];
-    // build crumb links up to current focus
-    const lin = new Array(7).fill("");
-    for(let i=0;i<fvals.length;i++){
-      const v = safe(app.f[fvals[i].key]).trim();
-      if(v && v !== "All"){
-        lin[i] = v;
-        const pk = lin.map((x, j)=> j<=i?x:"").join("\u001f");
-        const inner = (i >= 5) ? `<em>${escapeHtml(v)}</em>` : escapeHtml(v);
-        crumbParts.push(`<a href="#" class="fgCrumbLink" data-path="${escapeAttr(pk)}">${inner}</a>`);
+    // Representative row (filtered to the focus, so any row carries the lineage).
+    const rep = app.filteredIdx.length ? app.rows[app.filteredIdx[0]] : null;
+
+    // Breadcrumb trail from the canonical lineage order (matches applyLineageKey
+    // / lineageArrayFromRow), up to and including the focus rank.
+    const crumbItems = [];
+    if(rep){
+      const linRep = lineageArrayFromRow(rep);
+      for(let ri = 0; ri <= focus.rankIdx; ri++){
+        const nm = safe(linRep[ri]).trim();
+        if(!nm) continue;
+        crumbItems.push({ name: nm, italic: ri >= 5, pk: pathKeyFromRowAtRank(rep, ri) });
       }
     }
+    const crumbHtml = crumbItems.map((c, idx)=>{
+      const nm = c.italic ? `<em>${escapeHtml(c.name)}</em>` : escapeHtml(c.name);
+      return (idx === crumbItems.length - 1)
+        ? `<li aria-current="page">${nm}</li>`
+        : `<li><a href="#" class="fgCrumbLink" data-path="${escapeAttr(c.pk)}">${nm}</a></li>`;
+    }).join("");
 
-    // pick a representative row for nicer naming at species rank
-    const rep = app.filteredIdx.length ? app.rows[app.filteredIdx[0]] : null;
     const title = (focus.rankIdx===6 && rep) ? formatName(rep) : focus.value;
     const titleHtml = (focus.rankIdx >= 5) ? `<em>${escapeHtml(title)}</em>` : escapeHtml(title);
 
     header.innerHTML = `
+      <nav class="crumbs" aria-label="Taxonomic path">
+        <ol>
+          <li><a href="#" class="fgCrumbRoot">Guide</a></li>
+          ${crumbHtml}
+        </ol>
+      </nav>
       <h2 class="guideTitle">${titleHtml}</h2>
-      <div class="guideCrumb">${crumbParts.length ? crumbParts.join(" › ") : escapeHtml(focus.label)}</div>
     `;
     wrap.appendChild(header);
 
@@ -3135,6 +3178,16 @@ function refreshStaticFilters(){
         applyLineageKey(pk, "guide");
       });
     });
+    const crumbRoot = header.querySelector(".fgCrumbRoot");
+    if(crumbRoot){
+      crumbRoot.addEventListener("click", (e)=>{
+        e.preventDefault();
+        ["ord","superfam","fam","subfam","tribe","genus","species"].forEach(id=>{ const el=$("#"+id); if(el) el.value="All"; });
+        app.guideScopeOrder = "";
+        recompute();
+        setTab("guide");
+      });
+    }
 
     const occ = computeOccurrence(app.filteredIdx);
 
@@ -3172,8 +3225,9 @@ function refreshStaticFilters(){
       <div class="bar" style="margin-top:12px; gap:8px; flex-wrap:wrap;">
         <button class="primary" id="guideToRecords">Records view</button>
         <button id="guideBackIndex">↩ ${escapeHtml(focus.rankIdx > 0 ? GUIDE_RANKS[focus.rankIdx][0] : "Guide")} index</button>
-        <a id="guideInatLink" href="#" target="_blank" rel="noopener" class="smallBtn" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
-          <span style="font-size:13px;">🔗</span> View on iNaturalist
+        <a id="guideInatLink" href="#" target="_blank" rel="noopener" class="smallBtn" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
+          View on iNaturalist
         </a>
       </div>
     `;
@@ -3225,9 +3279,26 @@ function refreshStaticFilters(){
     if(focus.rankIdx < 6){
       // For each filtered record, find the FIRST populated rank below focus.
       // This handles cases where intermediate ranks are empty (e.g. superfamily→genus with no subfamily/tribe).
+      const childMode = app.guideChildMode === "species" ? "species" : "children";
       const groups = new Map(); // key "rankIdx|name" -> {nm, rankIdx, count, repIdx}
       let hasAnyChild = false;
 
+      if(childMode === "species"){
+        // "One of each species" beneath the focus, at any depth — a field-guide plate.
+        for(const i of app.filteredIdx){
+          const r = app.rows[i];
+          let nm = safe(lineageArrayFromRow(r)[6]).trim();
+          if(!nm) nm = safe(r._sci).trim();
+          if(!nm) continue;                       // no species-level id → honestly omit
+          hasAnyChild = true;
+          const gk = "6|" + nm;
+          if(!groups.has(gk)) groups.set(gk, {nm, rankIdx: 6, count: 0, repIdx: i});
+          const g = groups.get(gk);
+          g.count += 1;
+          const rep0 = app.rows[g.repIdx];        // prefer a representative that has an image
+          if(!rep0._img && r._img) g.repIdx = i;
+        }
+      } else
       for(const i of app.filteredIdx){
         const r = app.rows[i];
         const lin = lineageArrayFromRow(r);
@@ -3271,15 +3342,23 @@ function refreshStaticFilters(){
       const uniqueRanks = new Set(allKids.map(g=>g.rankIdx));
       const isMixed = uniqueRanks.size > 1;
       const singleChildRankIdx = isMixed ? -1 : (allKids.length ? allKids[0].rankIdx : focus.rankIdx + 1);
-      const sectionLabel = isMixed
-        ? "Children"
-        : pluralRank(GUIDE_RANKS[singleChildRankIdx] ? GUIDE_RANKS[singleChildRankIdx][0] : "Taxon");
+      const sectionLabel = (childMode === "species")
+        ? "Species — one of each"
+        : (isMixed
+          ? "Children"
+          : pluralRank(GUIDE_RANKS[singleChildRankIdx] ? GUIDE_RANKS[singleChildRankIdx][0] : "Taxon"));
 
       // Local UI state
       if(typeof app.guideChildLimit !== "number") app.guideChildLimit = 48;
       const shown = allKids.slice(0, app.guideChildLimit);
 
       childHTML = `
+        <div class="fgModeRow">
+          <div class="segmented" role="group" aria-label="What to show under this taxon">
+            <button type="button" class="seg ${childMode==='children'?'active':''}" data-mode="children">Immediate children</button>
+            <button type="button" class="seg ${childMode==='species'?'active':''}" data-mode="species">One of each species</button>
+          </div>
+        </div>
         <h4>${escapeHtml(sectionLabel)} <span class="muted" style="font-weight:400;">${allKids.length.toLocaleString()}</span></h4>
         <div class="childTiles" id="childTiles">
           ${shown.map(g=>{
@@ -3316,6 +3395,14 @@ function refreshStaticFilters(){
         const pk = el.getAttribute("data-path") || "";
         const rank = parseInt(el.getAttribute("data-rank"),10);
         applyLineageKey(pk, rank === 6 ? "records" : "guide");
+      });
+    });
+
+    right.querySelectorAll(".segmented .seg").forEach(b=>{
+      b.addEventListener("click", ()=>{
+        app.guideChildMode = b.getAttribute("data-mode");
+        app.guideChildLimit = 48;
+        render();
       });
     });
 

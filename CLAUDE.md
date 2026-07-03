@@ -131,8 +131,20 @@ that still reads "Claude Fable 5" — cannot be renamed; flagged to Lily.)
 session scratchpad) across Records/Taxa/Field Guide/Dates/Map + onboarding, **light and dark**,
 at 1440px and 390px. Five views + ingest/metadata engine intact.
 
-**Still owed from Lily's pivot request (next slices):** (1) **breadcrumbs** on the taxonomic
-drill-down; (2) a **"one of each species" browse** — pick any rank (e.g. family *Geometridae*)
-and see one representative tile per species, image via the iNat → Wikipedia → placeholder
-cascade. Then merge to `main` and continue to Phase 2 (map by rank). Map basemap is light OSM
+**Breadcrumbs + one-of-each-species browse — DONE (verified).** In the Field Guide focus view:
+- **Semantic breadcrumb** (`<nav class="crumbs"><ol>`): a root "Guide" link + one crumb per
+  populated ancestor rank, current = `aria-current`, chevron separators. Path keys derived from
+  a representative row via `pathKeyFromRowAtRank` (canonical order) — sidesteps a latent
+  Family/Superfamily ordering bug in the old crumb code.
+- **"One of each species"** via a `.segmented` toggle (Immediate children ⇄ One of each species).
+  Species mode dedupes `app.filteredIdx` to distinct species (`lineageArrayFromRow(r)[6]` →
+  `_sci` fallback), one representative tile each (prefers a row with an image), regardless of
+  intervening ranks — e.g. Order *Diprotodontia* → 3 species tiles. State: `app.guideChildMode`.
+  Verified by CDP drill (Guide → Diprotodontia → species plate). Images still fall back to the
+  "no image" placeholder — the iNat→Wikipedia cascade (Phase 5) will fill them.
+
+Also removed the last emoji (🔗 → inline external-link SVG).
+
+**Next:** merge Phase 1 to `main`, then Phase 2 (map by taxonomic rank). Map basemap is light OSM
 (now harmonises with the light UI); Leaflet zoom controls still default — revisit in Map phases.
+The image cascade (Phase 5) will make the species plate and guide tiles image-rich.
