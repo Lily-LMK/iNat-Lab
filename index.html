@@ -1005,9 +1005,12 @@
 
     .childTiles{
       display:grid;
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 16px;
       margin-top: 10px;
+    }
+    @media (max-width: 520px){
+      .childTiles{ grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
     }
     .childTile{
       border: 1px solid var(--hair);
@@ -1050,9 +1053,9 @@
     }
     .childTile .name{
       font-size: 13px;
-      font-weight: 800;
-      letter-spacing: -0.2px;
-      margin-bottom: 4px;
+      font-weight: 600;
+      letter-spacing: -0.1px;
+      margin-bottom: 3px;
     }
     .childTile .name em{ font-style: italic; }
     .childTile .count{
@@ -1177,6 +1180,22 @@
       color: var(--muted);
     }
     .guideCrumb a{ color: var(--ink); }
+
+    /* Field Guide focus: compact header (breadcrumb, then title + nav on one
+       row) above a full-width image gallery. */
+    .fgFocusHeader{ flex-direction: column; align-items: stretch; gap: 6px; }
+    .fgHeadMain{
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 10px 16px; flex-wrap: wrap; width: 100%;
+    }
+    .guideActions{ display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .guideActions .smallBtn{ min-height: 34px; display: inline-flex; align-items: center; }
+    .fgGallery{ margin-top: 16px; }
+    @media (max-width: 620px){
+      .fgHeadMain{ align-items: flex-start; }
+      .guideActions{ width: 100%; }
+      .guideActions .primary, .guideActions .smallBtn{ min-height: 44px; }
+    }
 
     /* Breadcrumb trail (taxonomic path) — semantic <nav><ol>. */
     .crumbs{ margin: 0 0 8px; }
@@ -3474,56 +3493,33 @@ function refreshStaticFilters(){
       });
     }
 
-    const occ = computeOccurrence(app.filteredIdx);
-
-    const row = document.createElement("div");
-    row.className = "guideRow";
-    wrap.appendChild(row);
-
-    // Left: occurrence & notes-like structure
-    const left = document.createElement("div");
-    left.className = "guidePanel";
-    left.innerHTML = `
-      <h4>Occurrence</h4>
-      <div class="guideStatsGrid">
-        <div class="gbox"><div class="k">Records</div><div class="v">${occ.n.toLocaleString()}</div></div>
-        <div class="gbox"><div class="k">Days observed</div><div class="v">${occ.days.toLocaleString()}</div></div>
-        <div class="gbox"><div class="k">First</div><div class="v">${escapeHtml(occ.first || "—")}</div></div>
-        <div class="gbox"><div class="k">Last</div><div class="v">${escapeHtml(occ.last || "—")}</div></div>
-      </div>
-      <div style="margin-top:12px;">
-        <div class="muted small" style="margin-bottom:6px;">Records per month (within the current filter lens)</div>
-        ${renderMonthBars(occ.months)}
-      </div>
-      <div style="margin-top:12px;">
-        <div class="muted small" style="margin-bottom:6px;">Quality grade</div>
-        <div class="childList">
-          ${Object.entries(occ.grade).map(([k,v])=>`<div class="childChip" style="cursor:default;">${escapeHtml(k)}: ${v.toLocaleString()}</div>`).join("") || `<div class="muted small">—</div>`}
-        </div>
-      </div>
-      <div style="margin-top:12px;">
-        <div class="muted small" style="margin-bottom:6px;">By user</div>
-        <div class="childList">
-          ${occ.users.map(u=>`<div class="childChip" style="cursor:default;">${escapeHtml(u.user)}: ${u.records.toLocaleString()} rec • ${u.days.toLocaleString()} days</div>`).join("") || `<div class="muted small">—</div>`}
-        </div>
-      </div>
-      <div class="bar" style="margin-top:12px; gap:8px; flex-wrap:wrap;">
+    // Compact header: the navigation controls sit at the top of the panel,
+    // beside the title. The former analytics panel (occurrence stats,
+    // records-per-month, quality grade, by-user) is intentionally gone — this
+    // view is a visual field guide now, so the images lead. Detailed metadata
+    // stays reachable by drilling a tile through to Records + the record modal.
+    header.classList.add("fgFocusHeader");
+    const titleEl = header.querySelector(".guideTitle");
+    const headMain = document.createElement("div");
+    headMain.className = "fgHeadMain";
+    header.insertBefore(headMain, titleEl);
+    headMain.appendChild(titleEl);
+    headMain.insertAdjacentHTML("beforeend", `
+      <div class="guideActions">
         <button class="primary" id="guideToRecords">Records view</button>
-        <button id="guideBackIndex">↩ ${escapeHtml(focus.rankIdx > 0 ? GUIDE_RANKS[focus.rankIdx][0] : "Guide")} index</button>
+        <button class="smallBtn" id="guideBackIndex">↩ ${escapeHtml(focus.rankIdx > 0 ? GUIDE_RANKS[focus.rankIdx][0] : "Guide")} index</button>
         <a id="guideInatLink" href="#" target="_blank" rel="noopener" class="smallBtn" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
           View on iNaturalist
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
         </a>
       </div>
-    `;
-    row.appendChild(left);
+    `);
 
-    left.querySelector("#guideToRecords").addEventListener("click", ()=> setTab("records"));
+    headMain.querySelector("#guideToRecords").addEventListener("click", ()=> setTab("records"));
 
-    // Guide Index button: go back to the guide index browsed at the current focus rank
-    left.querySelector("#guideBackIndex").addEventListener("click", ()=>{
+    // Index button: back to the guide index browsed at the current focus rank.
+    headMain.querySelector("#guideBackIndex").addEventListener("click", ()=>{
       app.guideRank = focus.rankIdx;
-      // Scope to the parent Order if available so the index is contextual
       const ordNow = safe(app.f.ord).trim();
       app.guideScopeOrder = (ordNow && ordNow !== "All") ? ordNow : "";
       $("#ord").value="All"; $("#superfam").value="All"; $("#fam").value="All"; $("#subfam").value="All"; $("#tribe").value="All"; $("#genus").value="All"; $("#species").value="All";
@@ -3531,13 +3527,12 @@ function refreshStaticFilters(){
       setTab("guide");
     });
 
-    // Async lookup of iNat taxon ID for the focused taxon
-    const inatLink = left.querySelector("#guideInatLink");
+    // Resolve a precise iNaturalist link for the focused taxon (async; keeps a
+    // search fallback if offline).
+    const inatLink = headMain.querySelector("#guideInatLink");
     if(inatLink){
       const taxonName = focus.value;
-      // Immediate fallback: search URL
       inatLink.href = `https://www.inaturalist.org/observations?place_id=7308&subview=grid&q=${encodeURIComponent(taxonName)}`;
-      // Try to resolve taxon_id via API for a precise link
       (async ()=>{
         try{
           const url = `https://api.inaturalist.org/v1/taxa/autocomplete?q=${encodeURIComponent(taxonName)}&per_page=5`;
@@ -3545,26 +3540,27 @@ function refreshStaticFilters(){
           if(!resp.ok) return;
           const data = await resp.json();
           const results = Array.isArray(data.results) ? data.results : [];
-          // Find exact match by name (case-insensitive)
           const exact = results.find(t => t.name && t.name.toLowerCase() === taxonName.toLowerCase());
           const best = exact || results[0];
           if(best && best.id){
             inatLink.href = `https://www.inaturalist.org/observations?place_id=7308&subview=grid&taxon_id=${best.id}`;
           }
-        }catch(e){ /* offline or error — keep fallback URL */ }
+        }catch(e){ /* offline — keep fallback */ }
       })();
     }
 
-    // Right: images + children
+    // Single, full-width gallery column — the specimen images are the focus.
     const right = document.createElement("div");
-    right.className = "guidePanel";
+    right.className = "fgGallery";
 
     // children (next rank down) if any — smart descent handles nesting gaps
     let childHTML = "";
     if(focus.rankIdx < 6){
       // For each filtered record, find the FIRST populated rank below focus.
       // This handles cases where intermediate ranks are empty (e.g. superfamily→genus with no subfamily/tribe).
-      const childMode = app.guideChildMode === "species" ? "species" : "children";
+      // Default to the "one of each species" plate when entering a focus; the
+      // user can switch to immediate children and that choice then persists.
+      const childMode = app.guideChildMode === "children" ? "children" : "species";
       const groups = new Map(); // key "rankIdx|name" -> {nm, rankIdx, count, repIdx}
       let hasAnyChild = false;
 
@@ -3673,7 +3669,7 @@ function refreshStaticFilters(){
     right.innerHTML = `
       ${childHTML}
     `;
-    row.appendChild(right);
+    wrap.appendChild(right);
 
     right.querySelectorAll(".fgChildTile").forEach(el=>{
       el.addEventListener("click", ()=>{
