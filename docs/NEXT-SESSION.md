@@ -53,34 +53,39 @@ the same time → the collapse.
 
 ---
 
-## 2. Field Guide scroll bug — **bounces back to top** — fix
+## 2. Field Guide scroll bug — **bounces back to top** — DIAGNOSED (2026-07-04)
 
 **Symptom (Lily):** in Field Guide, scrolling *down* the species keeps snapping the view back to
 the top.
 
-**Static analysis so far (this session):** no `scroll` listener, no `IntersectionObserver` /
-`ResizeObserver`, no `setInterval`, no `requestAnimationFrame` in the file. `renderGuide()` is
-called only on tab-switch (`:3847`) and the "Load next 120" / `childMore` **click** handlers
-(`:3420`, `:3681`) — not on scroll. So the cause isn't an obvious scroll-driven re-render; it's
-likely a **layout / scroll-anchoring** effect or an unexpected re-render. Needs a **live repro
-with a large dataset** (the sample CSV has too few species per taxon to scroll).
+**Investigated live** with `0218-backyards-project.csv` (Lepidoptera → 2,394 records → hundreds of
+species tiles). **It is not a JS bug** — ruled out with evidence:
+- No `scroll` listener / `IntersectionObserver` / `ResizeObserver` / `setInterval` / `rAF`.
+- `render()` (from `#childMore` "Load more" `:3683` and the segmented toggle `:3673`) **preserves**
+  scroll — tested: scrolled to the bottom, clicked Load more, `#view.scrollTop` held (content grows,
+  so the position stays valid).
+- Child-tile `.thumb` reserves height (`aspect-ratio:4/3`, `:1022`) — **no** lazy-image reflow.
+- Direct `#view.scrollTop` manipulation is perfectly healthy (`6000→6000`, clamps at max `11020`),
+  and there's **no nested scroller** inside `#view`.
 
-**Repro recipe (next session):** serve the folder, load a **large** CSV (Lily's git-ignored set),
-go to Field Guide → focus a taxon with many species (or the "one of each species" plate), scroll.
+**Root cause — nested scroll containers + no `overscroll-behavior`.** Every view scrolls an **inner
+pane**: `#view.content { overflow:auto; min-height:0 }` (`:364`) at a fixed flex height, nested
+inside `body { overflow:auto }`. Two scroll containers, and `overscroll-behavior` was set **nowhere**.
+On a **macOS trackpad** this is the classic overscroll **rubber-band / scroll-chaining** setup — at a
+momentum edge the pane snaps (or chains to the phantom body scroller), reading as "bounce to top." It
+does **not** reproduce under CDP synthetic scroll (no trackpad momentum), which is consistent with a
+real-input overscroll issue rather than a code path — so **final confirmation must be on Lily's Mac.**
 
-**Prime suspects to instrument, in order:**
-1. **Scroll-anchoring vs the sticky header.** `.…{position:sticky; top:0}` (`iNatLab:108`). As
-   lazy `r._img` tiles load *below*, the browser's scroll anchoring can jump — test with
-   `overflow-anchor:none` on the scroll container and/or reserving tile height.
-2. **Lazy-image layout shift.** Confirm the Guide child-tile `.thumb` has a fixed `aspect-ratio`
-   so images loading on scroll don't reflow (index tiles do — verify the focus/species plate
-   tiles do too). Unreserved height + `scroll-behavior` can read as "bounce".
-3. **An unexpected `renderGuide()` re-invocation.** Add a temporary `console.count` in
-   `renderGuide` and watch whether it fires while scrolling; if so, trace the trigger.
-4. **A stray `.focus()` pulling scroll** on re-render (`:3836` etc. are elsewhere, but re-check
-   the Guide focus path).
+**Fix:**
+1. **Mitigation — APPLIED, uncommitted (test on the trackpad):** `overscroll-behavior: contain` on
+   `.content` (`#view`), `iNatLab:364`. Stops the chaining/rubber-band propagation.
+2. **Proper fix (recommended):** collapse to a **single scroll container** — let the window scroll the
+   whole app (drop `#view`'s fixed-height inner `overflow`). Removes the nested-scroll bug class *and*
+   **de-risks §1** — an app-shell of fixed panes is exactly what makes fluid mid-width resizing hard,
+   so do this **with** the responsive rework.
+3. **Insurance:** if any inner scroll remains, preserve/restore `#view.scrollTop` around `render()`.
 
-Fix once the instrument identifies the cause; re-verify by scrolling a long species plate.
+Verify by scrolling a long species plate on a real trackpad, light + dark.
 
 ---
 

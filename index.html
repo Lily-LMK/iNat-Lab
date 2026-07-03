@@ -365,6 +365,11 @@
       padding: 12px;
       overflow:auto;
       min-height:0;
+      /* Field Guide "bounce back to top": #view is an inner overflow:auto pane nested
+         inside body{overflow:auto}. On a macOS trackpad the two scroll containers
+         rubber-band/chain, snapping the plate to the top. `contain` stops the chaining.
+         Candidate mitigation — verify on a real trackpad. Proper fix = single scroller. */
+      overscroll-behavior: contain;
     }
 
     h2{
