@@ -986,7 +986,12 @@
       header{ flex-wrap: wrap; }
       .stats{ grid-template-columns: repeat(2, 1fr); }
     }
-  
+    /* Narrow desktop band (just above the phone swap): keep the sidebar subordinate to
+       the content so it never grows wider than the records column. */
+    @media (max-width: 780px){
+      main{ grid-template-columns: minmax(230px, 280px) minmax(0, 1fr); }
+    }
+
     /* ---------- Field Guide ---------- */
     .treeGuideBtn{
       border: 1px solid var(--hair);

@@ -13,8 +13,11 @@ everyone using the app); the visual-polish items follow.
 (`@media 680`) and the JS (`_mqMobile = matchMedia(680)`). Removed the `aside{ order:2 }`
 stacked-under state (was `@media 980`) and moved the drawer up from 820 → 680. The records grid
 is `repeat(auto-fill, minmax(160px,1fr))`, so the narrower desktop content column just shows
-fewer cards — no cramping. Verified (light): desktop left-column at 1100/870/700, phone drawer
-hidden at 660/420, **no stacked-under at any width**.
+fewer cards — no cramping. **Also** narrowed the sidebar to `minmax(230px,280px)` in the tight
+681–780px band (`@media 780`) so it never grows wider than the records column. Verified live with
+`0218-backyards-project.csv`: **900px** and **700px** = sidebar-left side-by-side (700 now reads
+`280px 378px`, content > sidebar); **620px** = off-canvas drawer, content full-width. **No
+stacked-under at any width.**
 
 **Remaining polish (optional, next session):**
 - **Resize-transition flash:** dragging the window *across* 680 briefly animates the drawer
@@ -123,6 +126,46 @@ Smaller, independent look items — do in any order once behaviour is solid:
   tiles; consistency between Records and Field Guide.
 - **Image framing.** How photos sit in the thumb (`object-fit`, aspect-ratio, radius, any inset)
   and how the placeholder matches; full-bleed vs framed.
+
+---
+
+## 4. UI cleanups from Lily's annotated review (2026-07-04)
+
+Batched from an annotated screenshot pass. Most are small removals / consistency fixes; the Taxa
+tree is a proper redesign. Line numbers are approximate (`iNatLab:`).
+
+**Active-filters chip bar (`renderFilterChips`, `.chip-bar` / `#chipBar`, CSS `:162`):**
+- **Overflow → wrap onto a second line.** The bar is `display:flex; overflow-x:auto` (`:162–168`),
+  so a long taxon breadcrumb (e.g. `Lepidoptera › Noctuoidea › Erebidae › Boletobiinae › …`) runs
+  off the right edge / scrolls instead of showing. It should **wrap** (`flex-wrap:wrap`, drop
+  `overflow-x:auto`). Lily's reference for the wrapping is **QM Explorer's** chip bar (labelled
+  pills over two rows). Separate open question: keep the current `value › value` breadcrumb style
+  or move to QM-style labelled pills — she showed the pills, but the explicit ask is just wrapping.
+
+**Field Guide focus view (`renderGuide` focus branch):**
+- **Remove the duplicate breadcrumb.** The focus header renders a second crumb —
+  `<nav class="crumbs" aria-label="Taxonomic path">` (`:3466`), "Guide › Lepidoptera › …" — which
+  duplicates the top chip bar. **Delete it.** (Distinct from the index-only `.guideCrumb` blurb at
+  `:3296`, which is covered next.)
+- **Unify the header button styling** (`.guideActions`, `:3506`). "Records view" is a filled pill
+  (`class="primary"` `:3507`), "Tribe/…​ index" is a bordered box with a return-arrow icon + blue
+  text, "View on iNaturalist" (`:3510`) is a plain box. Three different treatments — make them one.
+- **"One of each species" appears twice** — the segmented toggle button *and* the section heading
+  `sectionLabel = "Species — one of each"` (`:3624`, rendered `:3641`). Drop the redundant heading
+  wording (keep the count).
+
+**Taxa view (`renderTaxa`, `:3987+`):**
+- **Remove the explainer text** — "This tree is built from the *currently filtered* records… unfolding
+  lens…" (`note.innerHTML`, `:4510`). Not needed.
+- **Remove the per-row "Filter" button** (`.treeFilterBtn`, `:4130` and `:4439`) from every node.
+  **Confirmed (Lily):** the taxon **name/row itself becomes the click target that filters Records**
+  to that taxon — no separate Filter button. This **supersedes** HANDOFF §2's explicit two-action
+  Filter button (Filter is now the row click); the **Guide** action (→ Field Guide focus) still
+  needs a home in the redesigned node — decide its affordance during the Taxa rework.
+- **Redesign the whole Taxa tree UX/aesthetic** (larger). "Everything is in a pillbox"; the nodes
+  and their Filter/Guide/GBIF actions are all pill-shaped and the module "could be greatly improved."
+  Treat as its own slice and **fold with HANDOFF §2** (align Taxa to QM: lazy tree, auto-expand to
+  the active path, two-action model, and a cleaner visual language — not pillboxes).
 
 ---
 
