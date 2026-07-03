@@ -1294,13 +1294,16 @@
       font-weight: 900;
     }
 
+    /* Match the "one of each species" tile sizing (.childTiles): responsive
+       auto-fill tracks rather than a fixed 3 columns. */
     .guideList{
       display:grid;
-      grid-template-columns: repeat(3, minmax(0,1fr));
-      gap: 10px;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 16px;
     }
-    @media (max-width: 900px){ .guideList{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
-    @media (max-width: 600px){ .guideList{ grid-template-columns: 1fr; } }
+    @media (max-width: 520px){
+      .guideList{ grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+    }
 
     .guideCard{
       border: 1px solid var(--hair);
@@ -3930,7 +3933,7 @@ function refreshStaticFilters(){
         const pk = lin.map((x, j)=> j<=ci ? x : "").join("\u001f");
         const isItalic = (ci >= 5); // index 5=Genus, 6=Species
         const inner = isItalic ? `<em>${escapeHtml(s)}</em>` : escapeHtml(s);
-        return `<a href="#" class="fgLink" data-path="${escapeAttr(pk)}" title="${linLabels[ci] || ''}">${inner}</a>`;
+        return `<a href="#" class="fgLink" data-path="${escapeAttr(pk)}" data-rank="${ci}" title="${linLabels[ci] || ''}">${inner}</a>`;
       }).filter(Boolean).join(' <span class="sep">\u203a</span> ');
       const breadcrumbHtml = crumbLinks ? `<div class="card-breadcrumb">${crumbLinks}</div>` : "";
 
@@ -3959,7 +3962,10 @@ function refreshStaticFilters(){
           e.preventDefault();
           e.stopPropagation();
           const pk = a.getAttribute("data-path") || "";
-          applyLineageKey(pk, "guide");
+          const rank = parseInt(a.getAttribute("data-rank"), 10);
+          // Higher ranks hop to the Field Guide species plate; a species-level
+          // click drops straight to its records (no plate below one species).
+          applyLineageKey(pk, rank === 6 ? "records" : "guide");
         });
       });
       g.appendChild(card);
