@@ -1,14 +1,14 @@
 # iNat Lab — Roadmap
 
 This is the phased plan for taking iNat Lab from a capable-but-plain single-file tool to an
-awwwards-calibre, publicly shareable iNaturalist explorer with four new capabilities ported
+awwwards-calibre, publicly shareable iNaturalist explorer with three new capabilities ported
 from QM Explorer. The creative and functional detail for the redesign lives in
 `OPUS-BRIEF.md`; this file is the sequencing.
 
 Guiding decisions (agreed with Lily, 2026-07-03):
 
-- **Port four QM Explorer capabilities:** map-by-taxonomic-rank, species deep-dive panel,
-  spatial context layers, image cascade with provenance.
+- **Port three QM Explorer capabilities:** map-by-taxonomic-rank, species deep-dive panel,
+  spatial context layers.
 - **Fresh distinctive visual identity** — a new awwwards-calibre look, not a reskin.
 - **Public-shareable** — privacy care, onboarding, shareable URL state, honest empty states.
 - **Single-file, no-build, keyless, static → GitHub Pages. Mobile-flawless.**
@@ -26,15 +26,14 @@ ingest/metadata engine keep working throughout. Elevate, don't regress.
 > **The next phase is re-specified in [`HANDOFF.md`](HANDOFF.md)** — Lily's newer requirements
 > (Field Guide → **Browse** ported from QM; **Taxa** aligned to QM; **Records⇄Browse** hop;
 > **Records card** redesign with a coloured **⌖** observer marker; **search-bar** redesign;
-> **service-worker caching/offline**). `HANDOFF.md` supersedes Phases 2–5 below where they
+> **service-worker caching/offline**). `HANDOFF.md` supersedes Phases 2–4 below where they
 > overlap and cites the exact QM Explorer functions to port.
 >
 > **Progress (2026-07-03, all on `main` + pushed):** HANDOFF **§6 search redesign** and **§3
 > Records⇄Browse hop** are **done**; the **Field Guide** was reworked into an image-first gallery
 > (analytics removed, nav in a compact header, default "one of each species") and gained an
-> **active-filters chip bar** + **responsive image tiles**. **Still open:** §5 **image cascade**
-> (the big next piece — tiles use the record's own image only, no iNat→Wikipedia→placeholder
-> fallback/lazy pool yet), §2 **Taxa**, §4 **Records card** finish (⌖ marker + Order link), §7
+> **active-filters chip bar** + **responsive image tiles** (tiles use each record's own photo).
+> **Still open:** §2 **Taxa**, §4 **Records card** finish (⌖ marker + Order link), §7
 > **service worker/offline**. See `HANDOFF.md` → "Progress" for the per-item table.
 
 ---
@@ -95,7 +94,7 @@ Goal: a focused, beautiful single-species view.
 
 - [ ] Trigger from any species (Records tile, Taxa leaf, Field Guide, map point).
 - [ ] Content: **Wikipedia** description (with link + attribution), **rank-appropriate common
-      name(s)**, representative **image** (via the Phase 5 cascade), key stats from the loaded
+      name(s)**, representative **image** (the species' own record photo), key stats from the loaded
       set (count, date range, top places, observers), and **external links** (iNat / GBIF).
 - [ ] Reuse iNat/GBIF/Wikipedia resolvers; cache; lazy-load; show provenance on every field.
 - [ ] Accessible modal/drawer (focus trap, escape, reduced-motion).
@@ -115,22 +114,7 @@ Goal: "where does this record sit" context on the map.
 
 Exit: user can overlay context layers and identify the region under a point, with sources shown.
 
-## Phase 5 — Ported capability: Image cascade with provenance
-
-Goal: one representative image per taxon, everywhere tiles appear.
-
-- [ ] `resolveTaxonImage(name, rank)`: **iNat default photo → Wikipedia → honest placeholder**,
-      preloading each candidate and falling through on load failure (mirror QM Explorer's
-      `resolveGroupImage`).
-- [ ] **Rank-appropriate**: a family tile shows a family-level representative, not a random
-      species. Cache results; evict placeholders so a blip doesn't lock a tile.
-- [ ] Every image carries **attribution + provenance**. Reuse across Taxa, Field Guide, and the
-      deep-dive panel. Lazy-load via IntersectionObserver + bounded pool.
-
-Exit: Taxa/Field Guide/deep-dive tiles are image-rich, correctly attributed, and never blank
-without an honest placeholder.
-
-## Phase 6 — Public-app polish, a11y, mobile, publish
+## Phase 5 — Public-app polish, a11y, mobile, publish
 
 Goal: ship-quality.
 
@@ -148,8 +132,7 @@ Exit: iNat Lab is live, fast, accessible, mobile-flawless, and genuinely shareab
 
 ## Sequencing notes
 
-- Phases 2–5 are independent enough to reorder, but **Phase 5 (image cascade) feeds Phase 3
-  (deep-dive)**, so do 5 before or alongside 3 if pairing them.
+- Phases 2–4 are independent enough to reorder.
 - Keep each phase on its own branch; deploy to `main` per verified slice (QM Explorer's
   "push often, keep main live" model).
 - After each phase, update `CLAUDE.md`'s "Current chapter" so a fresh session re-enters cleanly.

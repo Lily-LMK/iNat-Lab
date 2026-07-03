@@ -34,8 +34,8 @@
       --accent-line:rgba(26,26,23,.32);   /* active/selected border */
       --focus:#1A1A17;                    /* focus ring (ink on paper) */
       --warn:#9A3B2E;
-      --user-a:#2B6CB0;      /* compare A — deep azure (reads on light map) */
-      --user-b:#B4740E;      /* compare B — ochre */
+      --user-a:#327379;      /* compare A — teal (USER_PALETTE_LIGHT[0]) */
+      --user-b:#A05838;      /* compare B — terracotta (USER_PALETTE_LIGHT[1]) */
       --sans:'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       --heading: var(--sans);
       --mono: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
@@ -70,8 +70,8 @@
       --accent-line:rgba(242,239,232,.30);
       --focus:#F2EFE8;
       --warn:#E07A5F;
-      --user-a:#78A9E0;
-      --user-b:#E0B24E;
+      --user-a:#61AAB0;
+      --user-b:#C6947E;
       --rg-color:#5FB07F;
     }
     html{ color-scheme: light; }
@@ -515,18 +515,6 @@
       gap: 3px;
       flex:1;
     }
-    .meta .card-user{
-      font-size:.72rem;
-      color:var(--muted2);
-      display:flex;
-      align-items:center;
-      gap:5px;
-    }
-    .meta .card-user .udot{
-      width:7px; height:7px; border-radius:50%;
-      background:var(--muted2);
-      flex-shrink:0;
-    }
     .meta .name{ font-weight: 600; font-size: 13px; line-height:1.25; }
     .meta .name .sci{ font-style:italic; }
     .meta .card-common{ font-size:13px; color:var(--ink); font-weight:500; letter-spacing:-.01em; }
@@ -538,6 +526,10 @@
       overflow:hidden;
       text-overflow:ellipsis;
     }
+    /* Observer marker: inline SVG crosshair so the stroke weight + size are controllable
+       (a Unicode ⌖ can't be reliably bolded). Colour set inline per user via currentColor. */
+    .meta .card-place .uMark{ margin-right:5px; }
+    .meta .card-place .uMark svg{ width:14px; height:14px; vertical-align:-2px; }
     .meta .sub{
       font-family: var(--sans);
       font-size: 11px;
@@ -546,16 +538,16 @@
     }
     .meta .card-breadcrumb{
       font-size:10px;
-      color:var(--muted2);
+      color:var(--muted);
       margin-top:3px;
       display:flex;
       flex-wrap:wrap;
       gap:2px;
       align-items:center;
     }
-    .meta .card-breadcrumb a{ color:var(--muted2); transition:color .15s; text-decoration:none; }
+    .meta .card-breadcrumb a{ color:var(--muted); transition:color .15s; text-decoration:none; }
     .meta .card-breadcrumb a:hover{ color:var(--accent); }
-    .meta .card-breadcrumb .sep{ color:var(--muted2); }
+    .meta .card-breadcrumb .sep{ color:var(--muted); }
     .meta .card-breadcrumb .taxon-italic{ font-style:italic; }
 
     /* ---- Density toggle ---- */
@@ -627,7 +619,6 @@
     .gallery.compact .meta .card-meta{ display:none; }
     .gallery.compact .meta .card-place{ display:none; }
     .gallery.compact .meta .card-breadcrumb{ display:none; }
-    .gallery.compact .meta .card-user{ display:none; }
     .gallery.compact .thumb-placeholder{
       background: var(--raised);
       display:flex; align-items:center; justify-content:center;
@@ -662,7 +653,6 @@
     .gallery.list .meta .card-meta{ font-size:11px; white-space:nowrap; }
     .gallery.list .meta .card-place{ font-size:11px; max-width:200px; }
     .gallery.list .meta .card-breadcrumb{ display:none; }
-    .gallery.list .meta .card-user{ font-size:.65rem; }
     .gallery.list .thumb-placeholder .ph-icon{ width:16px; height:16px; }
     .gallery.list .card:hover{ transform:none; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
     .gallery.list .card.rg::after{ height:100%; width:3px; top:0; bottom:0; left:0; right:auto; border-radius: var(--card-radius) 0 0 var(--card-radius); }
@@ -2262,25 +2252,23 @@
     return "badge";
   }
 
+  // Calm "Gallery" observer palette — 12 muted naturalist hues, each with a LIGHT and a
+  // DARK variant (same hue: deeper on paper, lighter on the dark card — e.g. teal
+  // #327379 → #61AAB0). Every value is verified ≥5:1 on its own surface (well over the
+  // 4:1 floor Lily set), in EITHER mode. Hues are interleaved so consecutive observers
+  // read as distinct — index 0/1 (teal vs terracotta) are near-opposite. No neon/chartreuse.
+  // #0/#1 mirror --user-a/--user-b for A/B-compare parity.
+  const USER_PALETTE_LIGHT = ["#327379","#A05838","#7260A9","#86642A","#AD4A5B","#397465","#8D54A6","#796B32","#5964B8","#3A7646","#98528A","#3C6E9A"];
+  const USER_PALETTE_DARK  = ["#61AAB0","#C6947E","#A49AC1","#BC995D","#C69099","#6AAA9A","#B393C0","#AF9E5D","#979DC9","#6FAC7B","#BC92B4","#7EA2C1"];
   function userColor(u){
-    // Consistent color for any user across cards, map, and snapshot.
-    // Uses a high-contrast palette keyed to the user's index in app.users.
+    // Consistent, theme-aware colour for a user across cards, map, and snapshot. Keyed to
+    // the user's index in app.users; re-resolved on theme toggle (the toggle re-renders).
     if(!u) return null;
-    // Luminous, colour-blind-considerate palette that glows on the dark map.
-    // First two match --user-a / --user-b (azure / amber) for A/B compare parity.
-    const USER_PALETTE = [
-      "#6ea8fe", // azure  (A)
-      "#ffd166", // amber  (B)
-      "#c792ea", // violet
-      "#ff6b6b", // red
-      "#56d4dd", // cyan
-      "#f78c6b", // coral
-      "#a3e05a", // lime
-      "#f6c177", // gold
-    ];
+    const dark = document.documentElement.getAttribute("data-theme") === "dark";
+    const pal = dark ? USER_PALETTE_DARK : USER_PALETTE_LIGHT;
     const idx = (app.users || []).indexOf(u);
-    if(idx < 0) return "#9aa7b4";
-    return USER_PALETTE[idx % USER_PALETTE.length];
+    if(idx < 0) return dark ? "#8C887E" : "#6E6A62";   // unknown user — neutral, 4:1 either way
+    return pal[idx % pal.length];
   }
 
   // Legacy compat wrapper
@@ -3915,19 +3903,24 @@ function refreshStaticFilters(){
       const commonHtml = (commonName && sciName && lower(commonName) !== lower(sciName))
         ? `<div class="card-common">${escapeHtml(commonName)}</div>` : "";
 
-      // Meta line: date · order
-      const orderInfo = safe(r.taxon_order_name || r.taxon_family_name || r.taxon_class_name || r._iconic).trim();
+      // Meta line: date only (taxonomic order removed - Lily)
       const dateTxt = r._date ? escapeHtml(r._date) : "\u2014";
-      const metaHtml = `<div class="card-meta">${dateTxt}${orderInfo ? ' \u00b7 ' + escapeHtml(orderInfo) : ''}</div>`;
+      const metaHtml = `<div class="card-meta">${dateTxt}</div>`;
 
-      // Place line
-      const placeHtml = r._place ? `<div class="card-place">\ud83d\udccd ${escapeHtml(r._place)}</div>` : "";
+      // Observer marker (crosshair U+2316) coloured by user, before the locality. No
+      // username text - the colour signifies the observer; the name is kept as a
+      // title/aria-label so it is not conveyed by colour alone (WCAG 1.4.1).
+      const uColor = userColor(r._user) || "var(--muted2)";
+      const uMark = r._user
+        ? `<span class="uMark" style="color:${uColor}" title="${escapeAttr(r._user)}" aria-label="Observer: ${escapeAttr(r._user)}"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="4.1" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 0.7v3.3M8 12v3.3M0.7 8h3.3M12 8h3.3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>`
+        : "";
+      const placeHtml = r._place ? `<div class="card-place">${uMark}${escapeHtml(r._place)}</div>` : "";
 
       // taxonomy breadcrumb with italics for genus/species (skip Order, already in meta line)
       const lin = lineageArrayFromRow(r);
       const linLabels = ["Order","Superfamily","Family","Subfamily","Tribe","Genus","Species"];
       const crumbLinks = lin.map((v, ci)=>{
-        if(ci === 0) return ""; // Order already shown in meta line
+        if(ci === 0) return ""; // Order intentionally omitted from the card (Lily)
         const s = safe(v).trim();
         if(!s) return "";
         const pk = lin.map((x, j)=> j<=ci ? x : "").join("\u001f");
@@ -3937,15 +3930,9 @@ function refreshStaticFilters(){
       }).filter(Boolean).join(' <span class="sep">\u203a</span> ');
       const breadcrumbHtml = crumbLinks ? `<div class="card-breadcrumb">${crumbLinks}</div>` : "";
 
-      // User color dot
-      const uColor = userColor(r._user);
-      const dotStyle = uColor ? ` style="background:${uColor}"` : "";
-      const userLine = r._user ? `<div class="card-user"><span class="udot"${dotStyle}></span>${escapeHtml(r._user)}</div>` : "";
-
       card.innerHTML = `
         <div class="thumb">${r._img ? `<img loading="lazy" src="${escapeAttr(r._img)}" alt=""/>` : '<div class="thumb-placeholder"><svg class="ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="1.5"/><circle cx="8.5" cy="10" r="1.4"/><path d="M4 16.5l4.5-4 3.5 3 3-2.5 5 4.5"/></svg></div>'}</div>
         <div class="meta">
-          ${userLine}
           <div class="name">${nameHtml}</div>
           ${commonHtml}
           ${metaHtml}

@@ -13,12 +13,12 @@ You are Opus, designing and building the iNat Lab redesign. Working directory:
 2. `CLAUDE.md` (this folder) — what iNat Lab is, current capabilities, house rules.
 3. `docs/ROADMAP.md` — the phased plan.
 4. `docs/OPUS-BRIEF.md` — the creative + feature spec (your main brief).
-5. `../QM-Explorer/CLAUDE.md` — reuse its lazy-load, image-cascade, and provenance patterns.
+5. `../QM-Explorer/CLAUDE.md` — reuse its lazy-load and provenance patterns.
 
 **The job:** give iNat Lab a fresh, awwwards-calibre visual identity (a new look, not a
-reskin) and port four QM Explorer capabilities — map-by-taxonomic-rank, a species deep-dive
-panel, spatial context layers, and an image cascade with provenance. Ship it to GitHub Pages,
-flawless on mobile, as a publicly shareable app.
+reskin) and port three QM Explorer capabilities — map-by-taxonomic-rank, a species deep-dive
+panel, and spatial context layers. Ship it to GitHub Pages, flawless on mobile, as a publicly
+shareable app.
 
 **Hard constraints:** single-file `index.html`, no build, keyless, static, CDN libs only. Keep
 the existing five views + CSV/API ingest + filter cascade + A/B compare + metadata export all

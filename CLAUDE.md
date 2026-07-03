@@ -42,12 +42,10 @@ Five views today: **Records, Taxa, Field Guide, Dates, Map**, plus a metadata ex
 
 Three intertwined goals, agreed with Lily:
 
-1. **Port four QM Explorer capabilities** — (a) **map by taxonomic rank** (colour/cluster/
+1. **Port three QM Explorer capabilities** — (a) **map by taxonomic rank** (colour/cluster/
    legend by a chosen rank), (b) a **species deep-dive panel** (Wikipedia description,
    rank-appropriate common names, representative image, external links), (c) **spatial
-   context layers** (IBRA/IMCRA bioregions, LGAs, geology, elevation), (d) an **image
-   cascade with provenance** (one representative image per taxon: iNat → Wikipedia →
-   honest placeholder, with attribution).
+   context layers** (IBRA/IMCRA bioregions, LGAs, geology, elevation).
 2. **A fresh, awwwards-calibre visual identity** — a distinctive new look (its own palette,
    type, motion), designed by **Opus**. Not a reskin of the current warm-paper/green theme.
 3. **Publish to GitHub Pages, flawless on mobile** — public-shareable, so: no personal
@@ -125,17 +123,23 @@ status and what's left. Verification throughout is via a headless-Chrome/CDP dri
   text follows. Tile grids are responsive (`auto-fill, minmax(210px…)`, 150px narrow) and consistent
   between index and plate.
 - **Header tidy.** Removed the CSV filename display (the load toast already names the file).
+- **Records card redesign** (HANDOFF §4, DONE). Username line + `📍` pin removed; the observer is now
+  a **colour-coded ⌖ crosshair marker** (inline SVG with a real `stroke-width`, `title`/`aria-label`
+  for a11y) before the locality. **Taxonomic order removed from the card** (reverses the earlier
+  "Order in the trail" plan). Trail contrast raised `--muted2`→`--muted`. Body order: image · sci ·
+  common · date · ⌖place · trail. **Observer palette** → theme-aware **12-hue calm set**
+  (`USER_PALETTE_LIGHT`/`_DARK`): same hue deeper on paper / lighter on the dark card, every value
+  **≥5:1** on its own surface; `userColor()` reads `data-theme` (toggle re-renders). Hues interleaved
+  for distinctness (A teal / B terracotta / C slate-violet …); calm, no chartreuse/neon.
 
 **Decisions:** tab label stays **"Field Guide"** (not renamed to "Browse" — Lily's call for now).
-Tile images come from **our own iNat records only**; the multi-source cascade is not built yet.
+Tile images come from **our own iNat records only**, with an honest placeholder when a taxon has
+no photographed record.
 
-**Not yet done** (next session, from `docs/HANDOFF.md`): **§5 image cascade** (iNat→Wikipedia→
-placeholder, lazy IntersectionObserver + bounded queue — currently just `r._img`, no fallback/lazy
-pool); **§2 Taxa** aligned to QM's two-action model + auto-expand-to-active-path; **§4 Records card**
-full redesign (the **⌖ U+2316** observer marker replacing the name+dot and the 📍 place; Order added to
-the clickable trail — only the trail hop is done so far); **§7 service worker / offline + eager
-cache-warming on import**. Then the original roadmap: map-by-rank (Phase 2), species deep-dive
-(Phase 3), spatial context layers (Phase 4), publish polish + shareable URL state (Phase 6).
+**Not yet done** (next session, from `docs/HANDOFF.md`): **§2 Taxa** aligned to QM's two-action
+model + auto-expand-to-active-path; **§7 service worker / offline + eager cache-warming on import**.
+Then the original roadmap: map-by-rank (Phase 2), species deep-dive (Phase 3), spatial context
+layers (Phase 4), publish polish + shareable URL state (Phase 5).
 
 ---
 
@@ -186,11 +190,10 @@ at 1440px and 390px. Five views + ingest/metadata engine intact.
   Species mode dedupes `app.filteredIdx` to distinct species (`lineageArrayFromRow(r)[6]` →
   `_sci` fallback), one representative tile each (prefers a row with an image), regardless of
   intervening ranks — e.g. Order *Diprotodontia* → 3 species tiles. State: `app.guideChildMode`.
-  Verified by CDP drill (Guide → Diprotodontia → species plate). Images still fall back to the
-  "no image" placeholder — the iNat→Wikipedia cascade (Phase 5) will fill them.
+  Verified by CDP drill (Guide → Diprotodontia → species plate). Tiles show the taxon's own record
+  photo where one exists, else the "no image" placeholder.
 
 Also removed the last emoji (🔗 → inline external-link SVG).
 
 **Next:** merge Phase 1 to `main`, then Phase 2 (map by taxonomic rank). Map basemap is light OSM
 (now harmonises with the light UI); Leaflet zoom controls still default — revisit in Map phases.
-The image cascade (Phase 5) will make the species plate and guide tiles image-rich.

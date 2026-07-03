@@ -18,11 +18,10 @@ Line numbers below are **QM Explorer's** `index.html` unless prefixed `iNatLab:`
 
 | Item | Status | Notes |
 |---|---|---|
-| §1 Field Guide → Browse behaviour | **Partial** | Image tiles in the index **done** (uses `r._img`, not the cascade); breadcrumb + one-of-each toggle already there; **tab kept as "Field Guide"** (Lily's call), URL state not done. The focus view was also reworked into an image-first gallery (see below). |
+| §1 Field Guide → Browse behaviour | **Partial** | Image tiles in the index **done** (uses `r._img`); breadcrumb + one-of-each toggle already there; **tab kept as "Field Guide"** (Lily's call), URL state not done. The focus view was also reworked into an image-first gallery (see below). |
 | §2 Taxa aligned to QM | **TODO** | Not started. |
 | §3 Records ⇄ Browse hop | **DONE** | Trail-rank click sets filter + hops to the Field Guide focus (species plate for higher ranks; species→records). Filter retained on return. |
-| §4 Records card redesign | **Partial** | The trail **hop** is wired and species/higher routing added; **not done:** the ⌖ (U+2316) observer marker (still name + colour dot), Order made clickable in the trail, and the full top-to-bottom reorder. |
-| §5 Image cascade + provenance | **TODO** | Tiles currently use the record's own `r._img` only — **no** iNat→Wikipedia→placeholder fallback, no lazy IntersectionObserver/bounded pool, no attribution surfaced. This is the big next piece; it feeds §1/§4 and the deep-dive. |
+| §4 Records card redesign | **DONE** | Username line + pin removed; observer shown as a colour-coded **⌖ crosshair marker** (inline SVG, `title`/`aria-label` for a11y) before the locality; taxonomic **order removed** from the card (reverses "Order in trail"); trail contrast raised (`--muted2`→`--muted`); card body reordered to Image · sci · common · date · ⌖place · trail. Verified light + dark. |
 | §6 Search bar redesign | **DONE** | Moved into the sidebar (Taxon menu → Search → rest), minimal box, empty placeholder, ✕ clear. Header space became the active-filters chip bar. |
 | §7 Service worker / offline + warm-up | **TODO** | Not started. |
 
@@ -32,8 +31,7 @@ downstream clearing, Clear all); the **Field Guide focus rework** (analytics pan
 compact header, single-column image gallery, default "one of each species"); **responsive tile grids**
 matching the species plate; and **header cleanup** (CSV filename removed).
 
-**Suggested next:** §5 image cascade (feeds everything), then §4 card finish (⌖ marker + Order link),
-then §2 Taxa, then §7 service worker.
+**Suggested next:** §4 card finish (⌖ marker + Order link), then §2 Taxa, then §7 service worker.
 
 ---
 
@@ -50,15 +48,14 @@ internal `guide` id already matches — just change the visible label and elevat
 - **Drill** = `S.guideFocus={rank,name}; setFilterSilent(rank,name); renderGuide(); pushURLState()`
   (2617) — note it **sets the filter *and* focuses**, so Records/Map stay in sync. `guideBack()`
   (2109) clears that rank's filter and re-searches.
-- **Images via the lazy cascade** — `resolveGroupImage(name,rank,opts)` (2404): cache-keyed,
-  returns a guaranteed-displayable candidate, evicts placeholders/failures; filled lazily via an
-  `IntersectionObserver` + generation counter + throttled queue (2417+). See §5 (image cascade).
+- **Tile images come from our own record photos** (`r._img`); un-photographed tiles get the honest
+  placeholder. (iNat Lab keeps its own-records-only approach — no multi-source image resolution.)
 
 **iNat Lab adaptation:** iNat Lab is CSV/iNat-API-driven, not ALA facets — group `app.filteredIdx`
 by the chosen rank (the current `renderGuide` at `iNatLab:~2953` already does this). Keep the
 **breadcrumb** and the **"one of each species"** toggle already built in Phase 1 — they fit QM's
-model. What's missing vs QM: **image tiles in the index** (currently text cards), the **image
-cascade**, and **URL state** (`pushURLState`).
+model. What's missing vs QM: **image tiles in the index** (currently text cards) and **URL state**
+(`pushURLState`).
 **Rank pills = Order / Superfamily / Family / Genus** (no Species pill). **Decision (Lily):
 "one of each species" stays as the per-focus toggle only** — you reach a species plate by focusing
 a group and toggling, not via a top-level Species rank.
@@ -91,34 +88,32 @@ This is QM's dual behaviour combined: a **taxon-trail click sets the filter *and
   Provide a clear "**View all N records**" affordance in the Browse focus (QM's `guideBack`/Records
   button, `iNatLab:` guide focus already has a "Records view" button — wire it to keep the filter).
 
-## 4. Redesign the **Records** cards
+## 4. Redesign the **Records** cards — **DONE** (verified light + dark, 2026-07-04)
 
 **Card hierarchy (top → bottom), per Lily:** Image · **Scientific name** · Common name · Date ·
-Place · **Taxonomic trail**.
+**⌖ Place** · **Taxonomic trail**. Shipped in `renderRecords` (`iNatLab:~3865`).
 
-- **Observer marker:** replace the map-pin-before-location with a coloured **⌖** (U+2316 POSITION
-  INDICATOR) placed before the place text, coloured by the observer via `userColor(user)`
-  (`iNatLab:~1894`). **No name** — the colour signifies the user. Keep the A/B azure/ochre for the
-  compared pair; other users get their palette colour. Add a tooltip/`aria-label` with the username
-  for accessibility (colour alone must not be the only signal — WCAG 1.4.1).
-- **Trail** = order › (superfamily) › family › genus, each a `.tax-link` that triggers the §3 hop.
-  Omit any rank that duplicates the scientific name (QM does this at 1834–1835).
-- Reference QM card DOM: `renderGallery` (1822–1856) — `.card-th` / `.card-sci.it` / `.card-com` /
-  `.card-fam` / `.card-det > .card-tax + .loc`. iNat Lab's current card is `iNatLab:renderRecords
-  ~3540`; keep element IDs/behaviour (openModal on card click) while restructuring the body order.
-- Scientific name **italic** (binomials) — Phase 1 already sets `em/.sci` italic.
-
-## 5. Image cascade with provenance (feeds §1, §2, §4; = roadmap Phase 5)
-
-Port QM's `resolveGroupImage` discipline (2404), adapted to iNaturalist sources:
-- Cascade: **iNat default photo (taxon or record) → Wikipedia lead image → honest placeholder**
-  (QM is museum-first; drop the ALA/QM steps). Preload each candidate, fall through on load error,
-  cache the in-flight promise, **evict placeholders/failures** so a blip doesn't lock a tile.
-- **Rank-appropriate** (a family tile shows a family representative, not a random species).
-- **Lazy** via `IntersectionObserver` + a **bounded concurrency queue** (QM's `_guideImgObserver` +
-  generation counter, 2417+) so a big rank doesn't storm the APIs.
-- Every image carries **attribution + provenance** (iNat photo licence/attribution; Wikipedia/CC).
-- Reuse across Browse tiles, Taxa, the species plate, and the species deep-dive.
+- **Observer marker — DONE.** The username line and the map-pin are gone. Before the place text sits
+  an **observer marker coloured by `userColor(user)`** — **no name** (the colour signifies the
+  observer), with the username kept as `title` + `aria-label` so it is not conveyed by colour alone
+  (WCAG 1.4.1). The marker is a small **inline SVG crosshair** (⌖-style): a Unicode `⌖` could not be
+  reliably weighted/enlarged (symbol-font fallback ignores `font-weight`), so an SVG with a real
+  `stroke-width` gives controllable weight + size and reads on both themes. CSS: `.card-place .uMark`.
+- **Taxonomic order removed from the card entirely (Lily).** The date line is date-only; the trail
+  starts at superfamily/family (Order was already skipped at `ci===0`). **This reverses the earlier
+  "Order added to the clickable trail" sub-decision** — see Decisions #5 below.
+- **Trail** = (superfamily) › family › (subfamily) › (tribe) › genus › species, each a `.fgLink`
+  that triggers the §3 hop. **Contrast raised** from `--muted2` to `--muted` (≈2.4:1 → ≈5.3:1 on
+  light paper) at Lily's request — the trail was too faint.
+- **Observer palette — theme-aware 12-hue calm set** (`USER_PALETTE_LIGHT` / `USER_PALETTE_DARK`).
+  Same hue, **deeper on paper → lighter on the dark card** (e.g. teal `#327379` → `#61AAB0`). Every
+  value is verified **≥5:1** on its own surface (light set ~5.1–5.4:1 on paper; dark set ~6.4–6.9:1
+  on the dark card) — well over the 4:1 floor Lily set, in *either* mode. `userColor()` reads
+  `data-theme` and the theme toggle re-renders, so markers/dots/map re-resolve on switch.
+  `--user-a`/`--user-b` mirror index 0/1 per theme. Hues **interleaved** so consecutive observers
+  are distinct — A **teal** vs B **terracotta** are near-opposite (this "pushed out" the old olive B,
+  which read too close to teal A). Calm/muted, **no chartreuse or neon**.
+- Card body reorder + `em`/italic binomials + openModal-on-click all preserved.
 
 ## 6. **Search bar** redesign
 
@@ -165,9 +160,9 @@ would fire thousands of requests and get throttled/blocked (this is the one real
 house rule "never burst hundreds of requests"):
 
 - **Dedupe to unique taxa, not records.** A 5,000-record CSV is usually a few hundred unique
-  species/genera/families. Resolve **one representative image per taxon** (via the §5 cascade) and
-  **one vernacular / Wikipedia summary per taxon** — so the work scales with *distinct taxa*, not
-  record count. Warm the ranks the UI actually shows (species + the Browse ranks).
+  species/genera/families. Pre-fetch **one representative record photo per taxon** (the tile's
+  `r._img`) and **one vernacular / Wikipedia summary per taxon** — so the work scales with
+  *distinct taxa*, not record count. Warm the ranks the UI actually shows (species + the Browse ranks).
 - **Throttle:** a bounded concurrency queue (~4–6 in flight) with backoff; run in the background
   (`requestIdleCallback`) so the first render stays instant. Persist results through the SW image
   (24h) and API (1h→consider longer for taxon data) caches + the in-page promise caches.
@@ -183,17 +178,16 @@ house rule "never burst hundreds of requests"):
 
 ## Suggested sequencing
 
-1. **Image cascade (§5)** first — it feeds Browse, Taxa, cards, and the deep-dive. (Roadmap Phase 5.)
-2. **Browse (§1)** + **Records⇄Browse hop (§3)** together — the headline interaction.
-3. **Records card redesign (§4)** — depends on the cascade + the hop.
-4. **Taxa alignment (§2)** — smaller, reuses the hop.
-5. **Search redesign (§6)** — independent, quick win.
-6. **Service worker / caching (§7)** — last, once the fetch surface is stable, so cache rules match
+1. **Browse (§1)** + **Records⇄Browse hop (§3)** together — the headline interaction.
+2. **Records card redesign (§4)** — depends on the hop.
+3. **Taxa alignment (§2)** — smaller, reuses the hop.
+4. **Search redesign (§6)** — independent, quick win. *(Done.)*
+5. **Service worker / caching (§7)** — last, once the fetch surface is stable, so cache rules match
    the real endpoints.
 
 Then resume the original roadmap where not superseded: **map by taxonomic rank (Phase 2)**,
 **species deep-dive (Phase 3)**, **spatial context layers (Phase 4)**, **public-app polish +
-shareable URL state + a11y/mobile/perf + publish (Phase 6)**.
+shareable URL state + a11y/mobile/perf + publish (Phase 5)**.
 
 ## Decisions (Lily, 2026-07-03) — resolved
 
@@ -204,3 +198,19 @@ shareable URL state + a11y/mobile/perf + publish (Phase 6)**.
 3. **Offline scope:** **eager warm-up on import** — cache as much as possible when a CSV/API set is
    loaded, deduped to unique taxa and throttled, so the whole set is explorable online *and*
    offline (§7a). Not merely organic/as-viewed.
+4. **Tile images:** use **our own record photos only** (`r._img`), with an honest placeholder when a
+   taxon has no photographed record. No multi-source image resolution — the loaded records carry the
+   images (§1).
+5. **Records card (§4):** username text **removed**; observer conveyed only by a **colour-coded ⌖
+   marker** before the locality (name kept as `title`/`aria-label`). **No pin icon.** **Taxonomic
+   order removed from the card entirely** — this **reverses** the earlier "Order added to the
+   clickable trail" note; Order appears nowhere on the card. Trail contrast raised to `--muted`.
+6. **Observer colours — theme-aware 12-hue calm palette** (`USER_PALETTE_LIGHT`/`_DARK`). Each hue
+   has a deep light-mode variant (on paper) and a lighter dark-mode variant (on the dark card);
+   **all ≥5:1** on their own surface (Lily's floor was 4:1, "solid, either mode"). `userColor()`
+   picks by `data-theme`; the toggle re-renders. Hues interleaved for **observer distinctness**
+   (A teal / B terracotta / C slate-violet …) — this replaced the earlier 4-colour earthy set where
+   A (teal) and B (olive) were too close ("push out olive"). **Calm — no chartreuse/neon** (Lily,
+   "not just yet"). Marker glyph = **inline SVG crosshair** with a real `stroke-width` (a Unicode
+   `⌖` can't be reliably bolded). Generator kept at `/tmp` (HSL→WCAG-luminance search); if the hue
+   set is ever regenerated, keep the ≥5:1 verification.

@@ -1,7 +1,7 @@
 # iNat Lab — Creative & Feature Brief for Opus
 
 Opus, this is the handover. You're designing and building a **fresh, awwwards-calibre visual
-identity** for iNat Lab and folding in **four capabilities** from its sibling project, QM
+identity** for iNat Lab and folding in **three capabilities** from its sibling project, QM
 Explorer. Read `../CLAUDE.md` and `ROADMAP.md` first; this file is the creative and functional
 spec. Lily leads the vision; you lead the craft. Bring initiative — this brief sets intent and
 constraints, not pixel dictates.
@@ -57,7 +57,7 @@ content — reframed for this app):
 - **Motion:** a small, tasteful motion vocabulary (view transitions, tile reveals, map/legend
   interactions). Must honour `prefers-reduced-motion`.
 - **Imagery-forward:** the app is full of photos and maps — let them breathe; frame them well;
-  give every image an honest placeholder when none exists (see §5.4).
+  give every image an honest placeholder when a record has no photo.
 
 Deliver the identity as **CSS custom properties** replacing the current `:root` block, so the
 whole app inherits it from one source of truth.
@@ -99,7 +99,7 @@ whole app inherits it from one source of truth.
 - Metadata: export modal (`#exportModal`), title/caption/keyword modes, GBIF enrichment
   (`#enrichCommonGbif`), taxon sync (`#taxonSyncBtn`).
 
-## 5. The four ported capabilities
+## 5. The three ported capabilities
 
 Port the *spirit and rigour* of QM Explorer's versions, adapted to iNaturalist data. QM
 Explorer's own patterns are documented in `../../QM-Explorer/CLAUDE.md` — read it; reuse its
@@ -119,8 +119,8 @@ lazy-load + provenance discipline.
 
 - Openable from any species reference (Records tile, Taxa leaf, Field Guide tile, map point).
 - Shows: **Wikipedia** description (link + attribution), **rank-appropriate common name(s)**,
-  a representative **image** (via §5.4), a **mini stat block** from the loaded set (observation
-  count, date span, top places, top observers), and **external links** (iNat, GBIF).
+  a representative **image** (the species' own record photo), a **mini stat block** from the loaded
+  set (observation count, date span, top places, top observers), and **external links** (iNat, GBIF).
 - Accessible drawer/modal (focus trap, Esc, reduced-motion). Cache and lazy-load every fetch;
   show provenance per field.
 
@@ -131,15 +131,6 @@ lazy-load + provenance discipline.
   loaded; QM Explorer talks to Qld Gov / Geoscience Australia / GA services).
 - Click-to-identify where supported (region name + source). Overlays off by default. Layer
   control must work on mobile. Honest failure states when a service is blocked/offline.
-
-### 5.4 Image cascade with provenance
-
-- `resolveTaxonImage(name, rank)`: **iNat default photo → Wikipedia → honest placeholder**,
-  preloading each candidate and falling through on load failure (mirror QM Explorer's
-  `resolveGroupImage`). **Rank-appropriate** representative image. Cache; evict placeholders so
-  a transient failure doesn't lock a tile. Every image carries **attribution + provenance**.
-- Reuse across Taxa, Field Guide, and the deep-dive panel. Lazy-load via IntersectionObserver +
-  a bounded request pool (QM Explorer's `_queueGuideImg` pattern).
 
 ## 6. Public-app requirements
 
