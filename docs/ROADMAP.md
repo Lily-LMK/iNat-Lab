@@ -28,6 +28,14 @@ ingest/metadata engine keep working throughout. Elevate, don't regress.
 > **Records card** redesign with a coloured **⌖** observer marker; **search-bar** redesign;
 > **service-worker caching/offline**). `HANDOFF.md` supersedes Phases 2–5 below where they
 > overlap and cites the exact QM Explorer functions to port.
+>
+> **Progress (2026-07-03, all on `main` + pushed):** HANDOFF **§6 search redesign** and **§3
+> Records⇄Browse hop** are **done**; the **Field Guide** was reworked into an image-first gallery
+> (analytics removed, nav in a compact header, default "one of each species") and gained an
+> **active-filters chip bar** + **responsive image tiles**. **Still open:** §5 **image cascade**
+> (the big next piece — tiles use the record's own image only, no iNat→Wikipedia→placeholder
+> fallback/lazy pool yet), §2 **Taxa**, §4 **Records card** finish (⌖ marker + Order link), §7
+> **service worker/offline**. See `HANDOFF.md` → "Progress" for the per-item table.
 
 ---
 

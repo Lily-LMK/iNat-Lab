@@ -95,28 +95,47 @@ CSV handy for local testing (do not commit it).
 
 ## Current chapter
 
-**Phase 1 DONE + merged to `main` (not pushed). Handing off to the next phase → see
-[`docs/HANDOFF.md`](docs/HANDOFF.md).** Phase 1's "Gallery" identity, breadcrumbs, and
-one-of-each-species browse are live on `main` (branch `phase1-design-system` fast-forward-merged).
-Lily then specified the **next required changes**, studied against QM Explorer and written up in
-`docs/HANDOFF.md`: (1) Field Guide → **Browse** ported from QM (`renderGuide` 2532, image tiles +
-lazy cascade, drill = `setFilterSilent`+`guideFocus`); (2) **Taxa** aligned to QM's two-action
-nodes (Filter→Records / Guide→Browse, 2099); (3) **Records⇄Browse hop** — a taxon-trail click sets
-the filter *and* focuses Browse on the one-of-each-species plate, so returning to Records shows all
-of that taxon; (4) **Records card** redesign — order Image · Sci name · Common · Date · Place ·
-Trail, with a coloured **⌖ (U+2316)** observer marker via `userColor()` (no name); (5) **image
-cascade** iNat→Wikipedia→placeholder (roadmap Phase 5, feeds the above); (6) **search bar** redesign
-(QM `.hdr-search` pattern, Gallery-themed); (7) **service-worker caching/offline** (port QM `sw.js`
-to iNat/GBIF/Wikipedia/tiles). Suggested order + open questions are in `docs/HANDOFF.md`.
+**Everything below is live on `main` and pushed** to `origin` (`Lily-LMK/iNat-Lab`, GitHub Pages).
+Phase 1's "Gallery" identity + the mobile pass (off-canvas filters drawer ≤820px, compact header)
+remain the baseline. Several `docs/HANDOFF.md` items are now done — see that file for the per-item
+status and what's left. Verification throughout is via a headless-Chrome/CDP driver (native Node 24
+`WebSocket`, no deps) loading the git-ignored `sample-inat.csv`; drivers live in the session scratchpad.
 
-**Mobile pass (post-Phase-1, on `main`):** Lily flagged mobile as "a lot of work." Fixed the two
-structural failures — the header was 240px tall (everything wrapped to its own row) and the filters
-sidebar stacked in-flow (and the hamburger blanked the content). Now: **compact header** (~133px:
-brand + theme + hamburger on row 1, search full-width on row 2) and the filters sidebar is a proper
-**off-canvas drawer ≤820px** (`body.drawer-open`, backdrop, close button, Esc). Secondary header
-actions (Reset / filename / Open file / Update taxa) **relocate into the drawer on mobile and back
-to the header on desktop** via `syncHeaderLayout()` (moves nodes, preserving listeners; keyed to
-`matchMedia("(max-width:820px)")`). 44px touch targets. Desktop unchanged (verified). Not yet pushed.
+**Shipped this chapter** (all merged to `main` and pushed):
+
+- **Search relocated + redesigned** (HANDOFF §6, DONE). Header search pill gone; `#q` is a minimal
+  sidebar box (magnifier + clear-✕, empty placeholder, label moved to `aria-label`). Sidebar filter
+  order is **Taxon menu → Search → the rest** (User/Quality/Compare/Date).
+- **Active-filters bar** in the freed header centre slot. `renderFilterChips()` renders from the
+  central `app.f` state in RANKS order. Taxonomy is a **`value › value` breadcrumb** (no pills, no
+  rank labels); each value is click-to-remove and clears its downstream ranks (`clearTaxonFromRank`).
+  Independent filters (User/Quality/Date/Search) are minimal labelled items; Date only when it
+  narrows the set. **Clear all** at the far right (reuses Reset).
+- **Records ⇄ Field Guide hop** (HANDOFF §3, DONE). A Records-card trail-rank click sets the taxon
+  filter and hops to the Field Guide focus; higher ranks land on the **one-of-each-species plate**,
+  a species-level click drops to that species' records. Filter is retained, so back-to-Records shows
+  all of that taxon. (`applyLineageKey` + `data-rank` routing in `renderRecords`.)
+- **Field Guide = visual field guide, not a dashboard.** The focus view's analytics panel
+  (records-per-month chart, quality-grade summary, occurrence stats, by-user) is **removed**; nav
+  controls (Records view / index / View on iNaturalist) moved into a **compact header row**; the view
+  is a **single full-width image gallery** with enlarged tiles; **default mode = "one of each
+  species."** `computeOccurrence`/`renderMonthBars` are left defined for the future deep-dive.
+- **Image-first tiles.** Field Guide index tiles (`.guideCard`/`.guideList`) and the focus plate lead
+  with a **representative photo from the loaded records** (`r._img`) + honest placeholder; occurrence
+  text follows. Tile grids are responsive (`auto-fill, minmax(210px…)`, 150px narrow) and consistent
+  between index and plate.
+- **Header tidy.** Removed the CSV filename display (the load toast already names the file).
+
+**Decisions:** tab label stays **"Field Guide"** (not renamed to "Browse" — Lily's call for now).
+Tile images come from **our own iNat records only**; the multi-source cascade is not built yet.
+
+**Not yet done** (next session, from `docs/HANDOFF.md`): **§5 image cascade** (iNat→Wikipedia→
+placeholder, lazy IntersectionObserver + bounded queue — currently just `r._img`, no fallback/lazy
+pool); **§2 Taxa** aligned to QM's two-action model + auto-expand-to-active-path; **§4 Records card**
+full redesign (the **⌖ U+2316** observer marker replacing the name+dot and the 📍 place; Order added to
+the clickable trail — only the trail hop is done so far); **§7 service worker / offline + eager
+cache-warming on import**. Then the original roadmap: map-by-rank (Phase 2), species deep-dive
+(Phase 3), spatial context layers (Phase 4), publish polish + shareable URL state (Phase 6).
 
 ---
 

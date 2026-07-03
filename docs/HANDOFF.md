@@ -14,6 +14,29 @@ Line numbers below are **QM Explorer's** `index.html` unless prefixed `iNatLab:`
 
 ---
 
+## Progress (updated 2026-07-03) — all shipped work is on `main`, pushed
+
+| Item | Status | Notes |
+|---|---|---|
+| §1 Field Guide → Browse behaviour | **Partial** | Image tiles in the index **done** (uses `r._img`, not the cascade); breadcrumb + one-of-each toggle already there; **tab kept as "Field Guide"** (Lily's call), URL state not done. The focus view was also reworked into an image-first gallery (see below). |
+| §2 Taxa aligned to QM | **TODO** | Not started. |
+| §3 Records ⇄ Browse hop | **DONE** | Trail-rank click sets filter + hops to the Field Guide focus (species plate for higher ranks; species→records). Filter retained on return. |
+| §4 Records card redesign | **Partial** | The trail **hop** is wired and species/higher routing added; **not done:** the ⌖ (U+2316) observer marker (still name + colour dot), Order made clickable in the trail, and the full top-to-bottom reorder. |
+| §5 Image cascade + provenance | **TODO** | Tiles currently use the record's own `r._img` only — **no** iNat→Wikipedia→placeholder fallback, no lazy IntersectionObserver/bounded pool, no attribution surfaced. This is the big next piece; it feeds §1/§4 and the deep-dive. |
+| §6 Search bar redesign | **DONE** | Moved into the sidebar (Taxon menu → Search → rest), minimal box, empty placeholder, ✕ clear. Header space became the active-filters chip bar. |
+| §7 Service worker / offline + warm-up | **TODO** | Not started. |
+
+**Also shipped this chapter (not in the original list):** the **active-filters chip bar**
+(`renderFilterChips`, breadcrumb of taxon values + minimal labelled chips, click-to-remove with
+downstream clearing, Clear all); the **Field Guide focus rework** (analytics panel removed, nav in a
+compact header, single-column image gallery, default "one of each species"); **responsive tile grids**
+matching the species plate; and **header cleanup** (CSV filename removed).
+
+**Suggested next:** §5 image cascade (feeds everything), then §4 card finish (⌖ marker + Order link),
+then §2 Taxa, then §7 service worker.
+
+---
+
 ## 1. Replace "Field Guide" with a QM-style **Browse** (and match its behaviour)
 
 Rename the tab **Field Guide → Browse** (QM's Browse tab is literally `data-v="guide"`, so the
