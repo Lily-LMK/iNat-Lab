@@ -1531,6 +1531,57 @@
     .onboard .feat:last-child{ border-right: 0; }
     @media (max-width: 560px){ .onboard .feat{ border-right:0; border-bottom:1px solid var(--hair); } .onboard .feat:last-child{ border-bottom:0; } }
     .onboard .feat b{ color: var(--ink); font-weight: 600; display:block; margin-bottom:5px; font-size: 11px; letter-spacing:.08em; text-transform:uppercase; }
+
+    /* ════════════════════════════════════════════════════════════════
+       Mobile: filters become an off-canvas drawer; compact header
+       ════════════════════════════════════════════════════════════════ */
+    .drawer-top{ display:none; }
+    .drawer-backdrop{ display:none; }
+    .drawer-top-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--hair); }
+    .drawer-title{ font-family:var(--heading); font-weight:600; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+    .drawer-actions{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:16px; }
+    .drawer-actions .headerMeta{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-left:0; }
+    .drawer-actions .fileName{ flex-basis:100%; }
+
+    @media (max-width: 820px){
+      /* Compact header: brand + toggles on one row, search full-width below */
+      header{ padding: 10px 14px; gap: 8px 10px; }
+      header .brand{ margin-right:0; }
+      header .brand .title{ font-size:16px; }
+      header .brand .sub{ font-size:9px; }
+      #themeToggle{ margin-left:auto; }
+      header > .pill{ order:10; flex:1 1 100% !important; box-sizing:border-box; }
+
+      /* Content fills the width; the sidebar is an off-canvas drawer */
+      main{ grid-template-columns: 1fr !important; gap:0; padding:10px; }
+      main.sidebar-collapsed{ grid-template-columns: 1fr !important; }
+      aside{
+        position: fixed; top:0; left:0; bottom:0; z-index:60;
+        width: min(87vw, 340px);
+        border-radius:0; border:0; border-right:1px solid var(--hair);
+        box-shadow: 0 0 44px rgba(20,20,15,.28);
+        transform: translateX(-100%);
+        transition: transform var(--dur) var(--ease);
+        opacity:1 !important; padding:16px !important; overflow:auto;
+        pointer-events:auto !important; min-width:0 !important;
+      }
+      main.sidebar-collapsed aside{ width: min(87vw,340px); opacity:1; padding:16px; border-right:1px solid var(--hair); pointer-events:auto; }
+      body.drawer-open aside{ transform: translateX(0); }
+      .drawer-backdrop{
+        display:block; position:fixed; inset:0; z-index:55;
+        background: rgba(20,20,15,.45);
+        opacity:0; pointer-events:none; transition: opacity var(--dur) var(--ease);
+      }
+      body.drawer-open .drawer-backdrop{ opacity:1; pointer-events:auto; }
+      body.drawer-open{ overflow:hidden; }
+      .drawer-top{ display:block; }
+
+      /* Comfortable touch targets */
+      .field select, .field input, .field textarea,
+      .pill select, .pill input[type="text"], .pill input[type="date"]{ min-height:44px; }
+      .tab{ padding: 14px 0; }
+      .content{ padding: 12px 4px; }
+    }
 </style>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -1595,9 +1646,19 @@
     </button>
   </header>
 
+  <div class="drawer-backdrop" id="drawerBackdrop" aria-hidden="true"></div>
   <main>
-    
+
     <aside id="sidebar">
+      <div class="drawer-top">
+        <div class="drawer-top-head">
+          <span class="drawer-title">Menu</span>
+          <button id="drawerClose" class="headerToggleBtn" aria-label="Close menu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <div class="drawer-actions" id="drawerActions"></div>
+      </div>
       <details class="accPanel" open>
         <summary>Filters</summary>
         <div class="accBody">
@@ -8086,13 +8147,57 @@ $$(".bar button").forEach(btn=>{
     recompute();
   });
 
-  // Sidebar collapse toggle
+  // ── Sidebar: desktop = collapsible column; mobile = off-canvas drawer ──
+  const _mqMobile = window.matchMedia("(max-width: 820px)");
+  const _mainEl = document.querySelector("main");
+  const _drawerBackdrop = $("#drawerBackdrop");
+
+  function isMobile(){ return _mqMobile.matches; }
+  function openDrawer(){
+    document.body.classList.add("drawer-open");
+    $("#sidebarToggle")?.setAttribute("aria-expanded","true");
+    // focus the close button for keyboard users
+    setTimeout(()=>{ try{ $("#drawerClose")?.focus(); }catch(e){} }, 60);
+  }
+  function closeDrawer(){
+    document.body.classList.remove("drawer-open");
+    $("#sidebarToggle")?.setAttribute("aria-expanded","false");
+    if(mapState.map) setTimeout(()=>{ try{ mapState.map.invalidateSize(); }catch(e){} }, 250);
+  }
+
   $("#sidebarToggle").addEventListener("click", ()=>{
-    const main = document.querySelector("main");
-    main.classList.toggle("sidebar-collapsed");
-    // Force map resize if open
-    if(mapState.map) setTimeout(()=>{ try{ if(mapState.map) mapState.map.invalidateSize(); }catch(e){} }, 300);
+    if(isMobile()){
+      document.body.classList.contains("drawer-open") ? closeDrawer() : openDrawer();
+    } else {
+      _mainEl.classList.toggle("sidebar-collapsed");
+      if(mapState.map) setTimeout(()=>{ try{ mapState.map.invalidateSize(); }catch(e){} }, 300);
+    }
   });
+  $("#drawerClose")?.addEventListener("click", closeDrawer);
+  _drawerBackdrop?.addEventListener("click", closeDrawer);
+  document.addEventListener("keydown", (e)=>{ if(e.key === "Escape" && document.body.classList.contains("drawer-open")) closeDrawer(); });
+
+  // Relocate the secondary header actions (Reset, filename, Open file, Update
+  // taxa) into the drawer on mobile so the header stays compact; move them back
+  // to the header on desktop. Moving the nodes preserves their event listeners.
+  const _headerEl = document.querySelector("header");
+  const _themeBtn = $("#themeToggle");
+  const _resetBtn = $("#resetBtn");
+  const _headerMeta = document.querySelector(".headerMeta");
+  const _drawerActions = $("#drawerActions");
+  function syncHeaderLayout(){
+    if(isMobile()){
+      _mainEl.classList.remove("sidebar-collapsed");
+      if(_resetBtn && _resetBtn.parentElement !== _drawerActions) _drawerActions.appendChild(_resetBtn);
+      if(_headerMeta && _headerMeta.parentElement !== _drawerActions) _drawerActions.appendChild(_headerMeta);
+    } else {
+      closeDrawer();
+      if(_resetBtn && _resetBtn.parentElement === _drawerActions) _headerEl.insertBefore(_resetBtn, _themeBtn);
+      if(_headerMeta && _headerMeta.parentElement === _drawerActions) _headerEl.insertBefore(_headerMeta, _themeBtn);
+    }
+  }
+  syncHeaderLayout();
+  _mqMobile.addEventListener("change", syncHeaderLayout);
 
   // Light / dark theme toggle (light is default; choice is remembered)
   const ICON_SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>';

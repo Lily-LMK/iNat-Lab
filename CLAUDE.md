@@ -109,6 +109,15 @@ cascade** iNat→Wikipedia→placeholder (roadmap Phase 5, feeds the above); (6)
 (QM `.hdr-search` pattern, Gallery-themed); (7) **service-worker caching/offline** (port QM `sw.js`
 to iNat/GBIF/Wikipedia/tiles). Suggested order + open questions are in `docs/HANDOFF.md`.
 
+**Mobile pass (post-Phase-1, on `main`):** Lily flagged mobile as "a lot of work." Fixed the two
+structural failures — the header was 240px tall (everything wrapped to its own row) and the filters
+sidebar stacked in-flow (and the hamburger blanked the content). Now: **compact header** (~133px:
+brand + theme + hamburger on row 1, search full-width on row 2) and the filters sidebar is a proper
+**off-canvas drawer ≤820px** (`body.drawer-open`, backdrop, close button, Esc). Secondary header
+actions (Reset / filename / Open file / Update taxa) **relocate into the drawer on mobile and back
+to the header on desktop** via `syncHeaderLayout()` (moves nodes, preserving listeners; keyed to
+`matchMedia("(max-width:820px)")`). 44px touch targets. Desktop unchanged (verified). Not yet pushed.
+
 ---
 
 ### Phase 1 detail (archived)
