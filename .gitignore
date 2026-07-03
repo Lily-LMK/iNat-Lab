@@ -1,0 +1,13 @@
+# macOS
+.DS_Store
+
+# Personal / sample record data — do NOT ship in a public repo.
+# iNat Lab loads data at runtime (CSV upload or live API); it must not
+# bundle Lily's own observation exports. Keep these local only.
+*.csv
+*.numbers
+*.xlsx
+
+# Editor / tooling
+.vscode/
+node_modules/
