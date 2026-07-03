@@ -6,7 +6,28 @@ everyone using the app); the visual-polish items follow.
 
 ---
 
-## 1. Mid-width layout collapse — **top priority**
+## 1. Mid-width layout collapse — **core bug FIXED 2026-07-04** (single swap at 680px)
+
+**Done:** the sidebar is now only ever a **left column** (desktop) or an **off-canvas drawer**
+(phone), swapping at one breakpoint — **680px ≈ 45% of a MacBook Pro 14"** — in both the CSS
+(`@media 680`) and the JS (`_mqMobile = matchMedia(680)`). Removed the `aside{ order:2 }`
+stacked-under state (was `@media 980`) and moved the drawer up from 820 → 680. The records grid
+is `repeat(auto-fill, minmax(160px,1fr))`, so the narrower desktop content column just shows
+fewer cards — no cramping. Verified (light): desktop left-column at 1100/870/700, phone drawer
+hidden at 660/420, **no stacked-under at any width**.
+
+**Remaining polish (optional, next session):**
+- **Resize-transition flash:** dragging the window *across* 680 briefly animates the drawer
+  sliding out (transform transition on the media-query flip). Fine on load; only a drag artifact.
+  Fix: don't transition `transform` on the mode switch — only when the drawer is opened/closed.
+- **Consolidate the leftover component breakpoints** (900/700/620/560/520) that still tweak
+  density piecemeal, so everything keys off the one phone breakpoint.
+- **Confirm 680 against Lily's real windows** — if desktop feels tight in 680–820, nudge the swap
+  up; the value lives in exactly two places (the CSS `@media` + `_mqMobile`).
+
+---
+
+### Original notes (kept for context)
 
 **Symptom (Lily):** the app is good full-screen on the Mac and good on iPhone, but at ~**50%
 of the laptop screen** the design *collapses* — it's a broken hybrid, neither desktop nor

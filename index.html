@@ -978,8 +978,10 @@
     }
 
     @media (max-width: 980px){
-      main{ grid-template-columns: 1fr; }
-      aside{ order: 2; }
+      /* The sidebar stays a left column all the way down to the phone breakpoint — it
+         must NEVER stack under the content (that mid-width collapse is the bug). Below
+         the phone breakpoint it becomes the off-canvas drawer. So only density tweaks
+         here — no layout-mode change. */
       .dialog{ grid-template-columns: 1fr; }
       header{ flex-wrap: wrap; }
       .stats{ grid-template-columns: repeat(2, 1fr); }
@@ -1645,7 +1647,7 @@
     .drawer-actions .headerMeta{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-left:0; }
     .drawer-actions .fileName{ flex-basis:100%; }
 
-    @media (max-width: 820px){
+    @media (max-width: 680px){   /* single phone-mode swap ≈ 45% of a MacBook Pro 14" (1512px); keep in sync with _mqMobile in JS */
       /* Compact header: brand + toggles on one row, search full-width below */
       header{ padding: 10px 14px; gap: 8px 10px; }
       header .brand{ margin-right:0; }
@@ -8371,7 +8373,7 @@ $$(".bar button").forEach(btn=>{
   });
 
   // ── Sidebar: desktop = collapsible column; mobile = off-canvas drawer ──
-  const _mqMobile = window.matchMedia("(max-width: 820px)");
+  const _mqMobile = window.matchMedia("(max-width: 680px)");   // phone-mode swap; keep in sync with the CSS @media breakpoint
   const _mainEl = document.querySelector("main");
   const _drawerBackdrop = $("#drawerBackdrop");
 
