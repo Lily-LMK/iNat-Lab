@@ -77,10 +77,28 @@ the same time → the collapse.
 
 ---
 
-## 2. Field Guide scroll bug — **bounces back to top** — DIAGNOSED (2026-07-04)
+## 2. Field Guide scroll bug — **bounces back to top** — STILL OPEN (mitigation failed)
 
-**Symptom (Lily):** in Field Guide, scrolling *down* the species keeps snapping the view back to
-the top.
+> **UPDATE (Lily, real MacBook Pro trackpad, 2026-07-04b): the `overscroll-behavior: contain`
+> mitigation shipped in `9086e5f` did NOT fix it.** New, important clue: **the bounce only happens
+> when the pointer is over the tiles; it is avoidable *only* by keeping the cursor on the far-right
+> where the scrollbar sits** (i.e. dragging the scrollbar works fine). Trackpad-specific. So the
+> container *can* scroll (the scrollbar proves it) — what misbehaves is the **trackpad/wheel gesture
+> over the content**: either it isn't scrolling `#view` (the wheel target/nearest-scrollable is
+> resolving to the pinned `body`, which macOS rubber-bands back to 0), or `#view`'s scroll is being
+> reset. This points **away from simple overscroll-chaining** and toward a **wheel-target / single-
+> scroller** problem.
+>
+> **Revised fix — do the single scroll container, it's now the primary (not optional):** let the
+> **window** scroll the whole app; remove `#view.content { overflow:auto; fixed height }` so there's
+> exactly one scroller and the trackpad gesture can't land on the wrong one. Pair with §1's app-shell
+> rework. While in there, also check: is `body`/`html` the element actually receiving the wheel? add
+> a temporary `wheel` logger over the tiles on the real machine to see which element scrolls; verify
+> no `touch-action`/`pointer-events`/height:100% trap on an ancestor forces the wheel onto `body`.
+> The `overscroll-behavior: contain` line can stay (harmless) but is insufficient alone.
+
+**Symptom (Lily):** in Field Guide, scrolling *down* the species (esp. "One of each species") keeps
+snapping the view back to the top — real trackpad only.
 
 **Investigated live** with `0218-backyards-project.csv` (Lepidoptera → 2,394 records → hundreds of
 species tiles). **It is not a JS bug** — ruled out with evidence:
@@ -166,6 +184,23 @@ tree is a proper redesign. Line numbers are approximate (`iNatLab:`).
   and their Filter/Guide/GBIF actions are all pill-shaped and the module "could be greatly improved."
   Treat as its own slice and **fold with HANDOFF §2** (align Taxa to QM: lazy tree, auto-expand to
   the active path, two-action model, and a cleaner visual language — not pillboxes).
+
+**More cleanups (Lily review, 2026-07-04b) — all small except where noted:**
+- **"One of each species": page 100 at a time, not 48.** `app.guideChildLimit` starts at `48` and
+  the `#childMore` step is `+48` (`iNatLab:3636, 3688, 3696`). Set the initial page **and** the
+  increment to **100**.
+- **Sidebar — move Quality grade to the top.** Put the **Quality grade** control (`:1854`) up
+  **adjacent to Taxon menu order** (`:1777`) at the top of the Filters panel (it's currently down
+  with User/Date).
+- **Sidebar — Genus + Species side by side.** `#genus` (`:1824`) and `#species` (`:1828`) are
+  full-width stacked; pair them in a 2-col `.row` like Kingdom/Phylum and Class/Order.
+- **Remove the idle "Load a CSV to begin." copy** (`#status` initial text, `:1987`). Redundant — the
+  empty state already has the "Load a CSV export" button + drop instructions (`:3829–3832`). Keep the
+  element and its live "Loaded N rows" announcements; just blank the placeholder text.
+- **Remove the top-right records meta line** — `"{filtered} / {total} records • {min} → {max}"`
+  (`msg`, `:3861`). Redundant with the "{N} records" count already shown top-left of the view. Drop
+  the line and the element it writes into. (Note: it's the only place the **total** and **date span**
+  currently surface — fine to lose per Lily; revisit if a compact date-range indicator is wanted later.)
 
 ---
 

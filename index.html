@@ -1772,13 +1772,19 @@
         <div class="accBody">
           <div class="stack">
 
-            <!-- Taxon menu (the taxonomic cascade) comes first -->
-            <div class="field compact">
-              <label for="taxonSort">Taxon menu order</label>
-              <select id="taxonSort">
-                <option value="count">Most common → least</option>
-                <option value="alpha">Alphabetical (A → Z)</option>
-              </select>
+            <!-- Taxon menu order + Quality grade, side by side at the top -->
+            <div class="row">
+              <div class="field compact">
+                <label for="taxonSort">Taxon menu order</label>
+                <select id="taxonSort">
+                  <option value="count">Most common → least</option>
+                  <option value="alpha">Alphabetical (A → Z)</option>
+                </select>
+              </div>
+              <div class="field compact">
+                <label for="gradeFilter">Quality grade</label>
+                <select id="gradeFilter"></select>
+              </div>
             </div>
 
             <div class="row">
@@ -1819,13 +1825,15 @@
                 <select id="tribe"></select>
               </div>
             </div>
-            <div class="field">
-              <label>Genus</label>
-              <select id="genus"></select>
-            </div>
-            <div class="field">
-              <label>Species</label>
-              <select id="species"></select>
+            <div class="row">
+              <div class="field">
+                <label>Genus</label>
+                <select id="genus"></select>
+              </div>
+              <div class="field">
+                <label>Species</label>
+                <select id="species"></select>
+              </div>
             </div>
 
             <div class="rule"></div>
@@ -1845,15 +1853,9 @@
             <div class="rule"></div>
 
             <!-- Then the remaining filters, as before -->
-            <div class="row">
-              <div class="field">
-                <label>User</label>
-                <select id="userFilter"></select>
-              </div>
-              <div class="field">
-                <label>Quality grade</label>
-                <select id="gradeFilter"></select>
-              </div>
+            <div class="field">
+              <label for="userFilter">User</label>
+              <select id="userFilter"></select>
             </div>
 
             <div class="row">
@@ -1984,7 +1986,7 @@
         <div class="tab" data-tab="dates" role="tab" tabindex="0" aria-selected="false">Dates</div>
         <div class="tab" data-tab="map" role="tab" tabindex="0" aria-selected="false">Map</div>
         <div class="tabSpacer" style="flex:1"></div>
-        <span class="muted small" id="status" role="status" aria-live="polite">Load a CSV to begin.</span>
+        <span class="muted small" id="status" role="status" aria-live="polite"></span>
       </div>
       <div class="content" id="view"></div>
     </section>
@@ -3633,7 +3635,7 @@ function refreshStaticFilters(){
           : pluralRank(GUIDE_RANKS[singleChildRankIdx] ? GUIDE_RANKS[singleChildRankIdx][0] : "Taxon"));
 
       // Local UI state
-      if(typeof app.guideChildLimit !== "number") app.guideChildLimit = 48;
+      if(typeof app.guideChildLimit !== "number") app.guideChildLimit = 100;
       const shown = allKids.slice(0, app.guideChildLimit);
 
       childHTML = `
@@ -3663,7 +3665,7 @@ function refreshStaticFilters(){
             `;
           }).join("") || `<div class="muted small">No taxa available.</div>`}
         </div>
-        ${allKids.length > shown.length ? `<div style="margin-top:10px;"><button class="smallBtn" id="childMore">Load more (${Math.min(48, allKids.length - shown.length).toLocaleString()})</button> <span class="muted small">${shown.length.toLocaleString()} of ${allKids.length.toLocaleString()}</span></div>` : ``}
+        ${allKids.length > shown.length ? `<div style="margin-top:10px;"><button class="smallBtn" id="childMore">Load more (${Math.min(100, allKids.length - shown.length).toLocaleString()})</button> <span class="muted small">${shown.length.toLocaleString()} of ${allKids.length.toLocaleString()}</span></div>` : ``}
       `;
     }else{
       childHTML = `<h4>Closest matches</h4><div class="muted small">Use the Taxa tab to explore higher ranks, or clear to index for browsing.</div>`;
@@ -3685,7 +3687,7 @@ function refreshStaticFilters(){
     right.querySelectorAll(".segmented .seg").forEach(b=>{
       b.addEventListener("click", ()=>{
         app.guideChildMode = b.getAttribute("data-mode");
-        app.guideChildLimit = 48;
+        app.guideChildLimit = 100;
         render();
       });
     });
@@ -3693,7 +3695,7 @@ function refreshStaticFilters(){
     const childMore = right.querySelector("#childMore");
     if(childMore){
       childMore.addEventListener("click", ()=>{
-        app.guideChildLimit = (app.guideChildLimit||48) + 48;
+        app.guideChildLimit = (app.guideChildLimit||100) + 100;
         render();
       });
     }
@@ -3858,8 +3860,8 @@ function refreshStaticFilters(){
     if(tab === "map") renderMap(view);
     if(tab === "guide") renderGuide(view);
 
-    const msg = `${app.filteredIdx.length.toLocaleString()} / ${app.rows.length.toLocaleString()} records • ${app.dateMin||"—"} → ${app.dateMax||"—"}`;
-    setStatus(msg);
+    // (Removed the redundant "N / M records • date → date" status line — the filtered
+    // record count already shows at the top-left of the view.)
   }
 
   function renderRecords(root){
