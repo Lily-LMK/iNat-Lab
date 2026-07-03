@@ -35,7 +35,10 @@ internal `guide` id already matches — just change the visible label and elevat
 by the chosen rank (the current `renderGuide` at `iNatLab:~2953` already does this). Keep the
 **breadcrumb** and the **"one of each species"** toggle already built in Phase 1 — they fit QM's
 model. What's missing vs QM: **image tiles in the index** (currently text cards), the **image
-cascade**, and **URL state** (`pushURLState`). Rank pills should include Species (= one-of-each).
+cascade**, and **URL state** (`pushURLState`).
+**Rank pills = Order / Superfamily / Family / Genus** (no Species pill). **Decision (Lily):
+"one of each species" stays as the per-focus toggle only** — you reach a species plate by focusing
+a group and toggling, not via a top-level Species rank.
 
 ## 2. Make the **Taxa** module behave like QM's
 
@@ -54,6 +57,7 @@ Filter/Guide/GBIF buttons — align them to QM's two-action model (**Filter → 
 > "If I select a taxonomic rank (e.g. click Noctuoidea) I hop to Browse and see one of every
 > species in the record set. If I jump back to Records, I see all Noctuoidea records, full stop."
 
+**Decision (Lily): yes — clicking a rank in a Records card hops to Browse** (not just filter).
 This is QM's dual behaviour combined: a **taxon-trail click sets the filter *and* focuses Browse**.
 - QM Records cards carry a taxonomic trail of `.tax-link[data-rk][data-nm]` (1836); a delegated
   handler calls `applyTaxonFilter` (1862). QM Taxa nodes hop to Browse via `guideFocus + switchView`
@@ -127,6 +131,31 @@ LRU eviction; versioned caches; **propagates real failures — never a synthetic
   re-renders within a session. Consider a small "cached for offline" indicator.
 - **Note:** a service worker needs http(s) (works on GitHub Pages + `localhost`, not `file://`).
 
+### 7a. Eager cache-warming on import (Decision — Lily)
+
+> "Cache as much as possible on CSV or API import, so the dataset can be fully explored quickly
+> when online and even offline."
+
+On a successful CSV load or API top-up, kick off a **background warm-up pass** that pre-fetches and
+caches everything needed to explore the set offline — but do it **responsibly**, or a big import
+would fire thousands of requests and get throttled/blocked (this is the one real tension with the
+house rule "never burst hundreds of requests"):
+
+- **Dedupe to unique taxa, not records.** A 5,000-record CSV is usually a few hundred unique
+  species/genera/families. Resolve **one representative image per taxon** (via the §5 cascade) and
+  **one vernacular / Wikipedia summary per taxon** — so the work scales with *distinct taxa*, not
+  record count. Warm the ranks the UI actually shows (species + the Browse ranks).
+- **Throttle:** a bounded concurrency queue (~4–6 in flight) with backoff; run in the background
+  (`requestIdleCallback`) so the first render stays instant. Persist results through the SW image
+  (24h) and API (1h→consider longer for taxon data) caches + the in-page promise caches.
+- **Progress + honesty:** a small non-blocking "Preparing NNN taxa for offline… 62%" indicator;
+  never block interaction; if the network drops mid-warm, cache what succeeded and show honest
+  partial state. Make it **cancellable**, and skip re-warming taxa already cached.
+- **Very large sets:** if unique taxa exceed a sane cap (say a few thousand), warm the visible/most
+  common first and continue lazily on scroll rather than pre-fetching everything at once.
+- The **service worker** (above) is what makes the warmed data survive a reload / offline session;
+  the import warm-up is what *populates* it up-front. They work together.
+
 ---
 
 ## Suggested sequencing
@@ -143,11 +172,12 @@ Then resume the original roadmap where not superseded: **map by taxonomic rank (
 **species deep-dive (Phase 3)**, **spatial context layers (Phase 4)**, **public-app polish +
 shareable URL state + a11y/mobile/perf + publish (Phase 6)**.
 
-## Open questions for Lily
+## Decisions (Lily, 2026-07-03) — resolved
 
-- **Browse rank pills:** include Species (= the one-of-each plate) as a top-level pill, or keep it
-  as the per-focus toggle only?
-- **Trail click target:** should clicking a rank in a Records card hop to Browse (as in §3), or only
-  the Taxa "Guide" action? (Assumed: the card trail hops, per your Noctuoidea example.)
-- **Offline scope:** cache only what's been viewed (organic), or add an explicit "Download this set
-  for offline" action that pre-fetches all images/data for the current filter?
+1. **Browse rank pills:** Order / Superfamily / Family / Genus — **no Species pill**. "One of each
+   species" stays as the **per-focus toggle** only (§1).
+2. **Records card trail:** clicking a rank **hops to Browse** (sets filter + focuses the
+   one-of-each-species plate), so back-to-Records shows all of that taxon (§3).
+3. **Offline scope:** **eager warm-up on import** — cache as much as possible when a CSV/API set is
+   loaded, deduped to unique taxa and throttled, so the whole set is explorable online *and*
+   offline (§7a). Not merely organic/as-viewed.
