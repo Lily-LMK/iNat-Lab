@@ -95,8 +95,35 @@ CSV handy for local testing (do not commit it).
 
 ## Current chapter
 
-**Planning → handover to Fable.** Scaffolding, roadmap, and the creative brief are written
-(`docs/`). Next: Fable takes `docs/FABLE-BRIEF.md` and delivers the fresh identity + the four
-ported features in phased, verifiable slices, then we publish to GitHub Pages. The existing
-five views and the metadata/ingest engine must keep working throughout — elevate, don't
-regress.
+**Phase 1 — Nocturne design system & shell (in progress, branch `phase1-design-system`).**
+Lily chose the **Nocturne** direction (bio-luminescent dark) from three options. Delivered so
+far on the branch (not yet merged to `main`, not pushed):
+
+- **New token system** in `:root` — Nocturne surfaces (`--bg`/`--panel`/`--raised`/`--field`/
+  `--panel-glass`), ink scale, lumina accent (`--accent:#3ddc97`) + aqua (`--accent2`), accent
+  tint tokens (`--accent-soft`/`--accent-line`/`--focus`/`--glow`), and a motion vocabulary
+  (`--ease`, `--dur-fast|dur|dur-slow`). One source of truth; the app inherits it.
+- **Fonts via CDN** — Space Grotesk (display/headings), Inter (UI/data workhorse), JetBrains
+  Mono (identifiers/coords). `--font` now maps to Inter app-wide.
+- **Full dark conversion** — every light-theme literal (whites, warm-paper tones, forest-green
+  tints, `rgba(0,0,0)` borders, map chrome) remapped to tokens; form controls get light text +
+  recessed fields + accent focus rings; `color-scheme: dark` fixes native widgets; the Dates
+  heat ramp is re-tuned cool→warm-luminous; the user/map palette brightened to glow on dark.
+- **Shell + components** restyled (header, tabs, sidebar, cards, tiles, modals, legend, toasts)
+  without changing IDs/behaviour. **Motion** layer (`nlFadeUp` view reveals, hover glows) +
+  full **`prefers-reduced-motion`** guard. **Focus-visible** rings app-wide.
+- **Onboarding** first-run panel elevated (wordmark + tagline + "Load a CSV" / "Pull from
+  iNaturalist" CTAs + drag hint + 3 feature blurbs). Tabs made keyboard-operable
+  (`role=tab`, arrow keys, `aria-selected`) and the mobile status line fixed to wrap full-width.
+
+**Verified** via headless-Chrome + CDP screenshots (loads git-ignored `sample-inat.csv`;
+driver kept in the session scratchpad) across Records/Taxa/Field Guide/Dates/Map + onboarding,
+at 1440px and 390px. All five views + ingest/metadata engine intact.
+
+**Known follow-ups (not blocking Phase 1):** the Leaflet **basemap is still light OSM** — a
+dark default basemap (e.g. Carto dark) would complete the Nocturne map; Leaflet's own zoom
+controls are still light. Both belong in the Map phases (2/4).
+
+**Next:** confirm the identity with Lily, merge to `main`, then Phase 2 (map by taxonomic
+rank). The existing five views and the metadata/ingest engine must keep working throughout —
+elevate, don't regress.
