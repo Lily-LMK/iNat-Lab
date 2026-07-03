@@ -94,8 +94,8 @@ CSV handy for local testing (do not commit it).
 ## Current chapter
 
 **Everything below is live on `main` and pushed** to `origin` (`Lily-LMK/iNat-Lab`, GitHub Pages).
-Phase 1's "Gallery" identity + the mobile pass (off-canvas filters drawer ≤820px, compact header)
-remain the baseline. Several `docs/HANDOFF.md` items are now done — see that file for the per-item
+Phase 1's "Gallery" identity remains the baseline; responsive behaviour was reworked to a **single
+desktop↔phone swap at 680px** (off-canvas drawer + compact header below it; sidebar-left above). Several `docs/HANDOFF.md` items are now done — see that file for the per-item
 status and what's left. Verification throughout is via a headless-Chrome/CDP driver (native Node 24
 `WebSocket`, no deps) loading the git-ignored `sample-inat.csv`; drivers live in the session scratchpad.
 
@@ -131,15 +131,26 @@ status and what's left. Verification throughout is via a headless-Chrome/CDP dri
   (`USER_PALETTE_LIGHT`/`_DARK`): same hue deeper on paper / lighter on the dark card, every value
   **≥5:1** on its own surface; `userColor()` reads `data-theme` (toggle re-renders). Hues interleaved
   for distinctness (A teal / B terracotta / C slate-violet …); calm, no chartreuse/neon.
+- **Responsive mid-width fix** (`docs/NEXT-SESSION.md §1`). The sidebar could stack *under* the records
+  in the ~681–980px band; now a **single desktop↔phone swap at 680px** (≈45% of a MBP 14"), synced
+  across the CSS `@media` and JS `_mqMobile`. Removed `aside{order:2}`; the sidebar narrows in the
+  681–780 band so it never exceeds the content; the `auto-fill` gallery reflows the narrow column.
+- **Sidebar + Field Guide cleanups** (`aae5e9a`). "One of each species" pages **100** (was 48);
+  **Quality grade** moved to the top beside **Taxon menu order**; **Genus + Species** paired; **User**
+  full-width; removed the idle "Load a CSV to begin." text and the redundant top-right
+  "N/M records • dates" header line.
 
 **Decisions:** tab label stays **"Field Guide"** (not renamed to "Browse" — Lily's call for now).
 Tile images come from **our own iNat records only**, with an honest placeholder when a taxon has
 no photographed record.
 
-**Not yet done** (next session, from `docs/HANDOFF.md`): **§2 Taxa** aligned to QM's two-action
-model + auto-expand-to-active-path; **§7 service worker / offline + eager cache-warming on import**.
-Then the original roadmap: map-by-rank (Phase 2), species deep-dive (Phase 3), spatial context
-layers (Phase 4), publish polish + shareable URL state (Phase 5).
+**Not yet done** — **next up: the Field Guide scroll-bounce** on a real trackpad (rubber-band; the
+`overscroll-behavior:contain` mitigation did *not* fix it — the fix is the single-scroll-container
+refactor: `docs/NEXT-SESSION.md §2`). Then the queued **UI review** (`docs/NEXT-SESSION.md §4`:
+chip-bar wrap, duplicate Field Guide breadcrumb, focus-header button consistency) and the **Taxa
+tree redesign** (= HANDOFF **§2**, aligned to QM's two-action model + auto-expand), then **HANDOFF §7**
+(service worker / offline + import warm-up). Then the roadmap: map-by-rank (Phase 2), species
+deep-dive (Phase 3), spatial layers (Phase 4), publish polish + shareable URL state (Phase 5).
 
 ---
 

@@ -31,7 +31,10 @@ downstream clearing, Clear all); the **Field Guide focus rework** (analytics pan
 compact header, single-column image gallery, default "one of each species"); **responsive tile grids**
 matching the species plate; and **header cleanup** (CSV filename removed).
 
-**Suggested next:** §4 card finish (⌖ marker + Order link), then §2 Taxa, then §7 service worker.
+**Suggested next:** the Field Guide **trackpad scroll-bounce** fix (single scroll container — see
+`NEXT-SESSION.md §2`) and the **UI review cleanups** (`NEXT-SESSION.md §4`: chip-bar wrap, duplicate
+Guide crumb, button consistency), then **§2 Taxa** (tree redesign + two-action model), then **§7**
+service worker. (§4 Records card is now **DONE**; the responsive mid-width collapse is **fixed**.)
 
 ---
 

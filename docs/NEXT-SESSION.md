@@ -1,8 +1,9 @@
 # iNat Lab — Next session plan
 
-Written 2026-07-04, after the Records-card redesign + theme-aware observer palette landed
-(commit `0cecaf4` on `main`, not pushed). Two behaviour problems come **first** (they affect
-everyone using the app); the visual-polish items follow.
+Written 2026-07-04, updated through commit `aae5e9a` (all on `main` + **pushed**). **Done since:**
+§1 the mid-width layout collapse (single 680px swap) and the #2–#6 cleanups (below, ✅). **Open —
+top priority: §2 the Field Guide trackpad scroll-bounce** (the shipped mitigation did *not* fix it).
+Then the §4 UI review items + the Taxa tree redesign, then the §3 visual polish.
 
 ---
 
@@ -185,22 +186,14 @@ tree is a proper redesign. Line numbers are approximate (`iNatLab:`).
   Treat as its own slice and **fold with HANDOFF §2** (align Taxa to QM: lazy tree, auto-expand to
   the active path, two-action model, and a cleaner visual language — not pillboxes).
 
-**More cleanups (Lily review, 2026-07-04b) — all small except where noted:**
-- **"One of each species": page 100 at a time, not 48.** `app.guideChildLimit` starts at `48` and
-  the `#childMore` step is `+48` (`iNatLab:3636, 3688, 3696`). Set the initial page **and** the
-  increment to **100**.
-- **Sidebar — move Quality grade to the top.** Put the **Quality grade** control (`:1854`) up
-  **adjacent to Taxon menu order** (`:1777`) at the top of the Filters panel (it's currently down
-  with User/Date).
-- **Sidebar — Genus + Species side by side.** `#genus` (`:1824`) and `#species` (`:1828`) are
-  full-width stacked; pair them in a 2-col `.row` like Kingdom/Phylum and Class/Order.
-- **Remove the idle "Load a CSV to begin." copy** (`#status` initial text, `:1987`). Redundant — the
-  empty state already has the "Load a CSV export" button + drop instructions (`:3829–3832`). Keep the
-  element and its live "Loaded N rows" announcements; just blank the placeholder text.
-- **Remove the top-right records meta line** — `"{filtered} / {total} records • {min} → {max}"`
-  (`msg`, `:3861`). Redundant with the "{N} records" count already shown top-left of the view. Drop
-  the line and the element it writes into. (Note: it's the only place the **total** and **date span**
-  currently surface — fine to lose per Lily; revisit if a compact date-range indicator is wanted later.)
+**Cleanups (Lily review, 2026-07-04b) — ✅ DONE, shipped `aae5e9a`:**
+- ✅ "One of each species" pages **100** at a time (was 48) — initial + Load-more step.
+- ✅ **Quality grade** moved to the top, beside **Taxon menu order**; **User** is now full-width.
+- ✅ **Genus + Species** paired in a 2-col row.
+- ✅ Removed the idle "Load a CSV to begin." status text (`#status` starts empty).
+- ✅ Removed the top-right "{filtered}/{total} records • {dates}" line (`setStatus(msg)` at `:3861`).
+  *Open micro-follow-up:* the slot now shows a persistent **"Loaded N rows"** import confirmation —
+  leave it, or blank `#status` fully after load (one line). Lily's call.
 
 ---
 
