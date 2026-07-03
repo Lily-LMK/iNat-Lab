@@ -16,6 +16,19 @@ Guiding decisions (agreed with Lily, 2026-07-03):
 Work in **small, verifiable slices**; keep `main` deployable; the existing five views and the
 ingest/metadata engine keep working throughout. Elevate, don't regress.
 
+> **Status (2026-07-03):** **Phase 1 is done and merged to `main`** — but the visual direction
+> **pivoted** from the original brief. Lily rejected a first dark attempt as "elementary"; the
+> shipped identity is **"Gallery"**: a **light-default, editorial, photographer-portfolio**
+> aesthetic (gallery-monochrome, one typeface — Inter, no emoji) with a **dark toggle**. Also
+> shipped: **breadcrumbs** + a **"one of each species"** browse. See `../CLAUDE.md` "Current
+> chapter".
+>
+> **The next phase is re-specified in [`HANDOFF.md`](HANDOFF.md)** — Lily's newer requirements
+> (Field Guide → **Browse** ported from QM; **Taxa** aligned to QM; **Records⇄Browse** hop;
+> **Records card** redesign with a coloured **⌖** observer marker; **search-bar** redesign;
+> **service-worker caching/offline**). `HANDOFF.md` supersedes Phases 2–5 below where they
+> overlap and cites the exact QM Explorer functions to port.
+
 ---
 
 ## Phase 0 — Foundation & safety net (do first)

@@ -95,7 +95,25 @@ CSV handy for local testing (do not commit it).
 
 ## Current chapter
 
-**Phase 1 — "Gallery" editorial identity (in progress, branch `phase1-design-system`).**
+**Phase 1 DONE + merged to `main` (not pushed). Handing off to the next phase → see
+[`docs/HANDOFF.md`](docs/HANDOFF.md).** Phase 1's "Gallery" identity, breadcrumbs, and
+one-of-each-species browse are live on `main` (branch `phase1-design-system` fast-forward-merged).
+Lily then specified the **next required changes**, studied against QM Explorer and written up in
+`docs/HANDOFF.md`: (1) Field Guide → **Browse** ported from QM (`renderGuide` 2532, image tiles +
+lazy cascade, drill = `setFilterSilent`+`guideFocus`); (2) **Taxa** aligned to QM's two-action
+nodes (Filter→Records / Guide→Browse, 2099); (3) **Records⇄Browse hop** — a taxon-trail click sets
+the filter *and* focuses Browse on the one-of-each-species plate, so returning to Records shows all
+of that taxon; (4) **Records card** redesign — order Image · Sci name · Common · Date · Place ·
+Trail, with a coloured **⌖ (U+2316)** observer marker via `userColor()` (no name); (5) **image
+cascade** iNat→Wikipedia→placeholder (roadmap Phase 5, feeds the above); (6) **search bar** redesign
+(QM `.hdr-search` pattern, Gallery-themed); (7) **service-worker caching/offline** (port QM `sw.js`
+to iNat/GBIF/Wikipedia/tiles). Suggested order + open questions are in `docs/HANDOFF.md`.
+
+---
+
+### Phase 1 detail (archived)
+
+**Phase 1 — "Gallery" editorial identity.**
 Lily reviewed a first attempt (a dark "Nocturne" look) and **pivoted**: it read elementary and
 leaned on emoji. New agreed direction — a **light-default, editorial, photographer-portfolio
 aesthetic**: gallery-monochrome (near-colourless UI so the photographs are the colour),
