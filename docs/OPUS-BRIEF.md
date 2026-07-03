@@ -1,6 +1,6 @@
-# iNat Lab — Creative & Feature Brief for Fable
+# iNat Lab — Creative & Feature Brief for Opus
 
-Fable, this is the handover. You're designing and building a **fresh, awwwards-calibre visual
+Opus, this is the handover. You're designing and building a **fresh, awwwards-calibre visual
 identity** for iNat Lab and folding in **four capabilities** from its sibling project, QM
 Explorer. Read `../CLAUDE.md` and `ROADMAP.md` first; this file is the creative and functional
 spec. Lily leads the vision; you lead the craft. Bring initiative — this brief sets intent and

@@ -4,7 +4,7 @@ Project-level guidance, auto-loaded each session. This is the **specific truth f
 folder**; the workspace file at `~/Documents/Claude/CLAUDE.md` holds the broader working
 philosophy (Explore → Plan → Code → Commit, biodiversity context, Lily's profile). Read
 both. For the phased plan see `docs/ROADMAP.md`; the creative + feature spec that hands the
-redesign to **Fable** is `docs/FABLE-BRIEF.md`; `docs/KICKOFF.md` is a ready-to-paste
+redesign to **Opus** is `docs/OPUS-BRIEF.md`; `docs/KICKOFF.md` is a ready-to-paste
 session starter.
 
 ## What this is
@@ -38,7 +38,7 @@ Five views today: **Records, Taxa, Field Guide, Dates, Map**, plus a metadata ex
   basemaps; GBIF density tiles + clickable points. Points are coloured **by user** (not yet
   by taxonomy — that's a redesign target).
 
-## Where this is going (see `docs/ROADMAP.md` + `docs/FABLE-BRIEF.md`)
+## Where this is going (see `docs/ROADMAP.md` + `docs/OPUS-BRIEF.md`)
 
 Three intertwined goals, agreed with Lily:
 
@@ -49,7 +49,7 @@ Three intertwined goals, agreed with Lily:
    cascade with provenance** (one representative image per taxon: iNat → Wikipedia →
    honest placeholder, with attribution).
 2. **A fresh, awwwards-calibre visual identity** — a distinctive new look (its own palette,
-   type, motion), designed by **Fable**. Not a reskin of the current warm-paper/green theme.
+   type, motion), designed by **Opus**. Not a reskin of the current warm-paper/green theme.
 3. **Publish to GitHub Pages, flawless on mobile** — public-shareable, so: no personal
    defaults, shareable URL state, real onboarding / empty / loading / error states.
 
@@ -95,35 +95,44 @@ CSV handy for local testing (do not commit it).
 
 ## Current chapter
 
-**Phase 1 — Nocturne design system & shell (in progress, branch `phase1-design-system`).**
-Lily chose the **Nocturne** direction (bio-luminescent dark) from three options. Delivered so
-far on the branch (not yet merged to `main`, not pushed):
+**Phase 1 — "Gallery" editorial identity (in progress, branch `phase1-design-system`).**
+Lily reviewed a first attempt (a dark "Nocturne" look) and **pivoted**: it read elementary and
+leaned on emoji. New agreed direction — a **light-default, editorial, photographer-portfolio
+aesthetic**: gallery-monochrome (near-colourless UI so the photographs are the colour),
+**one typeface (Inter)** in a Swiss/gallery register, readability paramount, Resilient-Web-Design
+discipline (semantic HTML, progressive enhancement), **no emoji as decoration**. A **dark theme
+is opt-in via a header toggle; light is the default and remembered.** (An intermediate Nocturne
+commit remains in branch history.)
 
-- **New token system** in `:root` — Nocturne surfaces (`--bg`/`--panel`/`--raised`/`--field`/
-  `--panel-glass`), ink scale, lumina accent (`--accent:#3ddc97`) + aqua (`--accent2`), accent
-  tint tokens (`--accent-soft`/`--accent-line`/`--focus`/`--glow`), and a motion vocabulary
-  (`--ease`, `--dur-fast|dur|dur-slow`). One source of truth; the app inherits it.
-- **Fonts via CDN** — Space Grotesk (display/headings), Inter (UI/data workhorse), JetBrains
-  Mono (identifiers/coords). `--font` now maps to Inter app-wide.
-- **Full dark conversion** — every light-theme literal (whites, warm-paper tones, forest-green
-  tints, `rgba(0,0,0)` borders, map chrome) remapped to tokens; form controls get light text +
-  recessed fields + accent focus rings; `color-scheme: dark` fixes native widgets; the Dates
-  heat ramp is re-tuned cool→warm-luminous; the user/map palette brightened to glow on dark.
-- **Shell + components** restyled (header, tabs, sidebar, cards, tiles, modals, legend, toasts)
-  without changing IDs/behaviour. **Motion** layer (`nlFadeUp` view reveals, hover glows) +
-  full **`prefers-reduced-motion`** guard. **Focus-visible** rings app-wide.
-- **Onboarding** first-run panel elevated (wordmark + tagline + "Load a CSV" / "Pull from
-  iNaturalist" CTAs + drag hint + 3 feature blurbs). Tabs made keyboard-operable
-  (`role=tab`, arrow keys, `aria-selected`) and the mobile status line fixed to wrap full-width.
+Delivered on the branch (not merged to `main`, not pushed):
 
-**Verified** via headless-Chrome + CDP screenshots (loads git-ignored `sample-inat.csv`;
-driver kept in the session scratchpad) across Records/Taxa/Field Guide/Dates/Map + onboarding,
-at 1440px and 390px. All five views + ingest/metadata engine intact.
+- **Gallery token system** in `:root` (+ `[data-theme="dark"]` warm-charcoal variant). Paper
+  `--bg:#FBFAF7`, ink `--ink:#1A1A17`, hairlines, `--accent` = **ink** (no bright colour;
+  emphasis via ink fills / underlines / weight). Same token *names* as before, so components
+  cascade. `--card-radius:4px`, whisper `--shadow` (hairlines do the work).
+- **Inter only** via CDN (variable, incl. italic for scientific names). Space Grotesk / JetBrains
+  Mono dropped.
+- **Theme toggle** (`#themeToggle`): anti-FOUC init script in `<head>` reads
+  `localStorage['inatlab-theme']`; button flips `data-theme` on `<html>`, persists, re-renders
+  canvas-ish views (Dates heat is theme-aware). Light default always.
+- **Editorial shell**: ink-on-paper masthead (no green header), **underline text-nav** tabs,
+  hairline cards, quiet hover (no glow). **Emoji removed** — brand leaf gone; "no image"
+  placeholder + sidebar toggle now use **minimal inline line-SVGs**; onboarding rebuilt as a
+  centred wordmark + hairline rule + two CTAs (ink-filled primary) + a 3-column hairline feature
+  grid. Monochrome ink heat-ramp for Dates.
+- Kept from before: keyboard-operable tabs (`role=tab`, arrows, `aria-selected`),
+  `:focus-visible` rings, `prefers-reduced-motion` guard, mobile status-line wrap.
 
-**Known follow-ups (not blocking Phase 1):** the Leaflet **basemap is still light OSM** — a
-dark default basemap (e.g. Carto dark) would complete the Nocturne map; Leaflet's own zoom
-controls are still light. Both belong in the Map phases (2/4).
+**Renamed** all **Fable → Opus** across the docs (`docs/FABLE-BRIEF.md` → `docs/OPUS-BRIEF.md`);
+none remain in project files. (Note: the git commit co-author trailer is a fixed harness line
+that still reads "Claude Fable 5" — cannot be renamed; flagged to Lily.)
 
-**Next:** confirm the identity with Lily, merge to `main`, then Phase 2 (map by taxonomic
-rank). The existing five views and the metadata/ingest engine must keep working throughout —
-elevate, don't regress.
+**Verified** via headless-Chrome/CDP screenshots (git-ignored `sample-inat.csv`; driver in the
+session scratchpad) across Records/Taxa/Field Guide/Dates/Map + onboarding, **light and dark**,
+at 1440px and 390px. Five views + ingest/metadata engine intact.
+
+**Still owed from Lily's pivot request (next slices):** (1) **breadcrumbs** on the taxonomic
+drill-down; (2) a **"one of each species" browse** — pick any rank (e.g. family *Geometridae*)
+and see one representative tile per species, image via the iNat → Wikipedia → placeholder
+cascade. Then merge to `main` and continue to Phase 2 (map by rank). Map basemap is light OSM
+(now harmonises with the light UI); Leaflet zoom controls still default — revisit in Map phases.

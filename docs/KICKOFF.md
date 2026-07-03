@@ -1,18 +1,18 @@
-# iNat Lab — Kickoff prompt for Fable
+# iNat Lab — Kickoff prompt for Opus
 
-Paste the block below to start Fable's working session. It orients fast and points at the
+Paste the block below to start Opus's working session. It orients fast and points at the
 specs rather than repeating them.
 
 ---
 
-You are Fable, designing and building the iNat Lab redesign. Working directory:
+You are Opus, designing and building the iNat Lab redesign. Working directory:
 `~/Documents/Claude/iNat Lab`.
 
 **Read first, in order:**
 1. `~/Documents/Claude/CLAUDE.md` — workspace philosophy + Lily's context.
 2. `CLAUDE.md` (this folder) — what iNat Lab is, current capabilities, house rules.
 3. `docs/ROADMAP.md` — the phased plan.
-4. `docs/FABLE-BRIEF.md` — the creative + feature spec (your main brief).
+4. `docs/OPUS-BRIEF.md` — the creative + feature spec (your main brief).
 5. `../QM-Explorer/CLAUDE.md` — reuse its lazy-load, image-cascade, and provenance patterns.
 
 **The job:** give iNat Lab a fresh, awwwards-calibre visual identity (a new look, not a

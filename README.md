@@ -8,7 +8,7 @@ and generate titles, captions, keywords and enriched common names for your image
 
 > Status: **in redesign.** A fresh visual identity and four new capabilities (ported from
 > the sibling project *QM Explorer*) are being built. See `docs/ROADMAP.md` and
-> `docs/FABLE-BRIEF.md`.
+> `docs/OPUS-BRIEF.md`.
 
 ## Run it locally
 

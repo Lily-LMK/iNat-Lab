@@ -3,7 +3,7 @@
 This is the phased plan for taking iNat Lab from a capable-but-plain single-file tool to an
 awwwards-calibre, publicly shareable iNaturalist explorer with four new capabilities ported
 from QM Explorer. The creative and functional detail for the redesign lives in
-`FABLE-BRIEF.md`; this file is the sequencing.
+`OPUS-BRIEF.md`; this file is the sequencing.
 
 Guiding decisions (agreed with Lily, 2026-07-03):
 
@@ -29,14 +29,14 @@ Goal: make the redesign safe to attempt on a 7,800-line single file.
 - [ ] Add a tiny **non-personal sample CSV** for local testing (kept local, git-ignored) and
       note how to load it, so any session can verify without Lily's data.
 - [ ] Quick **audit pass**: confirm no hardcoded personal defaults (verified: username field
-      is placeholder-only); list the JS entry points Fable will touch (`renderMap`,
+      is placeholder-only); list the JS entry points Opus will touch (`renderMap`,
       `renderGallery`/Records, Taxa tree, Field Guide, the export modal, state object).
 - [ ] Add a lightweight **self-test hook** (mirror QM Explorer's `?selftest`) if practical:
       load sample data and assert counts/render, so regressions surface fast.
 
 Exit: baseline is live on Pages, reproducible locally with sample data, nothing personal shipped.
 
-## Phase 1 — Design system & shell (Fable leads)
+## Phase 1 — Design system & shell (Opus leads)
 
 Goal: establish the fresh identity as reusable tokens + the app shell, before touching features.
 
