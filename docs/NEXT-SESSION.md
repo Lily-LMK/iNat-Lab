@@ -1,9 +1,8 @@
 # iNat Lab — Next session plan
 
-Written 2026-07-04, updated end of session (all shipped items on `main` + **pushed**).
+Written 2026-07-04, updated 2026-07-05 (seven taxonomy improvements shipped).
 
-**This session completed:** service worker + offline cache warm-up (§7), and full GBIF removal.
-Both merged to `main` and live on GitHub Pages.
+**This session completed:** full 10-rank taxonomy backbone refactor + all 7 navigation improvements from `~/.claude/plans/i-want-to-do-dreamy-pinwheel.md`. Merged to `main`.
 
 ---
 
@@ -17,11 +16,41 @@ Both merged to `main` and live on GitHub Pages.
 | Taxa tree redesign (§2) | ✅ DONE |
 | Service worker / offline (§7) | ✅ DONE |
 | GBIF removal | ✅ DONE — zero references remain |
-| Visual polish (§3) | Open |
+| **Seven taxonomy/nav improvements** | ✅ DONE — merged to `main` 2026-07-05 |
+| Visual polish (§3) | Open — next priority |
 | Phase 2: Map by taxonomic rank | Open |
 | Phase 3: Species deep-dive panel | Open |
 | Phase 4: Spatial context layers | Open |
 | Phase 5: Publish polish + shareable URL state | Open |
+
+---
+
+## 0. ✅ Seven taxonomy/navigation improvements — DONE 2026-07-05
+
+All seven items from `~/.claude/plans/i-want-to-do-dreamy-pinwheel.md` shipped in one branch (`seven-taxonomy-improvements`), merged to `main`. **Not yet pushed** — push when Lily asks.
+
+**Backbone (prerequisite for items 6+7):**
+- `lineageArrayFromRow()` now returns 10 elements (`[king,phyl,cls,ord,superfam,fam,subfam,tribe,genus,sp]`)
+- `GUIDE_RANKS = RANKS` — unified full 10-rank ladder, no more Order-based 7-slot space
+- `currentFocus()` extended to all 10 ranks with correct full-ladder indices
+- `applyLineageKey()` resets and sets all 10 selectors via `RANKS.forEach`
+- Stale local `applyLineage()` copy inside `renderTaxa` deleted
+
+**Item 1 — Taxa tree label order:** Name → Rank → N records (was Name → Count → Rank)
+
+**Item 2 — No more placeholder nodes:** Tree uses 10-slot positional keys; nodes carry `fullIdx`; empty intermediate ranks are skipped (no `(no subfamily)` nodes); clicking a taxon filters to exactly that rank.
+
+**Item 3 — Record card trail click stays on Records** (was hopping to Field Guide for non-species ranks)
+
+**Item 4 — Header breadcrumb wraps:** `.fcrumbs` CSS now has `flex-wrap:wrap; row-gap:4px; min-width:0`
+
+**Item 5 — Button relabelled** "Load new…" (was "Open file…")
+
+**Item 6 — Field Guide full drill-down:** "Browse by" pills now include Kingdom, Phylum, Class; children walk and species/italic thresholds updated for full ladder
+
+**Item 7 — `backfillAncestors()` helper:** New function called from both `applyLineageKey` and all sidebar dropdown handlers. Fills the complete ancestor chain upward (kingdom → family when you pick a genus). Sidebar dropdowns and header breadcrumb now always reflect the full chain.
+
+**Verified:** Zero JS errors via CDP/Node 24 with `sample-inat.csv`. All 5 views (Records/Taxa/Field Guide/Dates/Map) render; guide drill-down produces correct 7-level chip breadcrumb; no `(no X)` nodes in tree.
 
 ---
 
