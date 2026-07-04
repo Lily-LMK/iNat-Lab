@@ -161,13 +161,9 @@
     .chip-bar{
       flex: 1 1 240px; min-width: 0;
       display:flex; align-items:center; gap:6px;
-      overflow-x:auto; overflow-y:hidden;
+      flex-wrap: wrap;
       padding: 2px 0; margin: 0;
-      scrollbar-width: thin;
-      -webkit-overflow-scrolling: touch;
     }
-    .chip-bar::-webkit-scrollbar{ height:5px; }
-    .chip-bar::-webkit-scrollbar-thumb{ background: var(--hair-strong); border-radius:99px; }
     /* Taxonomy renders as a breadcrumb of values joined by "›"; no pills,
        no rank labels. Each value is a click-to-remove control. */
     .chip-bar .fcrumbs{ display:inline-flex; align-items:center; gap:7px; flex:0 0 auto; }
@@ -828,18 +824,6 @@
     a{ color: var(--ink); text-decoration: underline; text-decoration-color: var(--hair-strong); text-underline-offset: 2px; transition: text-decoration-color var(--dur-fast); }
     a:hover{ text-decoration-color: var(--ink); }
 
-    .treeFilterBtn{
-      font-family: var(--font);
-      font-size: 11px;
-      padding: 6px 8px;
-      border-radius: 6px;
-      border:1px solid var(--hair);
-      background: var(--accent-soft);
-      color: var(--accent);
-      cursor:pointer;
-      margin-left: auto;
-    }
-    .treeFilterBtn:hover{ filter: brightness(1.15); }
     summary::-webkit-details-marker{ display:none; }
 
     .mapTop{
@@ -1183,32 +1167,8 @@
     @media (max-width: 620px){
       .fgHeadMain{ align-items: flex-start; }
       .guideActions{ width: 100%; }
-      .guideActions .primary, .guideActions .smallBtn{ min-height: 44px; }
+      .guideActions .smallBtn{ min-height: 44px; }
     }
-
-    /* Breadcrumb trail (taxonomic path) — semantic <nav><ol>. */
-    .crumbs{ margin: 0 0 8px; }
-    .crumbs ol{
-      list-style: none; margin: 0; padding: 0;
-      display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0;
-      font-size: 12px; line-height: 1.4;
-    }
-    .crumbs li{ display: inline-flex; align-items: center; }
-    .crumbs li + li::before{
-      content: "";
-      width: 5px; height: 5px; margin: 0 9px;
-      border-right: 1.5px solid var(--muted2);
-      border-bottom: 1.5px solid var(--muted2);
-      transform: rotate(-45deg);
-      flex: none;
-    }
-    .crumbs a{
-      color: var(--muted); text-decoration: none;
-      padding: 2px 0; transition: color var(--dur-fast);
-    }
-    .crumbs a:hover{ color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
-    .crumbs [aria-current="page"]{ color: var(--ink); font-weight: 600; }
-    .crumbs em{ font-style: italic; }
 
     /* Segmented control (e.g. Immediate children / One of each species) */
     .fgModeRow{ margin: 0 0 12px; }
@@ -3436,55 +3396,11 @@ function refreshStaticFilters(){
     // Representative row (filtered to the focus, so any row carries the lineage).
     const rep = app.filteredIdx.length ? app.rows[app.filteredIdx[0]] : null;
 
-    // Breadcrumb trail from the canonical lineage order (matches applyLineageKey
-    // / lineageArrayFromRow), up to and including the focus rank.
-    const crumbItems = [];
-    if(rep){
-      const linRep = lineageArrayFromRow(rep);
-      for(let ri = 0; ri <= focus.rankIdx; ri++){
-        const nm = safe(linRep[ri]).trim();
-        if(!nm) continue;
-        crumbItems.push({ name: nm, italic: ri >= 5, pk: pathKeyFromRowAtRank(rep, ri) });
-      }
-    }
-    const crumbHtml = crumbItems.map((c, idx)=>{
-      const nm = c.italic ? `<em>${escapeHtml(c.name)}</em>` : escapeHtml(c.name);
-      return (idx === crumbItems.length - 1)
-        ? `<li aria-current="page">${nm}</li>`
-        : `<li><a href="#" class="fgCrumbLink" data-path="${escapeAttr(c.pk)}">${nm}</a></li>`;
-    }).join("");
-
     const title = (focus.rankIdx===6 && rep) ? formatName(rep) : focus.value;
     const titleHtml = (focus.rankIdx >= 5) ? `<em>${escapeHtml(title)}</em>` : escapeHtml(title);
 
-    header.innerHTML = `
-      <nav class="crumbs" aria-label="Taxonomic path">
-        <ol>
-          <li><a href="#" class="fgCrumbRoot">Guide</a></li>
-          ${crumbHtml}
-        </ol>
-      </nav>
-      <h2 class="guideTitle">${titleHtml}</h2>
-    `;
+    header.innerHTML = `<h2 class="guideTitle">${titleHtml}</h2>`;
     wrap.appendChild(header);
-
-    header.querySelectorAll(".fgCrumbLink").forEach(a=>{
-      a.addEventListener("click", (e)=>{
-        e.preventDefault();
-        const pk = a.getAttribute("data-path") || "";
-        applyLineageKey(pk, "guide");
-      });
-    });
-    const crumbRoot = header.querySelector(".fgCrumbRoot");
-    if(crumbRoot){
-      crumbRoot.addEventListener("click", (e)=>{
-        e.preventDefault();
-        ["ord","superfam","fam","subfam","tribe","genus","species"].forEach(id=>{ const el=$("#"+id); if(el) el.value="All"; });
-        app.guideScopeOrder = "";
-        recompute();
-        setTab("guide");
-      });
-    }
 
     // Compact header: the navigation controls sit at the top of the panel,
     // beside the title. The former analytics panel (occurrence stats,
@@ -3499,7 +3415,7 @@ function refreshStaticFilters(){
     headMain.appendChild(titleEl);
     headMain.insertAdjacentHTML("beforeend", `
       <div class="guideActions">
-        <button class="primary" id="guideToRecords">Records view</button>
+        <button class="smallBtn" id="guideToRecords">Records view</button>
         <button class="smallBtn" id="guideBackIndex">↩ ${escapeHtml(focus.rankIdx > 0 ? GUIDE_RANKS[focus.rankIdx][0] : "Guide")} index</button>
         <a id="guideInatLink" href="#" target="_blank" rel="noopener" class="smallBtn" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
           View on iNaturalist
@@ -3633,7 +3549,7 @@ function refreshStaticFilters(){
             <button type="button" class="seg ${childMode==='species'?'active':''}" data-mode="species">One of each species</button>
           </div>
         </div>
-        <h4>${escapeHtml(sectionLabel)} <span class="muted" style="font-weight:400;">${allKids.length.toLocaleString()}</span></h4>
+        <h4>${childMode !== 'species' ? escapeHtml(sectionLabel) + ' ' : ''}<span class="muted" style="font-weight:400;">${allKids.length.toLocaleString()}</span></h4>
         <div class="childTiles" id="childTiles">
           ${shown.map(g=>{
             const r = app.rows[g.repIdx];
@@ -4119,10 +4035,9 @@ function refreshStaticFilters(){
       const isGenusOrSpecies = lineage.length >= 6; // 6=Genus, 7=Species
       const nameHtml = isGenusOrSpecies ? `<em>${escapeHtml(node.name)}</em>` : escapeHtml(node.name);
       return `
-        <span style="font-weight:600;">${nameHtml}</span>
+        <button class="treeNameBtn" data-path="${escapeAttr(pathKey)}" title="Filter Records to ${escapeAttr(node.name)}" style="font-weight:600;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;font-size:inherit;color:inherit;text-align:left;">${nameHtml}</button>
         <span class="muted" style="margin-left:8px;">${node.count.toLocaleString()}</span>
         <span class="muted" style="margin-left:8px;">${label}</span>
-        <button class="treeFilterBtn" data-path="${escapeAttr(pathKey)}" title="Filter Records to this node">Filter</button>
         <button class="treeGuideBtn" data-path="${escapeAttr(pathKey)}" title="Open Field Guide for this node">Guide</button>
         <button class="treeGbifBtn" data-path="${escapeAttr(pathKey)}" data-depth="${lineage.length}" title="Explore this taxon on GBIF">GBIF</button>
 `;
@@ -4382,10 +4297,10 @@ function refreshStaticFilters(){
         summary.style.flexWrap = "wrap";
 
         summary.addEventListener("click", (e)=>{
-          const fbtn = e.target && e.target.closest && e.target.closest(".treeFilterBtn");
+          const nbtn = e.target && e.target.closest && e.target.closest(".treeNameBtn");
           const gbtn = e.target && e.target.closest && e.target.closest(".treeGuideBtn");
           const gbifbtn = e.target && e.target.closest && e.target.closest(".treeGbifBtn");
-          const btn = gbifbtn || gbtn || fbtn;
+          const btn = nbtn || gbtn || gbifbtn;
           if(btn){
             e.preventDefault();
             e.stopPropagation();
@@ -4427,24 +4342,22 @@ details.appendChild(summary);
 
               const label = R[nextLineage.length-1].label;
               const pathKey = nextLineage.join("\u001f");
+              const isItalicLeaf = nextLineage.length >= 6;
+              const leafNameHtml = isItalicLeaf ? `<em>${escapeHtml(ch.name)}</em>` : escapeHtml(ch.name);
               leaf.innerHTML = `
-                <span style="font-weight:900;">${escapeHtml(ch.name)}</span>
+                <button class="treeNameBtn" data-path="${escapeAttr(pathKey)}" title="Filter Records to ${escapeAttr(ch.name)}" style="font-weight:900;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;font-size:inherit;color:inherit;text-align:left;">${leafNameHtml}</button>
                 <span class="muted" style="margin-left:6px;">${ch.count.toLocaleString()}</span>
                 <span class="muted" style="margin-left:6px;">${label}</span>
-                <button class="treeFilterBtn" data-path="${escapeAttr(pathKey)}" title="Filter Records to this node">Filter</button>
                 <button class="treeGuideBtn" data-path="${escapeAttr(pathKey)}" title="Open Field Guide for this node">Guide</button>
 `;
               leaf.addEventListener("click", (e)=>{
-                const fbtn = e.target && e.target.closest && e.target.closest(".treeFilterBtn");
+                const nbtn = e.target && e.target.closest && e.target.closest(".treeNameBtn");
                 const gbtn = e.target && e.target.closest && e.target.closest(".treeGuideBtn");
-                const btn = gbtn || fbtn;
-                if(!btn) return;
                 e.preventDefault(); e.stopPropagation();
-                const path = btn.getAttribute("data-path") || "";
                 if(gbtn) {
-                  applyLineageKey(path, "guide");
-                } else {
-                  applyLineageKey(path, "records");
+                  applyLineageKey(gbtn.getAttribute("data-path") || "", "guide");
+                } else if(nbtn) {
+                  applyLineageKey(nbtn.getAttribute("data-path") || "", "records");
                 }
               });
               indent.appendChild(leaf);
@@ -4499,11 +4412,6 @@ details.appendChild(summary);
     depthSel.addEventListener("change", rerender);
     rerender();
 
-    const note=document.createElement("div");
-    note.className="hint";
-    note.style.marginTop="12px";
-    note.innerHTML = `This tree is built from the <em>currently filtered</em> records. Use it as an unfolding lens: narrow by date/user first, then expand taxonomy to see what appears.`;
-    root.appendChild(note);
 
     // GBIF Explorer panel (populated dynamically by exploreGbif)
     const gbifPaneEl = document.createElement("div");
