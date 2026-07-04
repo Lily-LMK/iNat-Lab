@@ -16,7 +16,8 @@ her **imaging / metadata workflow** (record titles, keywords, taxonomy sync) ove
 **live on GitHub Pages** (`Lily-LMK/iNat-Lab`).
 
 - `index.html` — the entire app (~7,000 lines: HTML + CSS + JS inline). No framework, no
-  build step. CDN deps: **Inter** (Google Fonts), **Leaflet 1.9.4**, **esri-leaflet 3.0.12**.
+  build step. CDN deps: **Inter** (UI) + **Literata** (masthead wordmark only) via Google Fonts,
+  **Leaflet 1.9.4**, **esri-leaflet 3.0.12**.
 - `sw.js` — a service worker that caches the **app shell** so the page loads offline once
   visited. Data is never cached — only the shell.
 - Data is **never bundled** — it arrives at runtime. `.gitignore` blocks `*.csv` / `*.numbers`
@@ -46,9 +47,12 @@ generic CSV export modal.
 
 ## Roadmap / where this is going (see `docs/ROADMAP.md`)
 
-**Phase 1 — the "Gallery" editorial identity** (light default, single typeface Inter,
-hairline/monochrome UI so photographs are the colour, opt-in dark theme) is **shipped and is
-the baseline.** Remaining phases:
+**Phase 1 — the "Gallery" editorial identity** (light default, hairline/monochrome UI so
+photographs are the colour, opt-in dark theme) is **shipped and is the baseline.** Since Phase 1
+the identity evolved: the neutral ramp moved off warm cream to a **cool near-neutral "gallery"
+palette** (light + dark), and the masthead wordmark uses a **serif (Literata)** against the
+Inter UI — the one reserved exception to the single-typeface system (everything else stays
+Inter). Remaining phases:
 
 1. **Phase 2 — Map by taxonomic rank.** *Core is built* (colour + legend by rank). Remaining,
    agreed with Lily: (a) a **curated colour-blind-safe palette with per-category custom colours**,
@@ -104,24 +108,32 @@ CSV handy (`sample-inat.csv`, git-ignored) for local testing — do not commit i
 
 ## Current chapter
 
-**Most recent work — sidebar reorg + compare redesign + three requested UI fixes**
-(`~/.claude/plans/wild-churning-globe.md`). On branch **`sidebar-reorg-ui-polish`**, committed
-but **not yet merged to `main` or pushed** (awaiting Lily's go-ahead):
+**Most recent work — sidebar reorg → cool-neutral redesign → serif wordmark**
+(`~/.claude/plans/wild-churning-globe.md`). Branch **`sidebar-reorg-ui-polish`**, **merged to
+`main` and pushed** (live on GitHub Pages). Three passes:
 
-- **Sidebar reconsidered.** New order **Snapshot · Filters · Date · Compare users · Add
-  records** — Snapshot promoted to the top; Compare users demoted to its own **collapsed-by-
-  default** panel. That panel was **redesigned**: teal/terracotta A/B colour swatches
-  (`--user-a`/`--user-b`) sit beside the Compare A / Compare B labels, plus a quiet **"Clear
-  comparison"** link (`#cmpClear` + `syncCmpClear()`) shown only when both are set.
-- **Removed the chip-bar "Clear all"** and its now-orphaned `clearAllFilters()` + `.chip-clear`
-  CSS (x-ing a parent taxon chip already cascades to clear downstream ranks). *(Supersedes
-  Part 2's note below — that function no longer exists.)*
-- **Uniform Field Guide focus-header buttons.** `.smallBtn` now sets `color:var(--ink)`,
-  `text-decoration:none`, `box-sizing:border-box`, fixed `line-height` — the "View on
-  iNaturalist" anchor no longer inherits link-blue and matches the buttons' height. The `↩` on
-  the "{Rank} index" button became a clean inline SVG chevron.
-- **Breadcrumb clicks now filter Records** (not a Field Guide hop) in both the record-detail
-  modal and the map popup — matches the record-card trail.
+1. **Reorg + three requested UI fixes.** Sidebar reordered; Compare users pulled into its own
+   panel with teal/terracotta A/B colour swatches (`--user-a`/`--user-b`) beside the Compare A /
+   Compare B labels + a quiet **"Clear comparison"** link (`#cmpClear` / `syncCmpClear()`, shown
+   only when both are set). Removed the chip-bar **"Clear all"** and its orphaned
+   `clearAllFilters()` + `.chip-clear` CSS (x-ing a parent taxon chip already cascades). Made the
+   Field Guide focus-header buttons uniform (`.smallBtn` → `color:var(--ink)`,
+   `text-decoration:none`, `box-sizing:border-box`, fixed `line-height`; emoji `↩` → inline SVG
+   chevron). **Breadcrumb clicks now filter Records** (record modal **and** map popup), matching
+   the record-card trail.
+2. **Cool-neutral "gallery" redesign.** Shifted the shared neutral ramp off warm cream to a cool
+   near-neutral palette (light + dark) so the photographs are the only colour. **Snapshot**
+   became a **persistent, typographic header** (no accordion, no boxes; lighter `--ink-2`
+   figures) — final section order **Snapshot · Filters · Dates · Compare users · Add records**.
+   The A/B/Shared bar moved out of Snapshot into the Compare-users panel as a clean stacked
+   **species lens** (`#cmpLens` / `renderCompareLens()`: hairline rows, colour dot + tabular
+   count, active ink marker), replacing the old pill-in-pill `cmpBar`. Tightened the collapsed-
+   section rhythm, refined the collapse carets, renamed the "Date" section to **"Dates"**.
+3. **Serif wordmark.** The masthead lockup (`header .brand .title`) and onboarding `.mark` use a
+   dedicated **`--wordmark`** serif — **Literata**, with `font-optical-sizing:auto` for legibility
+   when scaled down on phones (Fraunces was tried first, but its display cut went fragile small).
+   The one reserved exception to the single-typeface rule; the UI stays Inter. `sw.js` precaches
+   the Literata URL (`CACHE_STATIC` bumped to `v2`).
 
 **Earlier — the sidebar/header cleanup plan**
 (`~/.claude/plans/we-are-going-to-declarative-hearth.md`), Parts 1–4, all shipped:

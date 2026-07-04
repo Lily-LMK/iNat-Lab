@@ -2,7 +2,7 @@
    Caches static CDN assets and API responses for faster repeat access.
 
    Strategy:
-   - Static CDN (Leaflet, esri-leaflet, Inter font): cache-first, indefinite (versioned URLs)
+   - Static CDN (Leaflet, esri-leaflet, Inter + Literata fonts): cache-first, indefinite (versioned URLs)
    - API data (iNat, Wikipedia): stale-while-revalidate, 1 hour
    - Images & map tiles: cache-first, 24 hours, LRU eviction
    - Everything else: network-only (no caching)
@@ -15,7 +15,7 @@
    status, because fetch() resolves for those — only rejections propagate.
 */
 
-const CACHE_STATIC = 'inatlab-static-v1';
+const CACHE_STATIC = 'inatlab-static-v2';
 const CACHE_API    = 'inatlab-api-v1';
 const CACHE_IMG    = 'inatlab-img-v2';
 
@@ -30,6 +30,7 @@ const PRECACHE = [
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/esri-leaflet@3.0.12/dist/esri-leaflet.js',
   'https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400;1,14..32,500&display=swap',
+  'https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400..600&display=swap',
 ];
 
 /* ── URL pattern matching ── */

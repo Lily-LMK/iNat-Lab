@@ -39,17 +39,25 @@ high-DPI point-map export, no basemap tiles). See `ROADMAP.md` Phase 2.
 
 ## Recently shipped (newest first)
 
-- **Sidebar reorg + compare redesign + three requested UI fixes** (branch
-  `sidebar-reorg-ui-polish`, plan `wild-churning-globe.md`; committed, not yet merged/pushed):
-  reordered the sidebar to **Snapshot · Filters · Date · Compare users · Add records** (Snapshot
-  promoted to top; Compare users collapsed by default) and **redesigned the Compare-users panel**
-  (teal/terracotta A/B swatches beside the labels + a "Clear comparison" link that shows only
-  when both are set). Also: **removed the chip-bar "Clear all"** (+ orphaned `clearAllFilters()`
-  and `.chip-clear` CSS); **made the Field Guide focus-header buttons uniform** (`.smallBtn` now
-  ink-coloured, `border-box`, no underline; emoji `↩` → inline SVG chevron); **breadcrumb clicks
-  now filter Records** in both the record modal and the map popup (was Field Guide hop). Verified
-  light + dark, desktop + panels; console clean. Map-popup path is source-verified (canvas
-  renderer — markers aren't DOM-clickable headless; it's a 2-line mirror of the tested modal).
+- **Sidebar reorg → cool-neutral redesign → serif wordmark** (branch `sidebar-reorg-ui-polish`,
+  plan `wild-churning-globe.md`; **merged to `main` + pushed / live**). Three passes:
+  - **Reorg + three requested fixes.** Compare users pulled into its own panel (teal/terracotta
+    A/B swatches + a "Clear comparison" link via `#cmpClear`/`syncCmpClear()`); removed the
+    chip-bar "Clear all" (+ orphaned `clearAllFilters()` / `.chip-clear`); Field Guide focus-
+    header buttons made uniform (`.smallBtn` ink/`border-box`/no-underline; `↩`→SVG chevron);
+    breadcrumb clicks now filter Records in the record modal **and** map popup.
+  - **Cool-neutral "gallery" redesign.** Neutral ramp shifted off warm cream to cool near-neutral
+    (light + dark). **Snapshot** is now a **persistent typographic header** (no accordion/boxes;
+    lighter `--ink-2` figures) — order **Snapshot · Filters · Dates · Compare users · Add
+    records**. The A/B/Shared bar became a stacked **species lens** in the Compare panel
+    (`#cmpLens` / `renderCompareLens()`), replacing the pill-in-pill `cmpBar`. Tighter collapsed
+    rhythm, refined carets, "Date"→"Dates".
+  - **Serif wordmark.** Masthead lockup + onboarding `.mark` use `--wordmark` = **Literata**
+    (`font-optical-sizing:auto`; Fraunces tried first but fragile small). Reserved exception to
+    the one-typeface rule; UI stays Inter. `sw.js` precaches Literata (`CACHE_STATIC` → `v2`).
+  - Verified light + dark, desktop + phone (375px) + panels; console clean. Map-popup breadcrumb
+    is source-verified (canvas renderer → markers not DOM-clickable headless; 2-line mirror of
+    the tested modal path).
 - **Sidebar / header cleanup** (plan `we-are-going-to-declarative-hearth.md`, Parts 1–4):
   removed the Lightroom metadata engine; slimmed the header (Update-taxa → sidebar, Reset
   removed); **fixed the mobile drawer scroll** (explicit `100dvh`/`border-box` + JS body
@@ -64,6 +72,12 @@ high-DPI point-map export, no basemap tiles). See `ROADMAP.md` Phase 2.
 
 ## Settled decisions (don't re-litigate)
 
+- Interface palette is a **cool near-neutral "gallery" ramp** (light + dark) — **not** warm cream.
+  Photographs are the only colour; chrome stays quiet.
+- **Wordmark is a serif (Literata)**, scoped to the masthead lockup + onboarding `.mark` via the
+  `--wordmark` token — the **one reserved exception** to the single-typeface (Inter) system. Use
+  `font-optical-sizing:auto` (no forced display `opsz`) so it stays legible small on phones.
+  (Fraunces was rejected — its display cut went fragile at phone sizes.)
 - Tab label stays **"Field Guide"** (Lily's call).
 - Tile images use **each record's own photo only** (no multi-source cascade); honest placeholder
   when a taxon has no photographed record.
