@@ -19,19 +19,20 @@ Line numbers below are **QM Explorer's** `index.html` unless prefixed `iNatLab:`
 | Item | Status | Notes |
 |---|---|---|
 | §1 Field Guide → Browse behaviour | **Partial** | Image tiles in the index **done** (uses `r._img`); breadcrumb + one-of-each toggle already there; **tab kept as "Field Guide"** (Lily's call), URL state not done. The focus view was also reworked into an image-first gallery (see below). |
-| §2 Taxa aligned to QM | **DONE** | Full tree redesign: flat `<details>/<summary>` rows with chevron expand/collapse, hover-reveal **Guide** + **GBIF** actions, name-click filters Records, auto-expands to the active filter path on render, depth selector (Order→Species), Expand all / Collapse all / Export CSV toolbar. Visual: ink rows, `treeRankLabel` rank badges, muted action buttons that come forward on row hover. |
+| §2 Taxa aligned to QM | **DONE** | Full tree redesign: flat `<details>/<summary>` rows with chevron expand/collapse, hover-reveal **Guide** action, name-click filters Records, auto-expands to the active filter path on render, depth selector (Order→Species), Expand all / Collapse all / Export CSV toolbar. GBIF button removed entirely. |
 | §3 Records ⇄ Browse hop | **DONE** | Trail-rank click sets filter + hops to the Field Guide focus (species plate for higher ranks; species→records). Filter retained on return. |
-| §4 Records card redesign | **DONE** | Username line + pin removed; observer shown as a colour-coded **⌖ crosshair marker** (inline SVG, `title`/`aria-label` for a11y) before the locality; taxonomic **order removed** from the card (reverses "Order in trail"); trail contrast raised (`--muted2`→`--muted`); card body reordered to Image · sci · common · date · ⌖place · trail. Verified light + dark. |
+| §4 Records card redesign | **DONE** | Username line + pin removed; observer shown as a colour-coded **⌖ crosshair marker** (inline SVG, `title`/`aria-label` for a11y) before the locality; taxonomic **order removed** from the card; trail contrast raised (`--muted2`→`--muted`); card body reordered to Image · sci · common · date · ⌖place · trail. Verified light + dark. |
 | §6 Search bar redesign | **DONE** | Moved into the sidebar (Taxon menu → Search → rest), minimal box, empty placeholder, ✕ clear. Header space became the active-filters chip bar. |
-| §7 Service worker / offline + warm-up | **TODO** | Not started. |
+| §7 Service worker / offline + warm-up | **DONE** | `sw.js` with three-tier caching; eager warm-up keyed to unique taxa (not observations); 5,000-entry image cache; progress bar with cancel. See `NEXT-SESSION.md §2` for full detail. |
+| GBIF removal | **DONE** | All GBIF code removed (-1,372 lines). Zero references in `index.html` and `sw.js`. |
 
 **Also shipped this chapter (not in the original list):**
 - **Active-filters chip bar** (`renderFilterChips`, breadcrumb of taxon values + minimal labelled chips, click-to-remove with downstream clearing, Clear all, wraps to a second line).
 - **Field Guide focus rework** (analytics panel removed, nav in a compact header, single-column image gallery, default "one of each species"; duplicate breadcrumb removed; header buttons unified to `smallBtn`).
 - **Responsive tile grids** matching the species plate; **header cleanup** (CSV filename removed).
-- **Single scroll container refactor** (branch `single-scroll-refactor`, merged). Collapses the fixed-height shell to a window scroller: `body` now scrolls the whole app; `aside` is `position:sticky`; `.content`/`#view` has no `overflow:auto`. **Eliminates the nested-scroll rubber-band bug class.** Map height re-based to `min(72vh,760px)` (viewport-relative, no fixed-parent dependency). `--header-h` published via `ResizeObserver` so the sticky sidebar tracks header wrap correctly. Trackpad sign-off still needed on Lily's real Mac.
+- **Single scroll container refactor** (branch `single-scroll-refactor`, merged). Collapses the fixed-height shell to a window scroller: `body` now scrolls the whole app; `aside` is `position:sticky`; `.content`/`#view` has no `overflow:auto`. Trackpad sign-off confirmed 2026-07-04.
 
-**Suggested next:** **real-trackpad sign-off** (scroll bounce — needs Lily's MacBook Pro), then **§7 service worker / offline + warm-up**, then **visual polish** (`NEXT-SESSION.md §3`), then **Phase 2 map-by-rank**. (§2 Taxa, §4 Records card, responsive mid-width, single-scroll refactor, and the UI cleanups are all **DONE**.)
+**Suggested next:** **visual polish** (`NEXT-SESSION.md §4`), then **Phase 2 map-by-rank**. All HANDOFF items are now done.
 
 ---
 
@@ -68,9 +69,7 @@ a group and toggling, not via a top-level Species rank.
 - `[data-a="guide"]` → `S.guideFocus={rank,name}; switchView('guide')` (jump to **Browse** focused
   on that taxon) — **2099**.
 
-**iNat Lab adaptation:** iNat Lab's Taxa tree (`iNatLab:renderTaxa ~3480`) already lists ranks with
-Filter/Guide/GBIF buttons — align them to QM's two-action model (**Filter → Records**,
-**Guide → Browse focused**), keep lazy expansion, and add **auto-expand to the active filter path**.
+**iNat Lab adaptation — DONE.** The Taxa tree now uses a two-action model: name-click filters Records, Guide button focuses Browse. GBIF button removed. Auto-expand to the active filter path is implemented.
 
 ## 3. **Records ⇄ Browse** hop (the key interaction Lily called out)
 
@@ -139,8 +138,7 @@ LRU eviction; versioned caches; **propagates real failures — never a synthetic
 **Port for iNat Lab (new `sw.js`, register it from `index.html`):**
 - **Static (cache-first, versioned):** unpkg (Leaflet/esri-leaflet), `fonts.googleapis.com`,
   `fonts.gstatic.com`. Precache on install.
-- **API (stale-while-revalidate, ~1h):** `api.inaturalist.org/v1/*`, `api.gbif.org/v1/*`,
-  `en.wikipedia.org/w/api` + `/api`.
+- **API (stale-while-revalidate, ~1h):** `api.inaturalist.org/v1/*`, `en.wikipedia.org/w/api` + `/api`. (GBIF removed.)
 - **Images (cache-first, ~24h, LRU):** `*.inaturalist.org` / `inaturalist-open-data.s3*` photos,
   `upload.wikimedia.org`, and map tiles (`tile.openstreetmap.org`, `tile.opentopomap.org`, Esri).
 - Bump `inatlab-*-vN` cache names on SW change; `skipWaiting`/`clients.claim`; **let genuine
