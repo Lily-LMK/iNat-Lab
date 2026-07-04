@@ -1590,6 +1590,13 @@
       aside{
         position: fixed; top:0; left:0; bottom:0; z-index:60;
         width: min(87vw, 340px);
+        /* explicit viewport height + border-box makes the drawer a bounded
+           internal scroller. The base aside is `box-sizing:content-box`, and with
+           content-box a fixed `top:0/bottom:0` auto-height does NOT resolve to the
+           viewport — the drawer grows to its content height and can't scroll. An
+           explicit height fixes that. 100dvh tracks iOS Safari's dynamic toolbar. */
+        box-sizing: border-box !important;
+        height: 100vh; height: 100dvh;
         max-height: none !important;
         border-radius:0; border:0; border-right:1px solid var(--hair);
         box-shadow: 0 0 44px rgba(20,20,15,.28);
@@ -6810,14 +6817,45 @@ $$(".bar button").forEach(btn=>{
   const _drawerBackdrop = $("#drawerBackdrop");
 
   function isMobile(){ return _mqMobile.matches; }
+
+  // iOS Safari scroll-lock: this app uses the document/body as its scroll
+  // container (the "single scroll container" refactor), and on iOS an
+  // `overflow:hidden` on <body> does NOT lock the document scroller — the page
+  // scrolls behind the open drawer. The robust fix is to pin the body with
+  // `position:fixed`, offset by the current scroll, then restore on close.
+  let _scrollLockY = 0;
+  let _scrollLocked = false;
+  function lockBodyScroll(){
+    if(_scrollLocked) return;
+    _scrollLockY = window.scrollY || window.pageYOffset || 0;
+    const b = document.body.style;
+    b.position = "fixed";
+    b.top = (-_scrollLockY) + "px";
+    b.left = "0";
+    b.right = "0";
+    b.width = "100%";
+    _scrollLocked = true;
+  }
+  function unlockBodyScroll(){
+    if(!_scrollLocked) return;
+    const b = document.body.style;
+    b.position = ""; b.top = ""; b.left = ""; b.right = ""; b.width = "";
+    _scrollLocked = false;
+    window.scrollTo(0, _scrollLockY);
+  }
+
   function openDrawer(){
+    if(document.body.classList.contains("drawer-open")) return;
+    lockBodyScroll();
     document.body.classList.add("drawer-open");
     $("#sidebarToggle")?.setAttribute("aria-expanded","true");
     // focus the close button for keyboard users
     setTimeout(()=>{ try{ $("#drawerClose")?.focus(); }catch(e){} }, 60);
   }
   function closeDrawer(){
+    if(!document.body.classList.contains("drawer-open")){ unlockBodyScroll(); return; }
     document.body.classList.remove("drawer-open");
+    unlockBodyScroll();
     $("#sidebarToggle")?.setAttribute("aria-expanded","false");
     if(mapState.map) setTimeout(()=>{ try{ mapState.map.invalidateSize(); }catch(e){} }, 250);
   }
