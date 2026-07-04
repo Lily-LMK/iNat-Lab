@@ -166,7 +166,7 @@
     }
     /* Taxonomy renders as a breadcrumb of values joined by "›"; no pills,
        no rank labels. Each value is a click-to-remove control. */
-    .chip-bar .fcrumbs{ display:inline-flex; align-items:center; gap:7px; flex:0 0 auto; }
+    .chip-bar .fcrumbs{ display:inline-flex; align-items:center; gap:7px; flex:0 1 auto; flex-wrap:wrap; row-gap:4px; min-width:0; }
     .chip-bar .fsep{ color:var(--muted); font-size:12px; user-select:none; }
     .chip-bar .fchip{
       display:inline-flex; align-items:center; gap:5px; flex:0 0 auto;
@@ -1680,7 +1680,7 @@
     <button id="resetBtn" class="headerResetBtn" title="Clear all filters">Reset</button>
 
     <div class="headerMeta">
-      <button id="loadCsvBtn" class="headerSmBtn" title="Open a CSV file">Open file…</button>
+      <button id="loadCsvBtn" class="headerSmBtn" title="Load a new CSV file">Load new…</button>
       <button id="taxonSyncBtn" class="headerSmBtn" title="Check iNaturalist for updated taxonomy fields">Update taxa</button>
     </div>
 
@@ -2509,7 +2509,7 @@
     view: "records",
     page: 1,
     pageSize: 500,
-    guideRank: 0,
+    guideRank: null,
     guideScopeOrder: "",
     filteredIdx: [],
     lastModalIdx: null,
@@ -2534,8 +2534,8 @@
     ["Species","taxon_species_name","species"]
   ];
 
-  // Field Guide rank ladder (Order → Species)
-  const GUIDE_RANKS = RANKS.slice(3);
+  // Field Guide rank ladder — full 10-rank ladder, same as RANKS (Kingdom→Species)
+  const GUIDE_RANKS = RANKS;
 
   const RANK_PLURAL = {
     "Kingdom":"Kingdoms", "Phylum":"Phyla", "Class":"Classes",
@@ -2781,8 +2781,8 @@
       { val: safe(r.taxon_genus_name).trim(), italic: true },
       { val: safe(r.taxon_species_name).trim() || safe(r._sci).trim(), italic: true },
     ];
-    // Build path keys using the GUIDE_RANKS lineage (Order-down) for clickable links
-    const guideLin = lineageArrayFromRow(r); // [ord,superfam,fam,subfam,tribe,genus,sp]
+    // Build path keys using 10-slot lineage (King..Species) for clickable trail links
+    const guideLin = lineageArrayFromRow(r); // 10 elements: [king,phyl,cls,ord,superfam,fam,subfam,tribe,genus,sp]
     const labels = ["Phylum","Class","Order","Superfamily","Family","Subfamily","Tribe","Genus","Species"];
     const links = [];
     for(let i=0; i<full.length; i++){
@@ -2793,8 +2793,9 @@
         // Phylum / Class: link that sets the sidebar filter
         links.push(`<a href="#" class="fgLink" data-filter-id="${full[i].filterField}" data-filter-val="${escapeAttr(s)}" title="${labels[i]}">${inner}</a>`);
       } else {
-        // Order..Species: link into Field Guide via lineage path key
-        const guideIdx = i - 2;
+        // Order..Species: link via 10-slot positional path key
+        // full[2]=Order->guideLin[3], full[3]=Superfam->guideLin[4], ..., full[8]=Species->guideLin[9]
+        const guideIdx = i + 1;
         const pk = guideLin.map((x, j)=> j<=guideIdx ? x : "").join("\u001f");
         links.push(`<a href="#" class="fgLink" data-path="${escapeAttr(pk)}" title="${labels[i]}">${inner}</a>`);
       }
@@ -3162,15 +3163,18 @@ function refreshStaticFilters(){
 
   // ----------------- Field Guide helpers -----------------
   function lineageArrayFromRow(r){
-    const ord = safe(r.taxon_order_name).trim();
-    const fam = safe(r.taxon_family_name).trim();
+    const king  = safe(r.taxon_kingdom_name).trim();
+    const phyl  = safe(r.taxon_phylum_name).trim();
+    const cls   = safe(r.taxon_class_name).trim();
+    const ord   = safe(r.taxon_order_name).trim();
     const superfam = safe(r.taxon_superfamily_name).trim();
+    const fam   = safe(r.taxon_family_name).trim();
     const subfam = safe(r.taxon_subfamily_name).trim();
     const tribe = safe(r.taxon_tribe_name).trim();
     const genus = safe(r.taxon_genus_name).trim();
     let sp = safe(r.taxon_species_name).trim();
     if(!sp) sp = safe(r._sci).trim();
-    return [ord,superfam,fam,subfam,tribe,genus,sp];
+    return [king,phyl,cls,ord,superfam,fam,subfam,tribe,genus,sp];
   }
 
   function pathKeyFromRowAtRank(r, rankIdx){
@@ -3190,37 +3194,60 @@ function refreshStaticFilters(){
       return s.startsWith("(no ") && s.endsWith(")");
     };
 
-    // Reset all taxon selectors
-    $("#ord").value="All";
-    $("#superfam").value="All";
-    $("#fam").value="All";
-    $("#subfam").value="All";
-    $("#tribe").value="All";
-    $("#genus").value="All";
-    $("#species").value="All";
+    // Reset all taxon selectors (full 10-rank ladder)
+    RANKS.forEach(([,,fKey]) => { const el = $("#"+fKey); if(el) el.value = "All"; });
 
-    if(lineage[0] && !isPlaceholder(lineage[0])) $("#ord").value = lineage[0];
-    if(lineage[1] && !isPlaceholder(lineage[1])) $("#superfam").value = lineage[1];
-    if(lineage[2] && !isPlaceholder(lineage[2])) $("#fam").value = lineage[2];
-    if(lineage[3] && !isPlaceholder(lineage[3])) $("#subfam").value = lineage[3];
-    if(lineage[4] && !isPlaceholder(lineage[4])) $("#tribe").value = lineage[4];
-    if(lineage[5] && !isPlaceholder(lineage[5])) $("#genus").value = lineage[5];
-    if(lineage[6] && !isPlaceholder(lineage[6])) $("#species").value = lineage[6];
+    // Apply the 10-slot positional key: slot index matches RANKS index
+    RANKS.forEach(([,,fKey], i) => {
+      if(lineage[i] && !isPlaceholder(lineage[i])){
+        const el = $("#"+fKey);
+        if(el) el.value = lineage[i];
+      }
+    });
 
     recompute();
     setTab(viewName || "records");
   }
 
+  // Fill all ancestor taxon selects from the first matching row.
+  // Called after manual dropdown selection to populate the full kingdom->parent chain upward.
+  // Rare homonym caveat (same genus name in two families) is acceptable for a single
+  // loaded dataset -- the first matching row is used.
+  function backfillAncestors(){
+    const focus = currentFocus();
+    if(!focus) return;
+    const repRow = app.filteredIdx.length ? app.rows[app.filteredIdx[0]] : null;
+    if(!repRow) return;
+
+    let changed = false;
+    RANKS.forEach(([, colKey, fKey], idx) => {
+      if(idx >= focus.rankIdx) return; // only fill ancestors, not the focus rank or below
+      const current = safe(app.f[fKey]).trim();
+      if(current && current !== "All") return; // already set explicitly
+      const val = safe(repRow[colKey]).trim();
+      if(!val) return;
+      const el = $("#" + fKey);
+      if(el) el.value = val;
+      app.f[fKey] = val;
+      changed = true;
+    });
+
+    if(changed) recompute();
+  }
+
   function currentFocus(){
-    // deepest selected rank in the taxon filter ladder
+    // deepest selected rank in the full 10-rank taxon ladder
     const vals = [
-      {idx:0, key:"ord", label:"Order"},
-      {idx:1, key:"superfam", label:"Superfamily"},
-      {idx:2, key:"fam", label:"Family"},
-      {idx:3, key:"subfam", label:"Subfamily"},
-      {idx:4, key:"tribe", label:"Tribe"},
-      {idx:5, key:"genus", label:"Genus"},
-      {idx:6, key:"species", label:"Species"}
+      {idx:0, key:"king",    label:"Kingdom"},
+      {idx:1, key:"phyl",    label:"Phylum"},
+      {idx:2, key:"cls",     label:"Class"},
+      {idx:3, key:"ord",     label:"Order"},
+      {idx:4, key:"superfam",label:"Superfamily"},
+      {idx:5, key:"fam",     label:"Family"},
+      {idx:6, key:"subfam",  label:"Subfamily"},
+      {idx:7, key:"tribe",   label:"Tribe"},
+      {idx:8, key:"genus",   label:"Genus"},
+      {idx:9, key:"species", label:"Species"}
     ];
     for(let i=vals.length-1;i>=0;i--){
       const v = safe(app.f[vals[i].key]).trim();
@@ -3306,19 +3333,23 @@ function refreshStaticFilters(){
         });
       }
 
+      const rankIdx = Number.isFinite(app.guideRank) ? app.guideRank : 3;
+
       const rankRow = document.createElement("div");
       rankRow.className = "guidePanel";
       const pills = [
-        {idx:0, label:"Order"},
-        {idx:1, label:"Superfamily"},
-        {idx:2, label:"Family"},
-        {idx:5, label:"Genus"},
-        {idx:6, label:"Species"}
+        {idx:0, label:"Kingdom"},
+        {idx:1, label:"Phylum"},
+        {idx:2, label:"Class"},
+        {idx:3, label:"Order"},
+        {idx:5, label:"Family"},
+        {idx:8, label:"Genus"},
+        {idx:9, label:"Species"}
       ];
       rankRow.innerHTML = `
         <h4>Browse by</h4>
         <div class="rankPills">
-          ${pills.map(p=>`<div class="rankPill ${app.guideRank===p.idx ? "active":""}" data-rank="${p.idx}">${p.label}</div>`).join("")}
+          ${pills.map(p=>`<div class="rankPill ${rankIdx===p.idx ? "active":""}" data-rank="${p.idx}">${p.label}</div>`).join("")}
         </div>
       `;
       wrap.appendChild(rankRow);
@@ -3329,8 +3360,6 @@ function refreshStaticFilters(){
           render();
         });
       });
-
-      const rankIdx = Number.isFinite(app.guideRank) ? app.guideRank : 0;
       const key = GUIDE_RANKS[rankIdx][1];
 
       // Group records by the chosen rank, using a representative record for stable lineage.
@@ -3341,7 +3370,7 @@ function refreshStaticFilters(){
       for(const i of idxGuide){
         const r = app.rows[i];
         let name = safe(r[key]).trim();
-        if(rankIdx === 6 && !name) name = safe(r._sci).trim();
+        if(rankIdx === 9 && !name) name = safe(r._sci).trim();
         if(!name) continue;
 
         if(!groups.has(name)){
@@ -3390,7 +3419,7 @@ function refreshStaticFilters(){
         card.innerHTML = `
           ${thumbHtml}
           <div class="gc-body">
-            <div class="nm">${rankIdx >= 5 ? '<em>' + escapeHtml(g.name) + '</em>' : escapeHtml(g.name)}</div>
+            <div class="nm">${rankIdx >= 8 ? '<em>' + escapeHtml(g.name) + '</em>' : escapeHtml(g.name)}</div>
             <div class="sm">${escapeHtml(GUIDE_RANKS[rankIdx][0])} • ${g.count.toLocaleString()} records • ${escapeHtml(span)}</div>
           </div>
         `;
@@ -3442,8 +3471,8 @@ function refreshStaticFilters(){
     // Representative row (filtered to the focus, so any row carries the lineage).
     const rep = app.filteredIdx.length ? app.rows[app.filteredIdx[0]] : null;
 
-    const title = (focus.rankIdx===6 && rep) ? formatName(rep) : focus.value;
-    const titleHtml = (focus.rankIdx >= 5) ? `<em>${escapeHtml(title)}</em>` : escapeHtml(title);
+    const title = (focus.rankIdx===9 && rep) ? formatName(rep) : focus.value;
+    const titleHtml = (focus.rankIdx >= 8) ? `<em>${escapeHtml(title)}</em>` : escapeHtml(title);
 
     header.innerHTML = `<h2 class="guideTitle">${titleHtml}</h2>`;
     wrap.appendChild(header);
@@ -3462,7 +3491,7 @@ function refreshStaticFilters(){
     headMain.insertAdjacentHTML("beforeend", `
       <div class="guideActions">
         <button class="smallBtn" id="guideToRecords">Records view</button>
-        <button class="smallBtn" id="guideBackIndex">↩ ${escapeHtml(focus.rankIdx > 0 ? GUIDE_RANKS[focus.rankIdx][0] : "Guide")} index</button>
+        <button class="smallBtn" id="guideBackIndex">↩ ${escapeHtml(GUIDE_RANKS[focus.rankIdx] ? GUIDE_RANKS[focus.rankIdx][0] : "Guide")} index</button>
         <a id="guideInatLink" href="#" target="_blank" rel="noopener" class="smallBtn" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
           View on iNaturalist
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
@@ -3477,7 +3506,7 @@ function refreshStaticFilters(){
       app.guideRank = focus.rankIdx;
       const ordNow = safe(app.f.ord).trim();
       app.guideScopeOrder = (ordNow && ordNow !== "All") ? ordNow : "";
-      $("#ord").value="All"; $("#superfam").value="All"; $("#fam").value="All"; $("#subfam").value="All"; $("#tribe").value="All"; $("#genus").value="All"; $("#species").value="All";
+      RANKS.forEach(([,,fKey])=>{ const el=$("#"+fKey); if(el) el.value="All"; });
       recompute();
       setTab("guide");
     });
@@ -3510,7 +3539,7 @@ function refreshStaticFilters(){
 
     // children (next rank down) if any — smart descent handles nesting gaps
     let childHTML = "";
-    if(focus.rankIdx < 6){
+    if(focus.rankIdx < 9){
       // For each filtered record, find the FIRST populated rank below focus.
       // This handles cases where intermediate ranks are empty (e.g. superfamily→genus with no subfamily/tribe).
       // Default to the "one of each species" plate when entering a focus; the
@@ -3523,12 +3552,12 @@ function refreshStaticFilters(){
         // "One of each species" beneath the focus, at any depth — a field-guide plate.
         for(const i of app.filteredIdx){
           const r = app.rows[i];
-          let nm = safe(lineageArrayFromRow(r)[6]).trim();
+          let nm = safe(lineageArrayFromRow(r)[9]).trim();
           if(!nm) nm = safe(r._sci).trim();
           if(!nm) continue;                       // no species-level id → honestly omit
           hasAnyChild = true;
-          const gk = "6|" + nm;
-          if(!groups.has(gk)) groups.set(gk, {nm, rankIdx: 6, count: 0, repIdx: i});
+          const gk = "9|" + nm;
+          if(!groups.has(gk)) groups.set(gk, {nm, rankIdx: 9, count: 0, repIdx: i});
           const g = groups.get(gk);
           g.count += 1;
           const rep0 = app.rows[g.repIdx];        // prefer a representative that has an image
@@ -3542,9 +3571,9 @@ function refreshStaticFilters(){
         // Walk ranks below focus to find the first populated one
         let foundRank = -1;
         let foundName = "";
-        for(let ri = focus.rankIdx + 1; ri < 7; ri++){
+        for(let ri = focus.rankIdx + 1; ri < 10; ri++){
           let nm = safe(lin[ri]).trim();
-          if(ri === 6 && !nm) nm = safe(r._sci).trim(); // species fallback
+          if(ri === 9 && !nm) nm = safe(r._sci).trim(); // species fallback
           if(nm){
             foundRank = ri;
             foundName = nm;
@@ -3601,7 +3630,7 @@ function refreshStaticFilters(){
             const r = app.rows[g.repIdx];
             const pk = pathKeyFromRowAtRank(r, g.rankIdx);
             const img = r._img ? `<img loading="lazy" src="${escapeAttr(r._img)}" alt=""/>` : `<div class="noimg">no image</div>`;
-            const isItalic = (g.rankIdx >= 5);
+            const isItalic = (g.rankIdx >= 8);
             const nmHtml = isItalic ? `<em>${escapeHtml(g.nm)}</em>` : escapeHtml(g.nm);
             const rankLabel = isMixed ? `<span class="muted" style="font-size:10px;">${escapeHtml(GUIDE_RANKS[g.rankIdx][0])}</span> · ` : "";
             return `
@@ -3630,7 +3659,7 @@ function refreshStaticFilters(){
       el.addEventListener("click", ()=>{
         const pk = el.getAttribute("data-path") || "";
         const rank = parseInt(el.getAttribute("data-rank"),10);
-        applyLineageKey(pk, rank === 6 ? "records" : "guide");
+        applyLineageKey(pk, rank === 9 ? "records" : "guide");
       });
     });
 
@@ -3914,9 +3943,9 @@ function refreshStaticFilters(){
           e.stopPropagation();
           const pk = a.getAttribute("data-path") || "";
           const rank = parseInt(a.getAttribute("data-rank"), 10);
-          // Higher ranks hop to the Field Guide species plate; a species-level
-          // click drops straight to its records (no plate below one species).
-          applyLineageKey(pk, rank === 6 ? "records" : "guide");
+          // Clicking any rank in a Records card trail stays on Records;
+          // switch to Field Guide manually to see the same scope there.
+          applyLineageKey(pk, "records");
         });
       });
       g.appendChild(card);
@@ -3974,68 +4003,56 @@ function refreshStaticFilters(){
     wrap.className = "taxTreeWrap";
     root.appendChild(wrap);
 
-    // Build tree model
+    // Build tree model — full 10-rank ladder, Order=3..Species=9
+    // Each rank entry carries fullIdx matching the RANKS ladder position.
     const R = [
-      {key:"taxon_order_name", label:"Order"},
-      {key:"taxon_superfamily_name", label:"Superfamily"},
-      {key:"taxon_family_name", label:"Family"},
-      {key:"taxon_subfamily_name", label:"Subfamily"},
-      {key:"taxon_tribe_name", label:"Tribe"},
-      {key:"taxon_genus_name", label:"Genus"},
-      {key:"taxon_species_name", label:"Species"},
+      {key:"taxon_order_name",      label:"Order",      fullIdx:3},
+      {key:"taxon_superfamily_name",label:"Superfamily",fullIdx:4},
+      {key:"taxon_family_name",     label:"Family",     fullIdx:5},
+      {key:"taxon_subfamily_name",  label:"Subfamily",  fullIdx:6},
+      {key:"taxon_tribe_name",      label:"Tribe",      fullIdx:7},
+      {key:"taxon_genus_name",      label:"Genus",      fullIdx:8},
+      {key:"taxon_species_name",    label:"Species",    fullIdx:9},
     ];
 
-    function makeNode(name){
-      return { name, count: 0, children: new Map() };
+    // Node carries its own rankIdx (full-ladder position) so pathKey can be 10-slot positional.
+    function makeNode(name, rankIdx){
+      return { name, rankIdx, count: 0, children: new Map() };
     }
 
+    // path = [{name, fullIdx}, ...] — only populated ranks, in depth order.
+    // Map key = "fullIdx|name" to prevent same-name collisions across ranks.
     function addPath(rootNode, path){
       rootNode.count++;
       let node = rootNode;
       for(const seg of path){
-        if(!node.children.has(seg)) node.children.set(seg, makeNode(seg));
-        node = node.children.get(seg);
+        const k = seg.fullIdx + "\u001e" + seg.name;
+        if(!node.children.has(k)) node.children.set(k, makeNode(seg.name, seg.fullIdx));
+        node = node.children.get(k);
         node.count++;
       }
     }
 
+    // Build tree from populated ranks only — no (no subfamily) placeholders.
     function buildTree(maxDepth){
-      const rootNode = makeNode("ROOT");
+      const rootNode = makeNode("ROOT", -1);
 
       for(const idx of indices){
         const r = app.rows[idx];
 
-        // Collect rank values up to maxDepth.
-        const vals = [];
+        // Collect only populated ranks up to maxDepth, each with its fullIdx.
+        const path = [];
         for(let i=0;i<maxDepth;i++){
           let v = safe(r[R[i].key]).trim();
-          // For species depth, fall back to scientific name if species rank not present.
-          if(i === 6 && !v){
-            v = safe(r._sci).trim();
-          }
-          vals.push(v);
+          if(i === R.length-1 && !v) v = safe(r._sci).trim(); // species fallback
+          if(v) path.push({name:v, fullIdx:R[i].fullIdx});
         }
-
-        // Find the deepest rank (within maxDepth) that actually has a value.
-        let deepest = -1;
-        for(let i=vals.length-1;i>=0;i--){
-          if(vals[i]){ deepest = i; break; }
-        }
-        if(deepest < 0) continue;
-
-        // Build a path that preserves rank positions. If an intermediate rank is missing
-        // but deeper ranks exist, insert a readable placeholder so the tree can still unfold.
-        const path = [];
-        for(let i=0;i<=deepest;i++){
-          const v = vals[i];
-          if(v) path.push(v);
-          else path.push(`(no ${R[i].label.toLowerCase()})`);
-        }
-
+        if(!path.length) continue;
         addPath(rootNode, path);
       }
       return rootNode;
     }
+
     function sortedChildren(node){
       return Array.from(node.children.values()).sort((a,b)=> {
         if((app.menuSort||"count")==="alpha") return a.name.localeCompare(b.name, undefined, {sensitivity:"base", numeric:true}) || (b.count-a.count);
@@ -4043,56 +4060,24 @@ function refreshStaticFilters(){
       });
     }
 
-    function applyLineage(pathKey){
-      const lineage = safe(pathKey).split("\u001f").filter(x => x !== undefined);
-
-      const isPlaceholder = (v)=> {
-        const s = safe(v).trim();
-        return s.startsWith("(no ") && s.endsWith(")");
-      };
-
-      // Reset all taxon selectors
-      $("#ord").value="All";
-      $("#superfam").value="All";
-      $("#fam").value="All";
-      $("#subfam").value="All";
-      $("#tribe").value="All";
-      $("#genus").value="All";
-      $("#species").value="All";
-
-      if(lineage[0] && !isPlaceholder(lineage[0])) $("#ord").value = lineage[0];
-      if(lineage[1] && !isPlaceholder(lineage[1])) $("#superfam").value = lineage[1];
-      if(lineage[2] && !isPlaceholder(lineage[2])) $("#fam").value = lineage[2];
-      if(lineage[3] && !isPlaceholder(lineage[3])) $("#subfam").value = lineage[3];
-      if(lineage[4] && !isPlaceholder(lineage[4])) $("#tribe").value = lineage[4];
-      if(lineage[5] && !isPlaceholder(lineage[5])) $("#genus").value = lineage[5];
-      if(lineage[6] && !isPlaceholder(lineage[6])) $("#species").value = lineage[6];
-
-      recompute();
-      setTab("records");
-    }
-
     const CHEVRON_SVG = `<svg class="treeChevron" viewBox="0 0 8 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 2l4 4-4 4"/></svg>`;
     const LEAF_SPACER = `<span style="flex:none;width:14px;" aria-hidden="true"></span>`;
 
-    function treeRowHTML(nameHtml, pathKey, count, label, expandable, depth){
+    // Item 1: label order is now Name · Rank · N records
+    function treeRowHTML(nameHtml, pathKey, count, label, expandable){
       const escapedName = escapeAttr(nameHtml.replace(/<[^>]+>/g, ""));
+      const countStr = count === 1 ? "1 record" : count.toLocaleString() + " records";
       const actions = `<div class="treeActions">
         <button class="treeGuideBtn" data-path="${escapeAttr(pathKey)}" title="Open Field Guide">Guide</button>
       </div>`;
       return `
         ${expandable ? CHEVRON_SVG : LEAF_SPACER}
         <button class="treeNodeName" data-path="${escapeAttr(pathKey)}" title="Filter records to ${escapedName}">${nameHtml}</button>
-        <span class="treeBadge">${count.toLocaleString()}</span>
         <span class="treeRankLabel">${escapeHtml(label)}</span>
+        <span class="treeBadge">${countStr}</span>
         ${actions}`;
     }
 
-
-    function rankFromDepth(d){
-      const depth = clamp(parseInt(d,10) || 1, 1, 7);
-      return ["ORDER","SUPERFAMILY","FAMILY","SUBFAMILY","TRIBE","GENUS","SPECIES"][depth-1];
-    }
     function isPlaceholderName(v){
       const s = safe(v).trim();
       return s.startsWith("(no ") && s.endsWith(")");
@@ -4101,24 +4086,28 @@ function refreshStaticFilters(){
       return safe(pathKey).split("\u001f").map(s=>safe(s).trim());
     }
 
+    // Build a 10-slot positional path key from a list of {name, fullIdx} ancestors.
+    function ancestorsToPathKey(ancestors){
+      const slots = new Array(10).fill("");
+      ancestors.forEach(a => { slots[a.fullIdx] = a.name; });
+      return slots.join("\u001f");
+    }
+
+    // Match a 10-slot positional pathKey against rows — used for map points and rep rows.
     function localPointsForPath(segs){
       const pts = [];
       for(const idx of indices){
         const r = app.rows[idx];
         if(!Number.isFinite(r._lat) || !Number.isFinite(r._lng)) continue;
-
         let ok = true;
         for(let i=0;i<segs.length;i++){
           const seg = segs[i];
           if(!seg || isPlaceholderName(seg)) continue;
-
-          if(i === 5){
-            const v = safe(r[R[i].key]).trim() || safe(r._sci).trim();
-            if(v !== seg){ ok = false; break; }
-          } else {
-            const v = safe(r[R[i].key]).trim();
-            if(v !== seg){ ok = false; break; }
-          }
+          const rankInfo = RANKS[i];
+          if(!rankInfo) continue;
+          const isSpecies = (i === 9);
+          const v = isSpecies ? (safe(r[rankInfo[1]]).trim() || safe(r._sci).trim()) : safe(r[rankInfo[1]]).trim();
+          if(v !== seg){ ok = false; break; }
         }
         if(ok) pts.push([r._lat, r._lng]);
       }
@@ -4132,14 +4121,11 @@ function refreshStaticFilters(){
         for(let i=0;i<segs.length;i++){
           const seg = segs[i];
           if(!seg || isPlaceholderName(seg)) continue;
-
-          if(i === 5){
-            const v = safe(r[R[i].key]).trim() || safe(r._sci).trim();
-            if(v !== seg){ ok = false; break; }
-          } else {
-            const v = safe(r[R[i].key]).trim();
-            if(v !== seg){ ok = false; break; }
-          }
+          const rankInfo = RANKS[i];
+          if(!rankInfo) continue;
+          const isSpecies = (i === 9);
+          const v = isSpecies ? (safe(r[rankInfo[1]]).trim() || safe(r._sci).trim()) : safe(r[rankInfo[1]]).trim();
+          if(v !== seg){ ok = false; break; }
         }
         if(ok) return r;
       }
@@ -4148,7 +4134,6 @@ function refreshStaticFilters(){
 
     function renderTree(maxDepth){
       wrap.innerHTML = "";
-      const SEP = "\u001f";
       const tree = buildTree(maxDepth);
       const rootList = document.createElement("div");
       rootList.className = "taxTree";
@@ -4166,16 +4151,18 @@ function refreshStaticFilters(){
         }
       }
 
-      function buildDetails(node, lineage){
+      // ancestors = [{name, fullIdx}] from root to parent of this node (inclusive of this node).
+      // pathKey is built as a 10-slot positional array matching the full RANKS ladder.
+      function buildDetails(node, ancestors){
         const details = document.createElement("details");
-        const pathKey = lineage.join(SEP);
-        const label = R[lineage.length-1].label;
-        const isItalic = lineage.length >= 6;
+        const pathKey = ancestorsToPathKey(ancestors);
+        const label = GUIDE_RANKS[node.rankIdx] ? GUIDE_RANKS[node.rankIdx][0] : "";
+        const isItalic = node.rankIdx >= 8; // genus=8, species=9
         const nameHtml = isItalic ? `<em>${escapeHtml(node.name)}</em>` : escapeHtml(node.name);
 
         const summary = document.createElement("summary");
         summary.className = "treeRow";
-        summary.innerHTML = treeRowHTML(nameHtml, pathKey, node.count, label, true, lineage.length);
+        summary.innerHTML = treeRowHTML(nameHtml, pathKey, node.count, label, true);
         summary.addEventListener("click", e => onRowClick(e, pathKey));
         details.appendChild(summary);
 
@@ -4184,12 +4171,12 @@ function refreshStaticFilters(){
           const indent = document.createElement("div");
           indent.className = "treeIndent";
           for(const ch of kids){
-            const nextLineage = lineage.concat([ch.name]);
-            if(nextLineage.length > maxDepth) continue;
-            if(nextLineage.length === maxDepth || ch.children.size === 0){
-              indent.appendChild(buildLeaf(ch, nextLineage));
+            const nextAncestors = ancestors.concat([{name: ch.name, fullIdx: ch.rankIdx}]);
+            if(nextAncestors.length > maxDepth) continue;
+            if(nextAncestors.length === maxDepth || ch.children.size === 0){
+              indent.appendChild(buildLeaf(ch, nextAncestors));
             } else {
-              indent.appendChild(buildDetails(ch, nextLineage));
+              indent.appendChild(buildDetails(ch, nextAncestors));
             }
           }
           details.appendChild(indent);
@@ -4197,15 +4184,15 @@ function refreshStaticFilters(){
         return details;
       }
 
-      function buildLeaf(node, lineage){
-        const pathKey = lineage.join(SEP);
-        const label = R[lineage.length-1].label;
-        const isItalic = lineage.length >= 6;
+      function buildLeaf(node, ancestors){
+        const pathKey = ancestorsToPathKey(ancestors);
+        const label = GUIDE_RANKS[node.rankIdx] ? GUIDE_RANKS[node.rankIdx][0] : "";
+        const isItalic = node.rankIdx >= 8; // genus=8, species=9
         const nameHtml = isItalic ? `<em>${escapeHtml(node.name)}</em>` : escapeHtml(node.name);
         const row = document.createElement("div");
         row.className = "treeRow";
         row.style.cursor = "default";
-        row.innerHTML = treeRowHTML(nameHtml, pathKey, node.count, label, false, lineage.length);
+        row.innerHTML = treeRowHTML(nameHtml, pathKey, node.count, label, false);
         row.addEventListener("click", e => onRowClick(e, pathKey));
         return row;
       }
@@ -4216,17 +4203,14 @@ function refreshStaticFilters(){
         btnExpand.onclick = null; btnCollapse.onclick = null; btnExport.onclick = null;
         return;
       }
-      for(const ch of topKids) rootList.appendChild(buildDetails(ch, [ch.name]));
+      for(const ch of topKids) rootList.appendChild(buildDetails(ch, [{name: ch.name, fullIdx: ch.rankIdx}]));
 
-      // Auto-expand to the active filter path
+      // Auto-expand to the active filter path — walk full RANKS ladder for filter values
       (()=>{
-        const filterVals = [
-          $("#ord")?.value, $("#superfam")?.value, $("#fam")?.value,
-          $("#subfam")?.value, $("#tribe")?.value, $("#genus")?.value, $("#species")?.value
-        ];
+        const filterVals = RANKS.map(([,,fKey]) => ($("#"+fKey)?.value || "All"));
         let container = rootList;
         for(const seg of filterVals){
-          if(!seg || seg === "All") break;
+          if(!seg || seg === "All") continue;
           let found = false;
           for(const d of container.querySelectorAll(":scope > details")){
             const nb = d.querySelector(":scope > summary .treeNodeName");
@@ -4247,18 +4231,16 @@ function refreshStaticFilters(){
         const out = [];
         out.push(["rank","name","count","lineage"].map(csvEscape).join(","));
 
-        function walk(node, lineage){
-          const depth = lineage.length;
-          if(depth >= 1 && depth <= 5){
-            const rank = R[depth-1].label;
-            out.push([rank, node.name, node.count, lineage.join(" > ")].map(csvEscape).join(","));
-          }
+        function walk(node, ancestors){
+          const label = GUIDE_RANKS[node.rankIdx] ? GUIDE_RANKS[node.rankIdx][0] : "";
+          const lineageStr = ancestors.map(a=>a.name).join(" > ");
+          out.push([label, node.name, node.count, lineageStr].map(csvEscape).join(","));
           for(const ch of sortedChildren(node)){
-            walk(ch, lineage.concat([ch.name]));
+            walk(ch, ancestors.concat([{name: ch.name, fullIdx: ch.rankIdx}]));
           }
         }
         for(const ch of topKids){
-          walk(ch, [ch.name]);
+          walk(ch, [{name: ch.name, fullIdx: ch.rankIdx}]);
         }
         openExport(out.join("\n"), `inat_tax_tree_${isoDate(new Date())}.csv`, "text/csv");
       };
@@ -6963,7 +6945,7 @@ $("#apiUsers").addEventListener("blur", async ()=>{
     $("#tribe").value="All";
     $("#genus").value="All";
     $("#species").value="All";
-    recompute();
+    recompute(); backfillAncestors();
   });
   $("#cls").addEventListener("change", ()=>{
     $("#ord").value="All";
@@ -6973,7 +6955,7 @@ $("#apiUsers").addEventListener("blur", async ()=>{
     $("#tribe").value="All";
     $("#genus").value="All";
     $("#species").value="All";
-    recompute();
+    recompute(); backfillAncestors();
   });
 
   $("#ord").addEventListener("change", ()=>{
@@ -6983,7 +6965,7 @@ $("#apiUsers").addEventListener("blur", async ()=>{
     $("#tribe").value="All";
     $("#genus").value="All";
     $("#species").value="All";
-    recompute();
+    recompute(); backfillAncestors();
   });
   $("#superfam").addEventListener("change", ()=>{
     $("#fam").value="All";
@@ -6991,25 +6973,25 @@ $("#apiUsers").addEventListener("blur", async ()=>{
     $("#tribe").value="All";
     $("#genus").value="All";
     $("#species").value="All";
-    recompute();
+    recompute(); backfillAncestors();
   });
   $("#fam").addEventListener("change", ()=>{
     $("#subfam").value="All";
     $("#tribe").value="All";
     $("#genus").value="All";
     $("#species").value="All";
-    recompute();
+    recompute(); backfillAncestors();
   });
   $("#subfam").addEventListener("change", ()=>{
     $("#tribe").value="All";
     $("#genus").value="All";
     $("#species").value="All";
-    recompute();
+    recompute(); backfillAncestors();
   });
 
-  $("#tribe").addEventListener("change", ()=>{ $("#genus").value="All"; $("#species").value="All"; recompute(); });
-  $("#genus").addEventListener("change", ()=>{ $("#species").value="All"; recompute(); });
-  $("#species").addEventListener("change", recompute);
+  $("#tribe").addEventListener("change", ()=>{ $("#genus").value="All"; $("#species").value="All"; recompute(); backfillAncestors(); });
+  $("#genus").addEventListener("change", ()=>{ $("#species").value="All"; recompute(); backfillAncestors(); });
+  $("#species").addEventListener("change", ()=>{ recompute(); backfillAncestors(); });
 $$(".bar button").forEach(btn=>{
     btn.addEventListener("click", ()=>{
       if(!app.loaded) return;
@@ -7059,7 +7041,7 @@ $$(".bar button").forEach(btn=>{
     $("#species").value = "All";
     app.mapBox = null;
     app.guideScopeOrder = "";
-    app.guideRank = 0;
+    app.guideRank = null;
     syncSearchClear();
     recompute();
   });
