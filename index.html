@@ -1545,6 +1545,22 @@
     }
     .toast-notify.show{ opacity:1; }
 
+    /* ── Cache warm-up progress bar (sidebar footer) ── */
+    #warmBar{
+      display:flex; align-items:center; gap:8px;
+      margin:10px 0 0; padding:7px 10px;
+      border-radius:var(--card-radius); border:1px solid var(--hair);
+      background:var(--raised); font-size:.74rem; color:var(--muted);
+      line-height:1.3;
+    }
+    #warmBar[hidden]{ display:none; }
+    .warmMsg{ flex:1; }
+    .warmCancel{
+      background:none; border:none; cursor:pointer;
+      color:var(--muted2); font-size:.82rem; padding:0 2px; line-height:1;
+    }
+    .warmCancel:hover{ color:var(--ink); }
+
     /* ════════════════════════════════════════════════════════════════
        Gallery — identity, motion & accessibility layer
        ════════════════════════════════════════════════════════════════ */
@@ -1977,6 +1993,8 @@
           </div>
         </div>
       </details>
+
+      <div id="warmBar" hidden role="status" aria-live="polite" aria-label="Cache warm-up progress"></div>
     </aside>
 
 
@@ -2604,6 +2622,7 @@
     },
     compare: { enabled:false, a:"", b:"", mode:"all" },
     gbifExplorer: { key:null, name:"", rank:"", path:"", depth:0 },
+    warmUp: { active:false, cancel:false, done:0, total:0 },
     view: "records",
     page: 1,
     pageSize: 500,
@@ -2717,6 +2736,96 @@
   }
 
   function setStatus(msg){ $("#status").textContent = msg; }
+
+  // ----------------- cache warm-up -----------------
+  function updateWarmUpUI(){
+    const bar = $("#warmBar");
+    if(!bar) return;
+    const w = app.warmUp;
+    if(!w.active){
+      bar.hidden = true;
+      return;
+    }
+    const pct = w.total > 0 ? Math.round((w.done / w.total) * 100) : 0;
+    bar.hidden = false;
+    bar.innerHTML =
+      `<span class="warmMsg">Preparing ${w.total.toLocaleString()} taxa for offline… ${pct}%</span>` +
+      `<button class="warmCancel" aria-label="Cancel cache warm-up" title="Cancel">×</button>`;
+    bar.querySelector(".warmCancel")?.addEventListener("click", ()=>{ app.warmUp.cancel = true; }, { once:true });
+  }
+
+  async function scheduleWarmUp(){
+    if(!("caches" in window) || !("serviceWorker" in navigator)) return;
+
+    /* Cancel any in-progress warm-up by flipping the flag and yielding. */
+    if(app.warmUp.active){
+      app.warmUp.cancel = true;
+      await new Promise(r => setTimeout(r, 80));
+    }
+
+    if(!app.rows || !app.rows.length) return;
+
+    /* One representative photo per unique taxon — the same image the Field Guide tile shows.
+       Keyed by _sci so the work scales with distinct taxa, not observation count. */
+    const byTaxon = new Map();
+    for(const r of app.rows){
+      const key = (r._sci || "").trim();
+      if(!key) continue;
+      const url = (r._img || "").trim();
+      if(!url || !url.startsWith("http")) continue;
+      if(!byTaxon.has(key)) byTaxon.set(key, url);
+    }
+    if(!byTaxon.size) return;
+
+    /* Cap well above any realistic personal species list. */
+    const WARM_CAP = 5000;
+    const allUrls = Array.from(byTaxon.values());
+    const urls = allUrls.length > WARM_CAP ? allUrls.slice(0, WARM_CAP) : allUrls;
+
+    /* Skip URLs already in any cache. */
+    let toFetch = [];
+    try{
+      for(const url of urls){
+        const hit = await caches.match(url);
+        if(!hit) toFetch.push(url);
+      }
+    }catch(e){
+      return; // caches API unavailable (insecure context, etc.)
+    }
+    if(!toFetch.length) return;
+
+    app.warmUp = { active:true, cancel:false, done:0, total:toFetch.length };
+    updateWarmUpUI();
+
+    const CONCURRENCY = 4;
+    let idx = 0;
+
+    async function warmWorker(){
+      while(idx < toFetch.length){
+        if(app.warmUp.cancel) break;
+        const url = toFetch[idx++];
+        try{
+          await fetch(url, { credentials:"omit" });
+        }catch(e){ /* network error — skip */ }
+        app.warmUp.done++;
+        if(app.warmUp.done % 4 === 0 || app.warmUp.done === app.warmUp.total) updateWarmUpUI();
+        /* Yield to the browser between fetches. */
+        await new Promise(r => ("requestIdleCallback" in window)
+          ? requestIdleCallback(r, { timeout:2500 })
+          : setTimeout(r, 12));
+      }
+    }
+
+    Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, toFetch.length) }, warmWorker)
+    ).then(()=>{
+      app.warmUp.active = false;
+      updateWarmUpUI();
+    }).catch(()=>{
+      app.warmUp.active = false;
+      updateWarmUpUI();
+    });
+  }
 
   // ----------------- UI population -----------------
   function setSelectOptions(sel, values, current){
@@ -7821,6 +7930,7 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     } else {
       setStatus(`Top-up complete: +${added.toLocaleString()} new, ${patched.toLocaleString()} updated (since ${created_d1})${projMsg}`);
     }
+    scheduleWarmUp();
   }
 
 
@@ -7956,6 +8066,7 @@ $("#q").value = "";
       const nNow = (app.rows && app.rows.length) ? app.rows.length : objs.length;
       setStatus(`Loaded ${nNow.toLocaleString()} observations from API (cap ${maxN.toLocaleString()})${totalsText}`);
     }
+    scheduleWarmUp();
   }
   // ----------------- file load -----------------
   async function loadCSVFile(file){
@@ -8049,6 +8160,7 @@ $("#q").value = "";
     recompute();
 
     if(warn) setStatus(warn);
+    scheduleWarmUp();
   }
 
   $("#csvA").addEventListener("change", async (e)=>{
@@ -8429,6 +8541,13 @@ $$(".bar button").forEach(btn=>{
     const ok = await writeClipboard(t);
     showToast(ok ? "Copied to clipboard." : "Couldn't copy — select all and copy manually.", ok ? "ok" : "warn");
   });
+
+  // Register service worker (requires https or localhost — not file://)
+  if("serviceWorker" in navigator){
+    navigator.serviceWorker.register("./sw.js").catch(err => {
+      console.warn("[iNat Lab] Service worker registration failed:", err);
+    });
+  }
 
   // Boot
   render();
