@@ -8125,7 +8125,7 @@ $("#q").value = "";
     try{
       setStatus("Loading CSV…");
       await loadCSVFile(f);
-      setStatus(`Loaded ${app.rows.length.toLocaleString()} rows`);
+      setStatus("");   // clear — the toast confirms the load; no persistent header text
       showToast(`✓ Loaded ${app.rows.length.toLocaleString()} observations from ${f.name}`);
     }catch(err){
       console.error(err);
