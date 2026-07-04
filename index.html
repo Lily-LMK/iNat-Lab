@@ -90,7 +90,6 @@
     .meta .name,
     .meta .card-common,
     .childTile .name,
-    .headerResetBtn,
     header .brand .title
     { font-family: var(--heading); }
 
@@ -112,19 +111,6 @@
     }
     header .brand .title{ font-weight: 700; font-size: 17px; letter-spacing:-.5px; color:var(--ink); }
     header .brand .sub{ font-family: var(--sans); font-size:10px; color:var(--muted); font-weight:500; letter-spacing:1.2px; text-transform:uppercase; margin-top:2px; }
-
-    .headerResetBtn{
-      font-family: var(--font); font-size: 12px; font-weight: 500;
-      border: 1px solid var(--hair-strong);
-      border-radius: 4px;
-      padding: 7px 14px;
-      background: transparent;
-      color: var(--ink);
-      cursor: pointer;
-      white-space: nowrap;
-      transition: background var(--dur-fast), border-color var(--dur-fast);
-    }
-    .headerResetBtn:hover{ background:var(--raised-hi); border-color:var(--ink); }
 
     .headerMeta{
       display: flex; align-items: center; gap: 8px;
@@ -1677,11 +1663,8 @@
 
     <div id="chipBar" class="chip-bar" role="region" aria-live="polite" aria-label="Active filters"></div>
 
-    <button id="resetBtn" class="headerResetBtn" title="Clear all filters">Reset</button>
-
     <div class="headerMeta">
       <button id="loadCsvBtn" class="headerSmBtn" title="Load a new CSV file">Load new…</button>
-      <button id="taxonSyncBtn" class="headerSmBtn" title="Check iNaturalist for updated taxonomy fields">Update taxa</button>
     </div>
 
     <button id="themeToggle" class="headerToggleBtn" title="Switch between light and dark" aria-label="Switch between light and dark theme"></button>
@@ -1868,6 +1851,11 @@
             </div>
 
             <div class="muted small" id="apiTotals" style="margin-top:8px;"></div>
+
+            <div class="rule"></div>
+            <div class="bar">
+              <button id="taxonSyncBtn" title="Check iNaturalist for updated taxonomy fields">Update taxa</button>
+            </div>
           </div>
         </div>
       </details>
@@ -3034,7 +3022,7 @@ function refreshStaticFilters(){
     clr.className = "chip-clear";
     clr.textContent = "Clear all";
     clr.setAttribute("aria-label", "Clear all active filters");
-    clr.addEventListener("click", ()=>{ const rb=$("#resetBtn"); if(rb) rb.click(); });
+    clr.addEventListener("click", clearAllFilters);
     bar.appendChild(clr);
   }
 
@@ -6788,7 +6776,7 @@ $$(".bar button").forEach(btn=>{
     });
   });
 
-  $("#resetBtn").addEventListener("click", ()=>{
+  function clearAllFilters(){
     if(!app.loaded) return;
     $("#q").value = "";
     $("#userFilter").value = "All";
@@ -6810,7 +6798,7 @@ $$(".bar button").forEach(btn=>{
     app.guideRank = null;
     syncSearchClear();
     recompute();
-  });
+  }
 
   // ── Sidebar: desktop = collapsible column; mobile = off-canvas drawer ──
   const _mqMobile = window.matchMedia("(max-width: 680px)");   // phone-mode swap; keep in sync with the CSS @media breakpoint
@@ -6842,22 +6830,19 @@ $$(".bar button").forEach(btn=>{
   _drawerBackdrop?.addEventListener("click", closeDrawer);
   document.addEventListener("keydown", (e)=>{ if(e.key === "Escape" && document.body.classList.contains("drawer-open")) closeDrawer(); });
 
-  // Relocate the secondary header actions (Reset, filename, Open file, Update
-  // taxa) into the drawer on mobile so the header stays compact; move them back
-  // to the header on desktop. Moving the nodes preserves their event listeners.
+  // Relocate the secondary header actions (the "Load new…" button) into the
+  // drawer on mobile so the header stays compact; move them back to the header
+  // on desktop. Moving the nodes preserves their event listeners.
   const _headerEl = document.querySelector("header");
   const _themeBtn = $("#themeToggle");
-  const _resetBtn = $("#resetBtn");
   const _headerMeta = document.querySelector(".headerMeta");
   const _drawerActions = $("#drawerActions");
   function syncHeaderLayout(){
     if(isMobile()){
       _mainEl.classList.remove("sidebar-collapsed");
-      if(_resetBtn && _resetBtn.parentElement !== _drawerActions) _drawerActions.appendChild(_resetBtn);
       if(_headerMeta && _headerMeta.parentElement !== _drawerActions) _drawerActions.appendChild(_headerMeta);
     } else {
       closeDrawer();
-      if(_resetBtn && _resetBtn.parentElement === _drawerActions) _headerEl.insertBefore(_resetBtn, _themeBtn);
       if(_headerMeta && _headerMeta.parentElement === _drawerActions) _headerEl.insertBefore(_headerMeta, _themeBtn);
     }
   }
