@@ -94,63 +94,56 @@ CSV handy for local testing (do not commit it).
 ## Current chapter
 
 **Everything below is live on `main` and pushed** to `origin` (`Lily-LMK/iNat-Lab`, GitHub Pages).
-Phase 1's "Gallery" identity remains the baseline; responsive behaviour was reworked to a **single
-desktop↔phone swap at 680px** (off-canvas drawer + compact header below it; sidebar-left above). Several `docs/HANDOFF.md` items are now done — see that file for the per-item
-status and what's left. Verification throughout is via a headless-Chrome/CDP driver (native Node 24
-`WebSocket`, no deps) loading the git-ignored `sample-inat.csv`; drivers live in the session scratchpad.
+Phase 1's "Gallery" identity is the baseline. All HANDOFF items except §7 (service worker) are done.
+Verification throughout has been via a headless-Chrome/CDP driver (native Node 24 `WebSocket`, no
+deps) loading the git-ignored `sample-inat.csv`; drivers live in the session scratchpad.
 
 **Shipped this chapter** (all merged to `main` and pushed):
 
-- **Search relocated + redesigned** (HANDOFF §6, DONE). Header search pill gone; `#q` is a minimal
-  sidebar box (magnifier + clear-✕, empty placeholder, label moved to `aria-label`). Sidebar filter
-  order is **Taxon menu → Search → the rest** (User/Quality/Compare/Date).
+- **Search relocated + redesigned** (HANDOFF §6). Header search pill gone; `#q` is a minimal sidebar
+  box (magnifier + clear-✕, empty placeholder, label moved to `aria-label`). Sidebar filter order is
+  **Taxon menu → Search → the rest** (User/Quality/Compare/Date).
 - **Active-filters bar** in the freed header centre slot. `renderFilterChips()` renders from the
-  central `app.f` state in RANKS order. Taxonomy is a **`value › value` breadcrumb** (no pills, no
-  rank labels); each value is click-to-remove and clears its downstream ranks (`clearTaxonFromRank`).
-  Independent filters (User/Quality/Date/Search) are minimal labelled items; Date only when it
-  narrows the set. **Clear all** at the far right (reuses Reset).
-- **Records ⇄ Field Guide hop** (HANDOFF §3, DONE). A Records-card trail-rank click sets the taxon
-  filter and hops to the Field Guide focus; higher ranks land on the **one-of-each-species plate**,
-  a species-level click drops to that species' records. Filter is retained, so back-to-Records shows
-  all of that taxon. (`applyLineageKey` + `data-rank` routing in `renderRecords`.)
-- **Field Guide = visual field guide, not a dashboard.** The focus view's analytics panel
-  (records-per-month chart, quality-grade summary, occurrence stats, by-user) is **removed**; nav
-  controls (Records view / index / View on iNaturalist) moved into a **compact header row**; the view
-  is a **single full-width image gallery** with enlarged tiles; **default mode = "one of each
-  species."** `computeOccurrence`/`renderMonthBars` are left defined for the future deep-dive.
-- **Image-first tiles.** Field Guide index tiles (`.guideCard`/`.guideList`) and the focus plate lead
-  with a **representative photo from the loaded records** (`r._img`) + honest placeholder; occurrence
-  text follows. Tile grids are responsive (`auto-fill, minmax(210px…)`, 150px narrow) and consistent
-  between index and plate.
-- **Header tidy.** Removed the CSV filename display (the load toast already names the file).
-- **Records card redesign** (HANDOFF §4, DONE). Username line + `📍` pin removed; the observer is now
-  a **colour-coded ⌖ crosshair marker** (inline SVG with a real `stroke-width`, `title`/`aria-label`
-  for a11y) before the locality. **Taxonomic order removed from the card** (reverses the earlier
-  "Order in the trail" plan). Trail contrast raised `--muted2`→`--muted`. Body order: image · sci ·
-  common · date · ⌖place · trail. **Observer palette** → theme-aware **12-hue calm set**
-  (`USER_PALETTE_LIGHT`/`_DARK`): same hue deeper on paper / lighter on the dark card, every value
-  **≥5:1** on its own surface; `userColor()` reads `data-theme` (toggle re-renders). Hues interleaved
-  for distinctness (A teal / B terracotta / C slate-violet …); calm, no chartreuse/neon.
-- **Responsive mid-width fix** (`docs/NEXT-SESSION.md §1`). The sidebar could stack *under* the records
-  in the ~681–980px band; now a **single desktop↔phone swap at 680px** (≈45% of a MBP 14"), synced
-  across the CSS `@media` and JS `_mqMobile`. Removed `aside{order:2}`; the sidebar narrows in the
-  681–780 band so it never exceeds the content; the `auto-fill` gallery reflows the narrow column.
-- **Sidebar + Field Guide cleanups** (`aae5e9a`). "One of each species" pages **100** (was 48);
-  **Quality grade** moved to the top beside **Taxon menu order**; **Genus + Species** paired; **User**
-  full-width; removed the idle "Load a CSV to begin." text and the redundant top-right
-  "N/M records • dates" header line.
+  central `app.f` state in RANKS order. Taxonomy is a **`value › value` breadcrumb**; each value is
+  click-to-remove and clears its downstream ranks. Independent filters (User/Quality/Date/Search)
+  are minimal labelled items. **Clear all** at the far right. Bar **wraps** to a second line on long
+  paths (`flex-wrap:wrap`).
+- **Records ⇄ Field Guide hop** (HANDOFF §3). Trail-rank click sets taxon filter and hops to the
+  Field Guide focus; higher ranks land on the **one-of-each-species plate**; species-level click
+  drops to that species' records. Filter is retained on return.
+- **Field Guide rework.** Analytics panel removed; nav in a compact header row; **single full-width
+  image gallery**; default mode = "one of each species" (100 per page). Duplicate breadcrumb in the
+  focus header removed; header buttons unified to `smallBtn`. Section heading in species mode shows
+  only the count (not "Species — one of each" redundantly).
+- **Image-first tiles.** Field Guide index + focus plate lead with `r._img` + honest placeholder.
+  Tile grids are responsive (`auto-fill, minmax(210px…)`) and consistent between index and plate.
+- **Records card redesign** (HANDOFF §4). Username line + pin removed; observer shown as a
+  **colour-coded ⌖ crosshair marker** (inline SVG, `title`/`aria-label`) before the locality.
+  Taxonomic order removed from the card. Trail contrast raised `--muted2`→`--muted`. Body order:
+  image · sci · common · date · ⌖place · trail. **Observer palette** → theme-aware **12-hue calm
+  set** (`USER_PALETTE_LIGHT`/`_DARK`), all ≥5:1 on their own surface; `userColor()` reads
+  `data-theme`; toggle re-renders. Hues interleaved (A teal / B terracotta / C slate-violet …).
+- **Responsive mid-width fix.** Single desktop↔phone swap at **680px** (≈45% of MBP 14"), synced
+  across `@media` and `_mqMobile`. Sidebar never stacks under content.
+- **Sidebar cleanups.** Quality grade top; Genus + Species paired; User full-width; idle status text
+  and redundant "N/M records • dates" header line removed.
+- **Single scroll container refactor** (`c2d7e75`). Collapses the fixed-height nested scroll shell
+  to a **window scroller**: `body` scrolls the app; `aside` is `position:sticky` with
+  `max-height:calc(100dvh - var(--header-h) - 14px)`; `.content`/`#view` has no `overflow:auto`.
+  Map height re-based to `min(72vh,760px)` (viewport-relative). `--header-h` published via
+  `ResizeObserver` so sticky offset tracks header wrap. **Eliminates the trackpad bounce bug class.**
+  Real-trackpad sign-off still needed on Lily's MacBook Pro (CDP cannot reproduce momentum scroll).
+- **Taxa tree redesign** (HANDOFF §2, `6a077ef`). Flat `<details>/<summary>` rows with chevron
+  expand, hover-reveal **Guide** + **GBIF** actions, name-click filters Records, auto-expands to the
+  active filter path, depth selector (Order→Species), Expand all / Collapse all / Export CSV toolbar.
 
-**Decisions:** tab label stays **"Field Guide"** (not renamed to "Browse" — Lily's call for now).
-Tile images come from **our own iNat records only**, with an honest placeholder when a taxon has
-no photographed record.
+**Decisions:** tab label stays **"Field Guide"** (Lily's call). Tile images = own records only,
+honest placeholder when no photo. Observer palette: 12-hue calm set, no chartreuse/neon.
 
-**Not yet done** — **next up: the Field Guide scroll-bounce** on a real trackpad (rubber-band; the
-`overscroll-behavior:contain` mitigation did *not* fix it — the fix is the single-scroll-container
-refactor: `docs/NEXT-SESSION.md §2`). Then the queued **UI review** (`docs/NEXT-SESSION.md §4`:
-chip-bar wrap, duplicate Field Guide breadcrumb, focus-header button consistency) and the **Taxa
-tree redesign** (= HANDOFF **§2**, aligned to QM's two-action model + auto-expand), then **HANDOFF §7**
-(service worker / offline + import warm-up). Then the roadmap: map-by-rank (Phase 2), species
-deep-dive (Phase 3), spatial layers (Phase 4), publish polish + shareable URL state (Phase 5).
+**Not yet done:** real-trackpad sign-off (see `docs/NEXT-SESSION.md §1`), then **HANDOFF §7**
+(service worker / offline + import warm-up), then **visual polish** (`NEXT-SESSION.md §3`).
+Roadmap: **Phase 2** map-by-rank → **Phase 3** species deep-dive → **Phase 4** spatial layers →
+**Phase 5** publish polish + shareable URL state + a11y/mobile/perf.
 
 ---
 
