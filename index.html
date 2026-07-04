@@ -964,16 +964,81 @@
     }
 
     /* ---------- Field Guide ---------- */
-    .treeGuideBtn{
-      border: 1px solid var(--hair);
-      background: var(--raised);
-      color: var(--ink);
-      padding: 4px 8px;
-      border-radius: 999px;
-      font-size: 12px;
-      cursor: pointer;
+
+    /* ---------- Taxa tree ---------- */
+    .taxaToolbar{
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+      margin-bottom:14px;
     }
-    .treeGuideBtn:hover{ filter: brightness(1.15); }
+    .taxaToolbar select{
+      font-family:var(--font); font-size:12px; color:var(--ink);
+      border:1px solid var(--hair-strong); border-radius:5px;
+      padding:5px 22px 5px 8px; background:var(--panel);
+      appearance:none; -webkit-appearance:none; cursor:pointer;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E");
+      background-repeat:no-repeat; background-position:right 7px center;
+    }
+    .taxaToolbar .ghostBtn{
+      font-family:var(--font); font-size:12px; font-weight:500;
+      color:var(--muted); background:none; border:none; padding:4px 0;
+      cursor:pointer; text-decoration:underline; text-decoration-color:transparent;
+      text-underline-offset:2px;
+      transition:color var(--dur-fast), text-decoration-color var(--dur-fast);
+    }
+    .taxaToolbar .ghostBtn:hover{ color:var(--ink); text-decoration-color:var(--hair-strong); }
+    .taxaToolbar .toolSep{ width:1px; height:14px; background:var(--hair-strong); flex:none; }
+
+    .taxTree{ font-size:13px; }
+    .taxTree details{ margin:0; }
+
+    .treeRow{
+      display:flex; align-items:center; gap:6px;
+      padding:5px 8px; margin:1px 0; border-radius:5px;
+      list-style:none;
+    }
+    .treeRow::-webkit-details-marker{ display:none; }
+    summary.treeRow{ cursor:pointer; user-select:none; }
+    .treeRow:hover{ background:var(--raised-hi); }
+
+    .treeChevron{
+      flex:none; width:14px; height:14px;
+      display:flex; align-items:center; justify-content:center;
+      color:var(--muted2); transition:transform .12s ease;
+      pointer-events:none;
+    }
+    details[open] > summary > .treeChevron{ transform:rotate(90deg); }
+
+    .treeNodeName{
+      font-weight:600; color:var(--ink);
+      background:none; border:none; padding:0;
+      font-family:inherit; font-size:inherit;
+      cursor:pointer; text-align:left; flex:0 0 auto;
+    }
+    .treeNodeName:hover{ text-decoration:underline; text-underline-offset:2px; }
+    .treeNodeName em{ font-style:italic; }
+    .treeNodeName:focus-visible{ outline:2px solid var(--ink); outline-offset:2px; border-radius:2px; }
+
+    .treeBadge{ font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; }
+    .treeRankLabel{
+      font-size:9px; font-weight:600; letter-spacing:.1em;
+      text-transform:uppercase; color:var(--muted2);
+    }
+
+    .treeActions{ display:flex; gap:4px; margin-left:auto; align-items:center; }
+    .treeActions button{
+      font-family:var(--font); font-size:10px; font-weight:500;
+      padding:2px 7px; border-radius:3px;
+      border:1px solid transparent;
+      background:transparent; color:var(--muted2);
+      cursor:pointer; white-space:nowrap;
+      transition:color var(--dur-fast), border-color var(--dur-fast), background var(--dur-fast);
+    }
+    .treeRow:hover .treeActions button{ color:var(--muted); border-color:var(--hair); background:var(--raised); }
+    .treeActions button:hover,
+    .treeActions button:focus-visible{ color:var(--ink) !important; border-color:var(--hair-strong) !important; background:var(--raised) !important; }
+    .treeActions button:focus-visible{ outline:2px solid var(--ink); outline-offset:1px; }
+
+    .treeIndent{ margin-left:24px; padding-left:8px; border-left:1px solid var(--hair); }
 
 
     .childTiles{
@@ -1048,17 +1113,6 @@
 
 
     /* ---------- GBIF Explorer ---------- */
-    .treeGbifBtn{
-      border: 1px solid var(--accent-line);
-      background: var(--accent-soft);
-      color: var(--accent);
-      padding: 4px 8px;
-      border-radius: 999px;
-      font-size: 12px;
-      cursor: pointer;
-    }
-    .treeGbifBtn:hover{ filter: brightness(1.15); }
-
     .gbifPane{
       border: 1px solid var(--hair);
       border-radius: 18px;
@@ -3903,22 +3957,22 @@ function refreshStaticFilters(){
     if(app.gbifMiniMap){ try{ app.gbifMiniMap.remove(); }catch(e){} app.gbifMiniMap = null; }
 
     const header=document.createElement("div");
-    header.className="pill";
-    header.style.marginBottom="12px";
+    header.className="taxaToolbar";
     header.innerHTML = `
-      <label>Taxonomy tree</label>
-      <select id="treeDepth">
-        <option value="1">Depth: Order</option>
-        <option value="2">Depth: Superfamily</option>
-        <option value="3">Depth: Family</option>
-        <option value="4">Depth: Subfamily</option>
-        <option value="5">Depth: Tribe</option>
-        <option value="6">Depth: Genus</option>
-        <option value="7" selected>Depth: Species</option>
+      <select id="treeDepth" aria-label="Tree depth">
+        <option value="1">Order</option>
+        <option value="2">Superfamily</option>
+        <option value="3">Family</option>
+        <option value="4">Subfamily</option>
+        <option value="5">Tribe</option>
+        <option value="6">Genus</option>
+        <option value="7" selected>Species</option>
       </select>
-      <button id="expandAll">Expand all</button>
-      <button id="collapseAll" class="primary">Collapse all</button>
-      <button id="exportTree" title="Export a flattened taxon table for the visible tree">Export tree</button>
+      <div class="toolSep" role="separator"></div>
+      <button id="expandAll" class="ghostBtn">Expand all</button>
+      <button id="collapseAll" class="ghostBtn">Collapse all</button>
+      <div class="toolSep" role="separator"></div>
+      <button id="exportTree" class="ghostBtn" title="Export taxonomy as CSV">Export</button>
     `;
     root.appendChild(header);
 
@@ -4029,18 +4083,21 @@ function refreshStaticFilters(){
       setTab("records");
     }
 
-    function nodeSummaryHTML(node, lineage){
-      const label = lineage.length ? R[lineage.length-1].label : "Taxon";
-      const pathKey = lineage.join("\u001f");
-      const isGenusOrSpecies = lineage.length >= 6; // 6=Genus, 7=Species
-      const nameHtml = isGenusOrSpecies ? `<em>${escapeHtml(node.name)}</em>` : escapeHtml(node.name);
+    const CHEVRON_SVG = `<svg class="treeChevron" viewBox="0 0 8 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 2l4 4-4 4"/></svg>`;
+    const LEAF_SPACER = `<span style="flex:none;width:14px;" aria-hidden="true"></span>`;
+
+    function treeRowHTML(nameHtml, pathKey, count, label, expandable, depth){
+      const escapedName = escapeAttr(nameHtml.replace(/<[^>]+>/g, ""));
+      const actions = `<div class="treeActions">
+        <button class="treeGuideBtn" data-path="${escapeAttr(pathKey)}" title="Open Field Guide">Guide</button>
+        ${expandable ? `<button class="treeGbifBtn" data-path="${escapeAttr(pathKey)}" data-depth="${depth}" title="Explore on GBIF">GBIF</button>` : ""}
+      </div>`;
       return `
-        <button class="treeNameBtn" data-path="${escapeAttr(pathKey)}" title="Filter Records to ${escapeAttr(node.name)}" style="font-weight:600;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;font-size:inherit;color:inherit;text-align:left;">${nameHtml}</button>
-        <span class="muted" style="margin-left:8px;">${node.count.toLocaleString()}</span>
-        <span class="muted" style="margin-left:8px;">${label}</span>
-        <button class="treeGuideBtn" data-path="${escapeAttr(pathKey)}" title="Open Field Guide for this node">Guide</button>
-        <button class="treeGbifBtn" data-path="${escapeAttr(pathKey)}" data-depth="${lineage.length}" title="Explore this taxon on GBIF">GBIF</button>
-`;
+        ${expandable ? CHEVRON_SVG : LEAF_SPACER}
+        <button class="treeNodeName" data-path="${escapeAttr(pathKey)}" title="Filter records to ${escapedName}">${nameHtml}</button>
+        <span class="treeBadge">${count.toLocaleString()}</span>
+        <span class="treeRankLabel">${escapeHtml(label)}</span>
+        ${actions}`;
     }
 
 
@@ -4272,120 +4329,103 @@ function refreshStaticFilters(){
 
     function renderTree(maxDepth){
       wrap.innerHTML = "";
-
+      const SEP = "\u001f";
       const tree = buildTree(maxDepth);
       const rootList = document.createElement("div");
-      rootList.className = "tree";
+      rootList.className = "taxTree";
       wrap.appendChild(rootList);
+
+      function onRowClick(e, pathKey){
+        const gbtn  = e.target.closest?.(".treeGuideBtn");
+        const gbifbtn = e.target.closest?.(".treeGbifBtn");
+        const nbtn  = e.target.closest?.(".treeNodeName");
+        if(!gbtn && !gbifbtn && !nbtn) return; // let details toggle happen
+        e.preventDefault(); e.stopPropagation();
+        if(gbifbtn){
+          exploreGbif(gbifbtn.getAttribute("data-path") || "", parseInt(gbifbtn.getAttribute("data-depth") || "1", 10));
+        } else if(gbtn){
+          applyLineageKey(gbtn.getAttribute("data-path") || "", "guide");
+        } else {
+          applyLineageKey(nbtn.getAttribute("data-path") || "", "records");
+        }
+      }
 
       function buildDetails(node, lineage){
         const details = document.createElement("details");
-        details.open = false; // collapsed by default
+        const pathKey = lineage.join(SEP);
+        const label = R[lineage.length-1].label;
+        const isItalic = lineage.length >= 6;
+        const nameHtml = isItalic ? `<em>${escapeHtml(node.name)}</em>` : escapeHtml(node.name);
 
         const summary = document.createElement("summary");
-        summary.innerHTML = nodeSummaryHTML(node, lineage);
-        summary.style.listStyle = "none";
-        summary.style.cursor = "pointer";
-        summary.style.padding = "8px 10px";
-        summary.style.border = "1px solid var(--hair)";
-        summary.style.borderRadius = "14px";
-        summary.style.background = "var(--raised)";
-        summary.style.margin = "6px 0";
-        summary.style.display = "flex";
-        summary.style.alignItems = "center";
-        summary.style.gap = "8px";
-        summary.style.flexWrap = "wrap";
-
-        summary.addEventListener("click", (e)=>{
-          const nbtn = e.target && e.target.closest && e.target.closest(".treeNameBtn");
-          const gbtn = e.target && e.target.closest && e.target.closest(".treeGuideBtn");
-          const gbifbtn = e.target && e.target.closest && e.target.closest(".treeGbifBtn");
-          const btn = nbtn || gbtn || gbifbtn;
-          if(btn){
-            e.preventDefault();
-            e.stopPropagation();
-            const path = btn.getAttribute("data-path") || "";
-            if(gbifbtn) {
-              const d = parseInt(gbifbtn.getAttribute("data-depth") || "1", 10);
-              exploreGbif(path, d);
-            } else if(gbtn) {
-              applyLineageKey(path, "guide");
-            } else {
-              applyLineageKey(path, "records");
-            }
-          }
-        });
-details.appendChild(summary);
+        summary.className = "treeRow";
+        summary.innerHTML = treeRowHTML(nameHtml, pathKey, node.count, label, true, lineage.length);
+        summary.addEventListener("click", e => onRowClick(e, pathKey));
+        details.appendChild(summary);
 
         const kids = sortedChildren(node);
         if(kids.length){
           const indent = document.createElement("div");
-          indent.style.marginLeft = "16px";
-          indent.style.borderLeft = "1px dashed var(--hair)";
-          indent.style.paddingLeft = "10px";
-
+          indent.className = "treeIndent";
           for(const ch of kids){
             const nextLineage = lineage.concat([ch.name]);
             if(nextLineage.length > maxDepth) continue;
-
             if(nextLineage.length === maxDepth || ch.children.size === 0){
-              const leaf = document.createElement("div");
-              leaf.style.padding = "7px 10px";
-              leaf.style.margin = "6px 0";
-              leaf.style.border = "1px solid var(--hair)";
-              leaf.style.borderRadius = "14px";
-              leaf.style.background = "var(--raised)";
-              leaf.style.display = "flex";
-              leaf.style.alignItems = "center";
-              leaf.style.gap = "8px";
-              leaf.style.flexWrap = "wrap";
-
-              const label = R[nextLineage.length-1].label;
-              const pathKey = nextLineage.join("\u001f");
-              const isItalicLeaf = nextLineage.length >= 6;
-              const leafNameHtml = isItalicLeaf ? `<em>${escapeHtml(ch.name)}</em>` : escapeHtml(ch.name);
-              leaf.innerHTML = `
-                <button class="treeNameBtn" data-path="${escapeAttr(pathKey)}" title="Filter Records to ${escapeAttr(ch.name)}" style="font-weight:900;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;font-size:inherit;color:inherit;text-align:left;">${leafNameHtml}</button>
-                <span class="muted" style="margin-left:6px;">${ch.count.toLocaleString()}</span>
-                <span class="muted" style="margin-left:6px;">${label}</span>
-                <button class="treeGuideBtn" data-path="${escapeAttr(pathKey)}" title="Open Field Guide for this node">Guide</button>
-`;
-              leaf.addEventListener("click", (e)=>{
-                const nbtn = e.target && e.target.closest && e.target.closest(".treeNameBtn");
-                const gbtn = e.target && e.target.closest && e.target.closest(".treeGuideBtn");
-                e.preventDefault(); e.stopPropagation();
-                if(gbtn) {
-                  applyLineageKey(gbtn.getAttribute("data-path") || "", "guide");
-                } else if(nbtn) {
-                  applyLineageKey(nbtn.getAttribute("data-path") || "", "records");
-                }
-              });
-              indent.appendChild(leaf);
+              indent.appendChild(buildLeaf(ch, nextLineage));
             } else {
               indent.appendChild(buildDetails(ch, nextLineage));
             }
           }
           details.appendChild(indent);
         }
-
         return details;
+      }
+
+      function buildLeaf(node, lineage){
+        const pathKey = lineage.join(SEP);
+        const label = R[lineage.length-1].label;
+        const isItalic = lineage.length >= 6;
+        const nameHtml = isItalic ? `<em>${escapeHtml(node.name)}</em>` : escapeHtml(node.name);
+        const row = document.createElement("div");
+        row.className = "treeRow";
+        row.style.cursor = "default";
+        row.innerHTML = treeRowHTML(nameHtml, pathKey, node.count, label, false, lineage.length);
+        row.addEventListener("click", e => onRowClick(e, pathKey));
+        return row;
       }
 
       const topKids = sortedChildren(tree);
       if(!topKids.length){
-        rootList.innerHTML = `<div class="hint">No taxonomic data available for these filtered records.</div>`;
-        btnExpand.onclick = null;
-        btnCollapse.onclick = null;
-        btnExport.onclick = null;
+        rootList.innerHTML = `<div class="hint">No taxonomic data for these records.</div>`;
+        btnExpand.onclick = null; btnCollapse.onclick = null; btnExport.onclick = null;
         return;
       }
+      for(const ch of topKids) rootList.appendChild(buildDetails(ch, [ch.name]));
 
-      for(const ch of topKids){
-        rootList.appendChild(buildDetails(ch, [ch.name]));
-      }
+      // Auto-expand to the active filter path
+      (()=>{
+        const filterVals = [
+          $("#ord")?.value, $("#superfam")?.value, $("#fam")?.value,
+          $("#subfam")?.value, $("#tribe")?.value, $("#genus")?.value, $("#species")?.value
+        ];
+        let container = rootList;
+        for(const seg of filterVals){
+          if(!seg || seg === "All") break;
+          let found = false;
+          for(const d of container.querySelectorAll(":scope > details")){
+            const nb = d.querySelector(":scope > summary .treeNodeName");
+            if(nb && nb.textContent.trim() === seg){
+              d.open = true;
+              container = d.querySelector(":scope > .treeIndent") || d;
+              found = true; break;
+            }
+          }
+          if(!found) break;
+        }
+      })();
 
-      btnExpand.onclick = () => { wrap.querySelectorAll("details").forEach(d => d.open = true); };
-      btnCollapse.onclick = () => { wrap.querySelectorAll("details").forEach(d => d.open = false); };
+      btnExpand.onclick = () => wrap.querySelectorAll("details").forEach(d => d.open = true);
+      btnCollapse.onclick = () => wrap.querySelectorAll("details").forEach(d => d.open = false);
 
       btnExport.onclick = () => {
         const out = [];
