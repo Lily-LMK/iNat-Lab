@@ -1,138 +1,104 @@
 # iNat Lab — Roadmap
 
-This is the phased plan for taking iNat Lab from a capable-but-plain single-file tool to an
-awwwards-calibre, publicly shareable iNaturalist explorer with three new capabilities ported
-from QM Explorer. The creative and functional detail for the redesign lives in
-`OPUS-BRIEF.md`; this file is the sequencing.
+The phased plan for iNat Lab: a publicly shareable, single-file iNaturalist explorer with a
+distinctive visual identity and three capabilities ported from the sibling project QM Explorer.
+This file is the **sequencing**; `../CLAUDE.md` holds the orientation + current chapter, and
+`NEXT-SESSION.md` the immediate next actions + backlog.
 
-Guiding decisions (agreed with Lily, 2026-07-03):
+Guiding decisions (agreed with Lily):
 
 - **Port three QM Explorer capabilities:** map-by-taxonomic-rank, species deep-dive panel,
   spatial context layers.
-- **Fresh distinctive visual identity** — a new awwwards-calibre look, not a reskin.
+- **Distinctive visual identity** — shipped as **"Gallery"** (light-default, editorial,
+  one typeface Inter, hairline/monochrome UI, opt-in dark). Not a reskin of the old warm-paper
+  theme.
 - **Public-shareable** — privacy care, onboarding, shareable URL state, honest empty states.
 - **Single-file, no-build, keyless, static → GitHub Pages. Mobile-flawless.**
 
-Work in **small, verifiable slices**; keep `main` deployable; the existing five views and the
-ingest/metadata engine keep working throughout. Elevate, don't regress.
+Work in **small, verifiable slices**; keep `main` deployable; the five views (Records, Taxa,
+Field Guide, Dates, Map) and the ingest/metadata engine keep working throughout.
 
-> **Status (2026-07-03):** **Phase 1 is done and merged to `main`** — but the visual direction
-> **pivoted** from the original brief. Lily rejected a first dark attempt as "elementary"; the
-> shipped identity is **"Gallery"**: a **light-default, editorial, photographer-portfolio**
-> aesthetic (gallery-monochrome, one typeface — Inter, no emoji) with a **dark toggle**. Also
-> shipped: **breadcrumbs** + a **"one of each species"** browse. See `../CLAUDE.md` "Current
-> chapter".
->
-> **The next phase is re-specified in [`HANDOFF.md`](HANDOFF.md)** — Lily's newer requirements
-> (Field Guide → **Browse** ported from QM; **Taxa** aligned to QM; **Records⇄Browse** hop;
-> **Records card** redesign with a coloured **⌖** observer marker; **search-bar** redesign;
-> **service-worker caching/offline**). `HANDOFF.md` supersedes Phases 2–4 below where they
-> overlap and cites the exact QM Explorer functions to port.
->
-> **Progress (2026-07-03, all on `main` + pushed):** HANDOFF **§6 search redesign** and **§3
-> Records⇄Browse hop** are **done**; the **Field Guide** was reworked into an image-first gallery
-> (analytics removed, nav in a compact header, default "one of each species") and gained an
-> **active-filters chip bar** + **responsive image tiles** (tiles use each record's own photo).
-> **Still open:** §2 **Taxa**, §4 **Records card** finish (⌖ marker + Order link), §7
-> **service worker/offline**. See `HANDOFF.md` → "Progress" for the per-item table.
+> **Status:** Phases **0, 1 complete** and live on GitHub Pages
+> (https://lily-lmk.github.io/iNat-Lab/). **Phase 2's core is built** (map colour + legend by
+> rank); its remaining polish is refined below. The app has since had a sidebar/header cleanup
+> and a full 10-rank taxonomy backbone — see `../CLAUDE.md` "Current chapter".
 
 ---
 
-## Phase 0 — Foundation & safety net (do first)
+## Phase 0 — Foundation & safety net ✅ DONE
 
-Goal: make the redesign safe to attempt on a 7,800-line single file.
+- [x] `git init` + baseline commit; `.gitignore`, `CLAUDE.md`, `README.md`.
+- [x] GitHub repo (`Lily-LMK/iNat-Lab`) + **GitHub Pages** live from `main`.
+- [x] Non-personal sample CSV for local testing (`sample-inat.csv`, git-ignored).
+- [x] Audit: no hardcoded personal defaults (username field is placeholder-only).
 
-- [ ] `git init`, commit the current app as the **baseline** (so every later step is a
-      reversible diff). Add `.gitignore` (done), `CLAUDE.md` (done), `README.md` (done).
-- [ ] Create the **GitHub repo** and push baseline. Enable **GitHub Pages** from `main`.
-      (Proposed: `lily-lmk/iNat-Lab` → `https://lily-lmk.github.io/iNat-Lab` — confirm name.)
-- [ ] Add a tiny **non-personal sample CSV** for local testing (kept local, git-ignored) and
-      note how to load it, so any session can verify without Lily's data.
-- [ ] Quick **audit pass**: confirm no hardcoded personal defaults (verified: username field
-      is placeholder-only); list the JS entry points Opus will touch (`renderMap`,
-      `renderGallery`/Records, Taxa tree, Field Guide, the export modal, state object).
-- [ ] Add a lightweight **self-test hook** (mirror QM Explorer's `?selftest`) if practical:
-      load sample data and assert counts/render, so regressions surface fast.
+## Phase 1 — Design system & shell ✅ DONE ("Gallery" identity)
 
-Exit: baseline is live on Pages, reproducible locally with sample data, nothing personal shipped.
+- [x] Design language as CSS custom properties (light `:root` + `[data-theme="dark"]`).
+- [x] App shell: ink-on-paper masthead, underline text-nav tabs, hairline cards; mobile
+      off-canvas drawer.
+- [x] Core components restyled (buttons, selects, inputs, chips, cards, modals, tabs).
+- [x] Motion vocabulary + `prefers-reduced-motion` guard.
+- [x] Onboarding / empty state (wordmark + "Load CSV" / "Pull from iNaturalist" CTAs).
+- [x] Service worker (`sw.js`) — app-shell + media caching, with per-taxon warm-up on import.
 
-## Phase 1 — Design system & shell (Opus leads)
+## Phase 2 — Map by taxonomic rank 🟡 CORE DONE, polish remaining
 
-Goal: establish the fresh identity as reusable tokens + the app shell, before touching features.
+Built: a **"Colour by"** control (User | Order | Family | Superfamily | Subfamily | Tribe |
+Genus | Species), deterministic per-category colours with rank fallback, and a collapsible
+**legend** with counts. Remaining, agreed with Lily (build order a → b → c):
 
-- [ ] **Design language:** palette, type scale, spacing, radii, elevation, motion — as CSS
-      custom properties (replace the current `:root` warm/green tokens). One source of truth.
-- [ ] **App shell:** header, view switcher, sidebar/filters, and the mobile layout (drawer or
-      bottom nav). Responsive from 320px up; no horizontal overflow; touch targets ≥ 44px.
-- [ ] **Core components restyled** to the new system: buttons, selects, inputs, chips, cards,
-      modals, toasts, tabs — without changing their behaviour or IDs where possible.
-- [ ] **Motion + reduced-motion**: define the motion vocabulary and honour
-      `prefers-reduced-motion` from the start.
-- [ ] **Onboarding / empty states:** a first-run state that explains the app and offers
-      "Load CSV" / "Pull from iNaturalist" (public-app requirement).
+- [ ] **(a) Curated palette + custom colours.** Replace the hash-HSL generator with a designed,
+      colour-blind-safe categorical scale assigned stably (by frequency). Make legend swatches
+      **editable** (click → colour picker) so Lily can choose her own colour per category —
+      needed for publication figures.
+- [ ] **(b) Clustering + spiderfy.** Add `Leaflet.markercluster` (CDN) so co-located iNat points
+      cluster and spiderfy on click; cluster icons colour by the dominant category.
+- [ ] **(c) Publication export.** A **clean vector / high-DPI point-map** export (points +
+      legend + chosen colours, **no web basemap tiles**) suitable for print. Decided over a
+      basemap screenshot to be journal-friendly and to avoid tile CORS/licensing.
+- [ ] Honest labelling of records with **no coordinate** (never silently drop them).
 
-Exit: every existing view renders in the new identity, on desktop and mobile, with real
-empty/loading states. No feature lost.
+Not prioritised: click-a-legend-entry-to-filter (colour-editing lives in the legend, so they
+overlap — revisit alongside (a)).
 
-## Phase 2 — Ported capability: Map by taxonomic rank
+## Phase 3 — Species deep-dive panel
 
-Goal: colour/cluster the map by taxonomy, not just by user.
+Goal: a focused, provenanced single-species view.
 
-- [ ] Add a **"Colour by"** control on the Map: User (current) | Order | Family | Genus |
-      (chosen rank). Build a stable colour scale keyed to the rank's values.
-- [ ] **Legend** with counts; click a legend entry to filter/highlight that taxon on the map.
-- [ ] **Clustering** at low zoom (optional) that respects the rank colouring.
-- [ ] Reuse the existing point/marker plumbing; keep A/B user mode available as one option.
-- [ ] Honest labelling of records with **no coordinate** (don't silently drop them).
-
-Exit: user can switch the map's colour dimension to any available rank, with a readable
-legend, on mobile too.
-
-## Phase 3 — Ported capability: Species deep-dive panel
-
-Goal: a focused, beautiful single-species view.
-
-- [ ] Trigger from any species (Records tile, Taxa leaf, Field Guide, map point).
-- [ ] Content: **Wikipedia** description (with link + attribution), **rank-appropriate common
-      name(s)**, representative **image** (the species' own record photo), key stats from the loaded
-      set (count, date range, top places, observers), and **external links** (iNat / GBIF).
-- [ ] Reuse iNat/GBIF/Wikipedia resolvers; cache; lazy-load; show provenance on every field.
+- [ ] Trigger from any species (Records tile, Taxa leaf, Field Guide tile, map point).
+- [ ] Content: **Wikipedia** description (link + attribution), **rank-appropriate common
+      name(s)**, representative **image** (the species' own record photo), key stats from the
+      loaded set (count, date range, top places, observers), and **external links** (iNat).
+- [ ] Reuse iNat/Wikipedia resolvers; cache; lazy-load; show provenance on every field.
 - [ ] Accessible modal/drawer (focus trap, escape, reduced-motion).
 
-Exit: one click from anywhere gives a provenanced, attractive species summary.
-
-## Phase 4 — Ported capability: Spatial context layers
+## Phase 4 — Spatial context layers
 
 Goal: "where does this record sit" context on the map.
 
-- [ ] Add toggleable overlays: **IBRA/IMCRA bioregions**, **LGAs**, **geology**, **elevation**
-      (start with whichever public services are reliable and CORS-friendly).
-- [ ] Click-to-identify where the service supports it; show the region name + source.
-- [ ] Layer control that works on mobile; sensible defaults (overlays off until asked).
-- [ ] Honest failure states when a service is blocked/offline (learn from QM Explorer's
-      geology-identify handling).
-
-Exit: user can overlay context layers and identify the region under a point, with sources shown.
+- [ ] Toggleable overlays: **IBRA/IMCRA bioregions**, **LGAs**, **geology**, **elevation**
+      (start with whichever public services are reliable and CORS-friendly; esri-leaflet is
+      already loaded).
+- [ ] Click-to-identify where supported; show region name + source (geology identify already
+      works — use it as the pattern).
+- [ ] Layer control that works on mobile; overlays off by default.
+- [ ] Honest failure states when a service is blocked/offline.
 
 ## Phase 5 — Public-app polish, a11y, mobile, publish
 
-Goal: ship-quality.
-
-- [ ] **Shareable URL state** — encode active filters/view so a link reproduces a lens.
-- [ ] **Accessibility pass** — WCAG 2.1 AA across all new UI (contrast, keyboard, focus,
-      labels, modal traps, reduced-motion).
+- [ ] **Shareable URL state** — encode active view + filters so a link reproduces a lens.
+- [ ] **Accessibility pass** — WCAG 2.1 AA across all UI (contrast, keyboard, focus, labels,
+      modal traps, reduced-motion).
 - [ ] **Mobile pass** — real-device check: layout, map, modals, filter drawer, no overflow.
 - [ ] **Performance** — lazy-load, throttle, virtualise large lists/ranks if needed.
 - [ ] **License + attribution** finalised in README and in-UI.
-- [ ] Final deploy to GitHub Pages; smoke-test the live URL on desktop + phone.
-
-Exit: iNat Lab is live, fast, accessible, mobile-flawless, and genuinely shareable.
+- [ ] Final Pages smoke-test on desktop + phone.
 
 ---
 
 ## Sequencing notes
 
-- Phases 2–4 are independent enough to reorder.
-- Keep each phase on its own branch; deploy to `main` per verified slice (QM Explorer's
-  "push often, keep main live" model).
-- After each phase, update `CLAUDE.md`'s "Current chapter" so a fresh session re-enters cleanly.
+- Phases 3–4 are independent enough to reorder.
+- Keep each phase on its own branch; deploy to `main` per verified slice.
+- After each phase, update `../CLAUDE.md`'s "Current chapter" so a fresh session re-enters cleanly.

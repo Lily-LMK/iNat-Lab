@@ -1,156 +1,92 @@
-# iNat Lab — Next session plan
+# iNat Lab — Next session
 
-Written 2026-07-04, updated 2026-07-05 (seven taxonomy improvements shipped).
+The immediate-actions companion to `ROADMAP.md` (full phase plan) and `../CLAUDE.md`
+(orientation + current chapter). Keep this lean: what to do next, the near-term backlog, and
+the settled decisions a fresh session shouldn't re-litigate.
 
-**This session completed:** full 10-rank taxonomy backbone refactor + all 7 navigation improvements from `~/.claude/plans/i-want-to-do-dreamy-pinwheel.md`. Merged to `main`.
-
----
-
-## Status summary
-
-| Item | Status |
-|---|---|
-| Responsive 680px single-swap | ✅ DONE |
-| Single scroll container (trackpad bounce fix) | ✅ DONE — real-trackpad sign-off confirmed 2026-07-04 |
-| UI cleanups (chip wrap, guide header, Taxa) | ✅ DONE |
-| Taxa tree redesign (§2) | ✅ DONE |
-| Service worker / offline (§7) | ✅ DONE |
-| GBIF removal | ✅ DONE — zero references remain |
-| **Seven taxonomy/nav improvements** | ✅ DONE — merged to `main` 2026-07-05 |
-| Visual polish (§3) | Open — next priority |
-| Phase 2: Map by taxonomic rank | Open |
-| Phase 3: Species deep-dive panel | Open |
-| Phase 4: Spatial context layers | Open |
-| Phase 5: Publish polish + shareable URL state | Open |
+_Last refreshed 2026-07-05._
 
 ---
 
-## 0. ✅ Seven taxonomy/navigation improvements — DONE 2026-07-05
+## Start here next — Phase 2, Step 1: curated palette + custom colours
 
-All seven items from `~/.claude/plans/i-want-to-do-dreamy-pinwheel.md` shipped in one branch (`seven-taxonomy-improvements`), merged to `main`. **Not yet pushed** — push when Lily asks.
+The map already colours + legends by taxonomic rank. Step 1 of the remaining Phase 2 work:
 
-**Backbone (prerequisite for items 6+7):**
-- `lineageArrayFromRow()` now returns 10 elements (`[king,phyl,cls,ord,superfam,fam,subfam,tribe,genus,sp]`)
-- `GUIDE_RANKS = RANKS` — unified full 10-rank ladder, no more Order-based 7-slot space
-- `currentFocus()` extended to all 10 ranks with correct full-ladder indices
-- `applyLineageKey()` resets and sets all 10 selectors via `RANKS.forEach`
-- Stale local `applyLineage()` copy inside `renderTaxa` deleted
+- Replace the hash→HSL colour generator (`markerColor`, ~line 4177 in `index.html`) with a
+  **designed, colour-blind-safe categorical palette**, assigned **stably by frequency** (most
+  common taxon → first swatch), cycling when categories exceed the palette.
+- Store overrides in an `app.mapColorOverrides` map keyed by `colorBy` + category; `markerColor`
+  checks the override first, then the palette slot.
+- Make the **legend swatches editable** (`buildLegend`, ~4881): click a dot → native colour
+  picker → markers + legend recolour live; a "reset colours" affordance. This is where Lily's
+  per-taxon colour choices live (needed for publication figures).
 
-**Item 1 — Taxa tree label order:** Name → Rank → N records (was Name → Count → Rank)
+Then Step 2 (clustering + spiderfy, `Leaflet.markercluster`) and Step 3 (clean vector /
+high-DPI point-map export, no basemap tiles). See `ROADMAP.md` Phase 2.
 
-**Item 2 — No more placeholder nodes:** Tree uses 10-slot positional keys; nodes carry `fullIdx`; empty intermediate ranks are skipped (no `(no subfamily)` nodes); clicking a taxon filters to exactly that rank.
+## Requested UI changes (Lily, 2026-07-05)
 
-**Item 3 — Record card trail click stays on Records** (was hopping to Field Guide for non-species ranks)
+1. **Remove the "Clear all" filter button entirely — never show it.** The chip-bar "Clear all"
+   (`index.html:3063–3065`, in the filter-chip renderer) wastes real estate, especially on the
+   phone, and is redundant: x-ing out a parent taxon level already cascades and clears its
+   downstream ranks. Remove the button; `clearAllFilters()` (`~6819`) then has no caller, so
+   remove it too (confirm no other use first). Keep per-chip ✕ removal.
 
-**Item 4 — Header breadcrumb wraps:** `.fcrumbs` CSS now has `flex-wrap:wrap; row-gap:4px; min-width:0`
+2. **Make the Field Guide focus-header buttons uniform and intentionally designed.** The three
+   actions — **Records view** (`#guideToRecords`), **{Rank} index** (`#guideBackIndex`), and
+   **View on iNaturalist** (`#guideInatLink`) at `index.html:3406–3409` — look mismatched,
+   worst on iPhone. Causes: `#guideInatLink` is an `<a class="smallBtn">` while the others are
+   `<button>`s, and `.smallBtn` (`~1104`) sets no `color`, so the anchor inherits default
+   **link-blue**; and `#guideBackIndex` is prefixed with a `↩` glyph that renders **emoji-style**
+   on iOS. Fix: one consistent treatment (equal height/padding, explicit `color:var(--ink)`, no
+   underline), drop the `↩` emoji (clean inline SVG chevron or nothing), so the group reads as a
+   deliberate, graphic-designer-quality control cluster on desktop and phone. Keep the 44px
+   mobile touch target (`.guideActions .smallBtn`, `~1153`).
 
-**Item 5 — Button relabelled** "Load new…" (was "Open file…")
+3. **Record-detail modal taxa-tree links should filter Records, not hop to Field Guide.** In the
+   record modal, the Taxonomy breadcrumb (`taxonomyBreadcrumbLinks`, rendered `~5515`; click
+   handler `~5529–5544`) calls `applyLineageKey(pk, "guide")` — jumping to the Field Guide. The
+   record **card** trail links (`~3853–3861`) call `applyLineageKey(pk, "records")` — staying and
+   filtering records at that rank. Make the modal match the card: change the modal handler to
+   `applyLineageKey(pk, "records")` + `closeModal()`, so clicking a rank shows other records at
+   that rank. (Related: the map-popup breadcrumb at `~4855` also uses `"guide"` — confirm with
+   Lily whether it should change too.)
 
-**Item 6 — Field Guide full drill-down:** "Browse by" pills now include Kingdom, Phylum, Class; children walk and species/italic thresholds updated for full ladder
+## Visual-polish backlog (independent; do in any order)
 
-**Item 7 — `backfillAncestors()` helper:** New function called from both `applyLineageKey` and all sidebar dropdown handlers. Fills the complete ancestor chain upward (kingdom → family when you pick a genus). Sidebar dropdowns and header breadcrumb now always reflect the full chain.
+- **Research-grade underline.** The `.rg` card bottom-border — revisit weight/colour/placement
+  so it reads as an intentional "research grade" cue in both themes.
+- **Name / date typography hierarchy.** Scientific name vs common name vs date — size, weight,
+  italics, spacing. Make the scientific name the clear anchor.
+- **Tile spacing.** Grid gaps, card padding, thumb-to-text rhythm; consistency between Records
+  and Field Guide tiles.
+- **Image framing.** How photos sit in the thumb (`object-fit`, aspect-ratio, radius, inset) and
+  how the placeholder matches.
+- **Resize-transition flash** (optional). Dragging the window across 680px briefly animates the
+  drawer transform; only transition `transform` on open/close, not on the mode flip.
 
-**Verified:** Zero JS errors via CDP/Node 24 with `sample-inat.csv`. All 5 views (Records/Taxa/Field Guide/Dates/Map) render; guide drill-down produces correct 7-level chip breadcrumb; no `(no X)` nodes in tree.
+## Recently shipped (newest first)
 
----
+- **Sidebar / header cleanup** (plan `we-are-going-to-declarative-hearth.md`, Parts 1–4):
+  removed the Lightroom metadata engine; slimmed the header (Update-taxa → sidebar, Reset
+  removed); **fixed the mobile drawer scroll** (explicit `100dvh`/`border-box` + JS body
+  scroll-lock; real-iPhone sign-off received); **flattened the sidebar** into hairline sections
+  (FILTERS · COMPARE USERS · DATE · SNAPSHOT · ADD RECORDS).
+- **Full 10-rank taxonomy backbone** + seven navigation improvements (`lineageArrayFromRow`
+  returns 10 ranks; positional tree keys; `backfillAncestors`; full Field Guide drill-down).
+- **Service worker / offline** (`sw.js`, three caches) with per-taxon warm-up on import.
+- **GBIF removed** everywhere (−1,372 lines; zero references).
+- Phase 1 "Gallery" identity; Taxa tree redesign; Records card redesign; single-scroll-container
+  refactor; active-filters chip bar; search relocation; Records ⇄ Field Guide hop.
 
-## 1. ✅ Real-trackpad sign-off — CONFIRMED 2026-07-04
+## Settled decisions (don't re-litigate)
 
-The single-scroll refactor (`c2d7e75`) is confirmed fixed on Lily's MacBook Pro trackpad.
-
----
-
-## 2. ✅ Service worker / offline + import warm-up — DONE
-
-**What shipped:**
-
-- **`sw.js`** (new file, 189 lines). Three caches:
-  - `inatlab-static-v1` — cache-first, indefinite: Leaflet, esri-leaflet, Inter font CDN
-  - `inatlab-api-v1` — stale-while-revalidate, 1h: iNat API, Wikipedia API
-  - `inatlab-img-v2` — cache-first, 24h TTL, 5,000-entry LRU: iNat photos (static + S3), Wikimedia, OSM/Esri/OpenTopo/GA tiles
-  - Real failures propagate; no synthetic responses.
-- **Registration** in `index.html` at boot, silent-fail if not `https`/`localhost`.
-- **Eager warm-up on import** (CSV load, full API import, top-up):
-  - Deduplicates to **one representative photo per unique taxon** (`_sci` key) — the same image the Field Guide tile shows. Scales with distinct taxa (~2–4k for a 50k record set), not observation count.
-  - Already-cached URLs skipped (fast cache-check loop before fetching).
-  - Cap 5,000 (comfortably above any personal species list); 4 concurrent workers; `requestIdleCallback` yield between fetches.
-  - Progress bar in sidebar: "Preparing N taxa for offline… X%" with a × cancel button. Auto-hides when done.
-- **Cache strategy for switching datasets:** cache is cumulative — loading a new CSV layers on top. Field Guide images for the old dataset survive as long as the combined unique-taxon count stays under 5,000. Reload the original CSV and Field Guide serves from cache immediately.
-
-**To verify in a real browser:**
-- DevTools → Application → Service Workers → confirm `sw.js` registered and active.
-- Load your 50k CSV → warm bar appears in sidebar and counts up.
-- Toggle DevTools network offline → Field Guide tiles still load from cache.
-
----
-
-## 3. ✅ GBIF removal — DONE
-
-All GBIF code removed in one pass (-1,372 lines). Zero references remain in `index.html` and `sw.js`. Removed:
-- GBIF common-name enrichment modal and button
-- GBIF taxa explorer panel (from Taxa view)
-- GBIF density tile overlay and occurrence points layer (from Map)
-- All GBIF API calls, caches, localStorage keys, app state (`gbifExplorer`, `mapState.gbif*`)
-- GBIF patterns from the service worker
-
-The Taxa tree "Guide" button and map remain fully functional without GBIF.
-
----
-
-## 4. Visual polish — next priority
-
-Independent, do in any order once behaviour is solid:
-
-- **Research-grade underline.** The `.rg` card bottom-border — revisit weight/colour/placement so it reads as an intentional "research grade" cue in both themes.
-- **Name / date typography hierarchy.** Scientific name vs common name vs date — size, weight, italics, spacing. Make scientific name the clear anchor.
-- **Tile spacing.** Grid gaps, card padding, thumb-to-text rhythm; consistency between Records and Field Guide tiles.
-- **Image framing.** How photos sit in the thumb (`object-fit`, aspect-ratio, radius, inset) and how the placeholder matches.
-- **Resize-transition flash** (optional). Dragging the window across 680px briefly animates the drawer transform. Fix: only transition `transform` when drawer opens/closes, not on mode flip.
-
----
-
-## 5. Phase 2 — Map by taxonomic rank
-
-Add a "Colour by" control on the Map panel: User (current) | Order | Family | Genus.
-- Stable per-rank colour scale keyed to values in the current filtered set.
-- Legend with counts; click entry to filter/highlight.
-- Keep A/B comparison mode as one option.
-- Honest labelling of records with no coordinate.
-
----
-
-## 6. Phase 3 — Species deep-dive panel
-
-A focused single-species view triggered from any species tile/card.
-- Wikipedia description (link + attribution), rank-appropriate common name(s), representative image, key stats (count, date range, top places), external links (iNat).
-- Accessible modal/drawer (focus trap, escape, reduced-motion).
-- Cache; lazy-load; provenance on every field.
-
----
-
-## 7. Phase 4 — Spatial context layers
-
-Toggleable overlays on the map: IBRA/IMCRA bioregions, LGAs, geology, elevation.
-- Click-to-identify where the service supports it; show region name + source.
-- Layer control that works on mobile; sensible defaults (off until asked).
-- Honest failure states when a service is blocked/offline.
-
----
-
-## 8. Phase 5 — Publish polish, a11y, shareable URL state
-
-- Shareable URL state (encode active filters/view).
-- WCAG 2.1 AA pass across all UI.
-- Real-device mobile check.
-- License + attribution in README and in-UI.
-- Final GitHub Pages deploy smoke-test.
-
----
-
-## Not in scope / already settled
-
-- Image tiles use **our own record photos only** (no multi-source cascade).
-- Observer palette is the **12-hue theme-aware calm set**; marker is the **inline SVG crosshair**.
-- Tab label stays **"Field Guide"** — Lily's call.
-- **No GBIF** anywhere — not in the UI, not in the SW, not in future phases unless explicitly re-introduced.
-- Records card §4 is **done**. All HANDOFF items are now done.
+- Tab label stays **"Field Guide"** (Lily's call).
+- Tile images use **each record's own photo only** (no multi-source cascade); honest placeholder
+  when a taxon has no photographed record.
+- Observer palette is the **12-hue theme-aware calm set** (`USER_PALETTE_LIGHT`/`_DARK`), all
+  ≥5:1 on their own surface; observer marker is an **inline SVG crosshair** (⌖).
+- **No GBIF** anywhere — not the UI, not the SW, not future phases, unless explicitly reintroduced.
+- Publication map export = **clean vector / high-DPI, no basemap tiles**.
+- Lily's own iNaturalist username may appear as a **placeholder example** — her observations are
+  public and meant to be shared. Don't re-flag it.
