@@ -140,10 +140,10 @@ deps) loading the git-ignored `sample-inat.csv`; drivers live in the session scr
 **Decisions:** tab label stays **"Field Guide"** (Lily's call). Tile images = own records only,
 honest placeholder when no photo. Observer palette: 12-hue calm set, no chartreuse/neon.
 
-**Not yet done:** real-trackpad sign-off (see `docs/NEXT-SESSION.md §1`), then **HANDOFF §7**
-(service worker / offline + import warm-up), then **visual polish** (`NEXT-SESSION.md §3`).
-Roadmap: **Phase 2** map-by-rank → **Phase 3** species deep-dive → **Phase 4** spatial layers →
-**Phase 5** publish polish + shareable URL state + a11y/mobile/perf.
+**Not yet done:** **HANDOFF §7** (service worker / offline + import warm-up — start here next
+session), then **visual polish** (`NEXT-SESSION.md §3`). Roadmap: **Phase 2** map-by-rank →
+**Phase 3** species deep-dive → **Phase 4** spatial layers → **Phase 5** publish polish +
+shareable URL state + a11y/mobile/perf. (Real-trackpad sign-off confirmed 2026-07-04.)
 
 ---
 

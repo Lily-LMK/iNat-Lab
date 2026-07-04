@@ -25,24 +25,14 @@ All three merged to `main` and live on GitHub Pages.
 
 ---
 
-## 1. Real-trackpad sign-off — **action for Lily**
+## 1. ✅ Real-trackpad sign-off — **CONFIRMED 2026-07-04**
 
-The scroll refactor (branch `single-scroll-refactor`, merged `c2d7e75`) eliminates the nested-scroll
-architecture that caused the Field Guide to snap to the top on trackpad wheel gestures. CDP synthetic
-scroll cannot reproduce momentum rubber-band, so **this needs manual confirmation on Lily's MacBook
-Pro trackpad:**
-
-1. Open `https://lily-lmk.github.io/iNat-Lab` (or `http://localhost:8000`).
-2. Load a sample CSV with many records; go to Field Guide → "One of each species."
-3. Scroll down a long plate **with the cursor over the tiles** (not the scrollbar) using the trackpad.
-4. Confirm it no longer snaps back to the top and momentum feels natural — both light and dark themes.
-
-If it still bounces, the next thing to try is `overscroll-behavior:none` on `html`/`body` (not just
-`contain`) — but the architecture change should have resolved it.
+The single-scroll refactor (`c2d7e75`) is confirmed fixed on Lily's MacBook Pro trackpad. The Field
+Guide "one of each species" plate no longer snaps to the top during wheel/gesture scroll.
 
 ---
 
-## 2. Service worker / offline + import warm-up (§7)
+## 2. Service worker / offline + import warm-up (§7) — **START HERE**
 
 Not started. Port from QM Explorer's `sw.js` + add eager warm-up on CSV import.
 
