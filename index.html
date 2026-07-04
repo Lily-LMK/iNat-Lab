@@ -1594,7 +1594,11 @@
         border-radius:0; border:0; border-right:1px solid var(--hair);
         box-shadow: 0 0 44px rgba(20,20,15,.28);
         transform: translateX(-100%);
-        opacity:1 !important; padding:16px !important; overflow:auto;
+        opacity:1 !important; padding:16px !important;
+        /* clear the iPhone home-indicator so the last control is reachable */
+        padding-bottom: max(24px, env(safe-area-inset-bottom)) !important;
+        /* own scroller: momentum on iOS + don't chain into the locked body */
+        overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
         pointer-events:auto !important; min-width:0 !important;
       }
       main.sidebar-collapsed aside{ width: min(87vw,340px); opacity:1; padding:16px; border-right:1px solid var(--hair); pointer-events:auto; }
