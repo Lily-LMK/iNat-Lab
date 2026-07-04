@@ -283,12 +283,11 @@
       width: 0;
       min-width: 0;
     }
+    /* Flat column, not a card — no border/shadow/fill on desktop; the mobile
+       drawer re-adds a surface (background + border-right + shadow) in its own block. */
     aside{
-      background: var(--panel);
-      border:1px solid var(--hair);
-      border-radius: 10px;
-      box-shadow: var(--shadow);
-      padding: 14px;
+      background: none;
+      padding: 4px 0 0;
       overflow:auto;
       position: sticky;
       top: var(--header-h, 64px);
@@ -907,32 +906,47 @@
     }
 
     /* mapFlex retired: map height is now viewport-relative on .mapBox directly */
-    .accPanel{
-      border:1px solid var(--hair);
-      border-radius: 16px;
-      background: var(--raised);
-      overflow:hidden;
+    /* Flat, hairline-separated sidebar sections (no boxes — hairlines do the work). */
+    .accPanel{ border:0; border-radius:0; background:none; }
+    .accPanel + .accPanel{
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid var(--hair);
     }
-    .accPanel + .accPanel{ margin-top: 10px; }
     .accPanel summary{
       list-style:none;
       cursor:pointer;
       user-select:none;
-      padding: 10px 12px;
+      padding: 0 0 12px;
       display:flex;
       align-items:center;
+      justify-content:space-between;
       gap:10px;
-      font-family: var(--font);
-      font-size: 12px;
-      font-weight: 700;
-      background: var(--panel);
-      border-bottom: 1px solid var(--hair);
+      font-family: var(--heading);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      transition: color var(--dur-fast, .15s) ease;
     }
+    .accPanel summary:hover{ color: var(--ink); }
+    .accPanel summary:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:3px; }
     .accPanel summary::-webkit-details-marker{ display:none; }
-    .accPanel .accBody{
-      
-      padding: 10px 12px 12px;
+    /* Collapse/expand chevron (caret), rotates when the section is open. */
+    .accPanel summary::after{
+      content:"";
+      flex:0 0 auto;
+      width:7px; height:7px;
+      margin-bottom:3px;
+      border-right:1.5px solid currentColor;
+      border-bottom:1.5px solid currentColor;
+      transform: rotate(45deg);
+      opacity:.65;
+      transition: transform var(--dur, .2s) ease;
     }
+    .accPanel[open] summary::after{ transform: rotate(-135deg); margin-bottom:-1px; }
+    .accPanel .accBody{ padding: 0; }
 
     @media (max-width: 980px){
       /* The sidebar stays a left column all the way down to the phone breakpoint — it
@@ -1598,6 +1612,7 @@
         box-sizing: border-box !important;
         height: 100vh; height: 100dvh;
         max-height: none !important;
+        background: var(--panel);
         border-radius:0; border:0; border-right:1px solid var(--hair);
         box-shadow: 0 0 44px rgba(20,20,15,.28);
         transform: translateX(-100%);
@@ -1697,6 +1712,7 @@
         </div>
         <div class="drawer-actions" id="drawerActions"></div>
       </div>
+      <!-- 1 · FILTERS — taxon menu + quality grade + rank cascade + search -->
       <details class="accPanel" open>
         <summary>Filters</summary>
         <div class="accBody">
@@ -1780,9 +1796,15 @@
               </div>
             </div>
 
-            <div class="rule"></div>
+          </div>
+        </div>
+      </details>
 
-            <!-- Then the remaining filters, as before -->
+      <!-- 2 · COMPARE USERS — user filter + A/B comparison, promoted to its own group -->
+      <details class="accPanel" open>
+        <summary>Compare users</summary>
+        <div class="accBody">
+          <div class="stack">
             <div class="field">
               <label for="userFilter">User</label>
               <select id="userFilter"></select>
@@ -1799,7 +1821,15 @@
               </div>
             </div>
             <div class="muted small">Pick any two users to enable comparison chips.</div>
+          </div>
+        </div>
+      </details>
 
+      <!-- 3 · DATE — range + presets -->
+      <details class="accPanel" open>
+        <summary>Date</summary>
+        <div class="accBody">
+          <div class="stack">
             <div class="row">
               <div class="field">
                 <label>Date from</label>
@@ -1817,23 +1847,22 @@
               <button data-range="year">This year</button>
               <button data-range="all">All time</button>
             </div>
-
           </div>
         </div>
       </details>
 
+      <!-- 4 · SNAPSHOT -->
       <details class="accPanel" open>
         <summary>Snapshot</summary>
         <div class="accBody">
-          <div class="stats snapshotStats" id="stats" style="margin-top:10px;"></div>
+          <div class="stats snapshotStats" id="stats"></div>
         </div>
       </details>
 
+      <!-- 5 · ADD RECORDS — API import + Update taxa (the group phone users most need to reach) -->
       <details class="accPanel">
-        <summary>API Import</summary>
+        <summary>Add records</summary>
         <div class="accBody">
-          <div class="rule"></div>
-
           <div class="stack">
             <div class="field">
               <label>Usernames</label>
@@ -1845,14 +1874,14 @@
               <input id="apiProject" type="text" placeholder="project_id or slug (optional)"/>
             </div>
 
-<div class="field">
+            <div class="field">
               <label>Mode</label>
               <select id="apiMode">
                 <option value="topup" selected>Top-up (new since CSV)</option>
                 <option value="full">Full import (all records)</option>
               </select>
             </div>
-<div class="field">
+            <div class="field">
               <label id="apiCapLabel">Cap (new uploads)</label>
               <input id="apiMax" type="text" value="5000"/>
             </div>
