@@ -90,7 +90,6 @@
     .meta .name,
     .meta .card-common,
     .childTile .name,
-    .headerResetBtn,
     header .brand .title
     { font-family: var(--heading); }
 
@@ -112,19 +111,6 @@
     }
     header .brand .title{ font-weight: 700; font-size: 17px; letter-spacing:-.5px; color:var(--ink); }
     header .brand .sub{ font-family: var(--sans); font-size:10px; color:var(--muted); font-weight:500; letter-spacing:1.2px; text-transform:uppercase; margin-top:2px; }
-
-    .headerResetBtn{
-      font-family: var(--font); font-size: 12px; font-weight: 500;
-      border: 1px solid var(--hair-strong);
-      border-radius: 4px;
-      padding: 7px 14px;
-      background: transparent;
-      color: var(--ink);
-      cursor: pointer;
-      white-space: nowrap;
-      transition: background var(--dur-fast), border-color var(--dur-fast);
-    }
-    .headerResetBtn:hover{ background:var(--raised-hi); border-color:var(--ink); }
 
     .headerMeta{
       display: flex; align-items: center; gap: 8px;
@@ -1608,7 +1594,11 @@
         border-radius:0; border:0; border-right:1px solid var(--hair);
         box-shadow: 0 0 44px rgba(20,20,15,.28);
         transform: translateX(-100%);
-        opacity:1 !important; padding:16px !important; overflow:auto;
+        opacity:1 !important; padding:16px !important;
+        /* clear the iPhone home-indicator so the last control is reachable */
+        padding-bottom: max(24px, env(safe-area-inset-bottom)) !important;
+        /* own scroller: momentum on iOS + don't chain into the locked body */
+        overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
         pointer-events:auto !important; min-width:0 !important;
       }
       main.sidebar-collapsed aside{ width: min(87vw,340px); opacity:1; padding:16px; border-right:1px solid var(--hair); pointer-events:auto; }
@@ -1677,11 +1667,8 @@
 
     <div id="chipBar" class="chip-bar" role="region" aria-live="polite" aria-label="Active filters"></div>
 
-    <button id="resetBtn" class="headerResetBtn" title="Clear all filters">Reset</button>
-
     <div class="headerMeta">
       <button id="loadCsvBtn" class="headerSmBtn" title="Load a new CSV file">Load new…</button>
-      <button id="taxonSyncBtn" class="headerSmBtn" title="Check iNaturalist for updated taxonomy fields">Update taxa</button>
     </div>
 
     <button id="themeToggle" class="headerToggleBtn" title="Switch between light and dark" aria-label="Switch between light and dark theme"></button>
@@ -1836,40 +1823,6 @@
       </details>
 
       <details class="accPanel">
-        <summary>Lightroom metadata</summary>
-        <div class="accBody">
-          <div class="stack">
-            <div class="field">
-              <label>Title</label>
-              <select id="titleMode">
-                <option value="common">Common name</option>
-                <option value="sci" selected>Scientific name</option>
-                <option value="common_sci">Common name (Scientific name)</option>
-                <option value="sci_common">Scientific name — Common name</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Caption template</label>
-              <select id="captionMode">
-                <option value="concise">Concise (name + place + date)</option>
-                <option value="taxon_rich">Taxon-rich (order/family/superfamily/subfamily/tribe/genus/species)</option>
-                <option value="bookish" selected>Bookish (field-guide sentence)</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Keywords</label>
-              <select id="keywordMode">
-                <option value="flat">Flat keywords</option>
-                <option value="hier">Hierarchical keywords (Order|Family|…)</option>
-                <option value="both">Both (flat + hierarchical)</option>
-              </select>
-            </div>
-          </div>
-
-        </div>
-      </details>
-
-      <details class="accPanel">
         <summary>API Import</summary>
         <div class="accBody">
           <div class="rule"></div>
@@ -1902,6 +1855,11 @@
             </div>
 
             <div class="muted small" id="apiTotals" style="margin-top:8px;"></div>
+
+            <div class="rule"></div>
+            <div class="bar">
+              <button id="taxonSyncBtn" title="Check iNaturalist for updated taxonomy fields">Update taxa</button>
+            </div>
           </div>
         </div>
       </details>
@@ -1954,7 +1912,6 @@
         <button id="openGuide">Open Field Guide</button>
         <button id="copyTitle">Copy title</button>
         <button id="copyKeywords">Copy keywords</button>
-        <button id="copyCaption">Copy caption</button>
       </div>
       <div class="rule"></div>
       <div class="hint" id="modalHint"></div>
@@ -2384,86 +2341,6 @@
     return `${hh}:${mm}${ampm}`;
   }
 
-
-  function ordinalSuffix(n){
-    const j = n % 10, k = n % 100;
-    if(k >= 11 && k <= 13) return "th";
-    if(j === 1) return "st";
-    if(j === 2) return "nd";
-    if(j === 3) return "rd";
-    return "th";
-  }
-
-  function humanDate(iso){
-    const s = safe(iso).trim();
-    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if(!m) return "";
-    const y = parseInt(m[1],10);
-    const mo = parseInt(m[2],10);
-    const d = parseInt(m[3],10);
-    const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-    const monthName = months[mo-1] || "";
-    if(!monthName) return "";
-    return `${d}${ordinalSuffix(d)} of ${monthName}, ${y}`;
-  }
-
-  function familyAdjective(fam){
-    const f = safe(fam).trim();
-    if(!f) return "";
-    const low = f.toLowerCase();
-    if(low.endsWith("idae")){
-      let stem = f.slice(0, -4); // drop 'idae'
-      if(stem.endsWith("a")) stem = stem.slice(0,-1);
-      return stem.toLowerCase() + "id";
-    }
-    if(low.endsWith("inae")){
-      let stem = f.slice(0, -4); // drop 'inae'
-      if(stem.endsWith("a")) stem = stem.slice(0,-1);
-      return stem.toLowerCase() + "ine";
-    }
-    return low;
-  }
-
-  function orderNoun(ord){
-    const o = safe(ord).trim();
-    const map = {
-      "Lepidoptera": "moth",
-      "Coleoptera": "beetle",
-      "Diptera": "fly",
-      "Odonata": "dragonfly",
-      "Hemiptera": "true bug",
-      "Orthoptera": "katydid",
-      "Hymenoptera": "hymenopteran",
-      "Araneae": "spider"
-    };
-    return map[o] || "";
-  }
-
-  function aOrAn(phrase){
-    const p = safe(phrase).trim().toLowerCase();
-    if(!p) return "A";
-    const c = p[0];
-    return ("aeiou".includes(c)) ? "An" : "A";
-  }
-
-  function bookishDescriptor(r){
-    const ord = safe(r.taxon_order_name).trim();
-    const fam = safe(r.taxon_family_name).trim();
-    const noun = orderNoun(ord);
-
-    if(ord === "Lepidoptera"){
-      const adj = familyAdjective(fam);
-      return adj ? `${adj} moth` : "moth";
-    }
-    if(noun){
-      const adj = familyAdjective(fam);
-      return adj ? `${adj} ${noun}` : noun;
-    }
-    if(fam) return familyAdjective(fam) || fam.toLowerCase();
-    const common = safe(r._common).trim();
-    if(common) return common.toLowerCase();
-    return "organism";
-  }
 
   function csvEscape(v){
     const s = safe(v);
@@ -3149,7 +3026,7 @@ function refreshStaticFilters(){
     clr.className = "chip-clear";
     clr.textContent = "Clear all";
     clr.setAttribute("aria-label", "Clear all active filters");
-    clr.addEventListener("click", ()=>{ const rb=$("#resetBtn"); if(rb) rb.click(); });
+    clr.addEventListener("click", clearAllFilters);
     bar.appendChild(clr);
   }
 
@@ -3814,7 +3691,7 @@ function refreshStaticFilters(){
         <div class="feats">
           <div class="feat"><b>Interrogate</b>Drill from kingdom down to species, and compare observers side by side.</div>
           <div class="feat"><b>Map</b>Plot observations and read them against place and taxonomy.</div>
-          <div class="feat"><b>Enrich</b>Generate titles, captions, keywords, and common names.</div>
+          <div class="feat"><b>Enrich</b>Generate titles, keywords, and common names.</div>
         </div>
       </div>`;
       const emptyBtn = view.querySelector("#emptyLoadBtn");
@@ -4877,7 +4754,6 @@ mapState.map.dragging.enable();
 
 function popupHTML(p){
       const r = p.r;
-      const title = buildTitle(r);
       const sub = [r._date, r._place].filter(Boolean).join(" • ");
       const crumb = taxonomyBreadcrumbLinks(r);
       const img = r._img ? `<img src="${escapeAttr(r._img)}" style="width:100%;max-width:240px;border-radius:12px;margin-top:8px;display:block;" loading="lazy" alt=""/>` : "";
@@ -5300,9 +5176,9 @@ const heatColor = (c)=>{
     root.appendChild(listWrap);
   }
 
-  // ----------------- Lightroom metadata generation -----------------
+  // ----------------- Title / keyword generation -----------------
   function buildTitle(r){
-    const mode = $("#titleMode").value;
+    const mode = "sci"; // default format (title dropdown removed)
     const sci = r._sci || "";
     const common = r._common || "";
     if(mode==="sci") return sci || common || "Unknown";
@@ -5318,50 +5194,8 @@ const heatColor = (c)=>{
     return sci || common || "Unknown";
   }
 
-  function buildCaption(r){
-    const mode = $("#captionMode").value;
-
-    const name = buildTitle(r);
-    const place = r._place ? r._place : "";
-    const date = r._date ? r._date : "";
-    const user = r._user ? r._user : "";
-    const url = r._url ? r._url : "";
-
-    const ord = r.taxon_order_name || "";
-    const fam = r.taxon_family_name || "";
-    const superfam = r.taxon_superfamily_name || "";
-    const subfam = r.taxon_subfamily_name || "";
-    const tribe = r.taxon_tribe_name || "";
-    const genus = r.taxon_genus_name || "";
-    const sp = r.taxon_species_name || "";
-
-    if(mode==="concise"){
-      return [name, place, date].filter(Boolean).join(" — ");
-    }
-    if(mode==="taxon_rich"){
-      const tax = [ord, fam, superfam, subfam, tribe, genus, sp].filter(Boolean).join(" > ");
-      const bits = [name, tax, place, date].filter(Boolean);
-      return bits.join(" — ");
-    }
-    if(mode==="bookish"){
-      const sciName = (safe(r._sci).trim() || safe(r.taxon_species_name).trim());
-      const commonName = safe(r._common).trim();
-      const namePart = (commonName && sciName) ? `${commonName} (${sciName})` : (commonName || sciName || "Unknown");
-      const desc = bookishDescriptor(r);
-      const art = aOrAn(desc);
-      const hd = humanDate(r._date);
-      const bits = [];
-      bits.push(`${art} ${desc}`);
-      if(namePart) bits.push(namePart);
-      if(hd) bits.push(`on ${hd}`);
-      if(place) bits.push(place);
-      return bits.join(", ") + ".";
-    }
-    return [name, place, date].filter(Boolean).join(" — ");
-  }
-
   function buildKeywords(r){
-    const mode = $("#keywordMode").value;
+    const mode = "flat"; // default format (keyword dropdown removed)
 
     const flat = [];
     const ord = r.taxon_order_name || "";
@@ -5395,75 +5229,6 @@ if(id) flat.push(`inat:${id}`);
     if(mode==="flat") return { flat: flatStr, hier: "" };
     if(mode==="hier") return { flat: "", hier: hierStr };
     return { flat: flatStr, hier: hierStr };
-  }
-
-
-  function selectionToCSV(){
-    if(!app.loaded) return;
-
-    const header = [
-      "id",
-      "uuid",
-      "user_login",
-      "observed_on",
-      "time_observed_at",
-      "place_guess",
-      "quality_grade",
-      "scientific_name",
-      "common_name",
-      "taxon_order_name",
-      "taxon_family_name",
-      "taxon_superfamily_name",
-      "taxon_subfamily_name",
-      "taxon_tribe_name",
-      "taxon_genus_name",
-      "taxon_species_name",
-      "url",
-      "image_url",
-      "title",
-      "caption",
-      "keywords_flat",
-      "keywords_hier"
-    ];
-
-    const lines = [];
-    lines.push(header.map(csvEscape).join(","));
-
-    const maxRows = app.filteredIdx.length;
-    for(const i of app.filteredIdx){
-      const r = app.rows[i];
-      const title = buildTitle(r);
-      const caption = buildCaption(r);
-      const kw = buildKeywords(r);
-      const row = [
-        r._id,
-        r._uuid,
-        r._user,
-        r._date,
-        r._time,
-        r._place,
-        r._grade,
-        r._sci,
-        r._common,
-        r.taxon_order_name,
-        r.taxon_family_name,
-        r.taxon_superfamily_name,
-        r.taxon_subfamily_name,
-        r.taxon_tribe_name,
-        r.taxon_genus_name,
-        r.taxon_species_name,
-        r._url,
-        r._img,
-        title,
-        caption,
-        kw.flat,
-        kw.hier
-      ];
-      lines.push(row.map(csvEscape).join(","));
-    }
-
-    const stamp = isoDate(new Date());
-    openExport(lines.join("\n"), `inat_selection_${stamp}.csv`, "text/csv");
   }
 
   function taxaSummaryToCSV(){
@@ -5759,13 +5524,6 @@ $("#openRecord").onclick = () => { if(r._url) window.open(r._url, "_blank"); };
       const ok = await writeClipboard(txt);
       $("#modalHint").innerHTML = ok
         ? `<span class="muted">Copied keywords to clipboard:</span><div class="copyBlock">${escapeHtml(txt)}</div>`
-        : `<span class="muted">Clipboard blocked — copy manually:</span><div class="copyBlock">${escapeHtml(txt)}</div>`;
-    };
-        $("#copyCaption").onclick = async () => {
-      const txt = buildCaption(r);
-      const ok = await writeClipboard(txt);
-      $("#modalHint").innerHTML = ok
-        ? `<span class="muted">Copied caption to clipboard:</span><div class="copyBlock">${escapeHtml(txt)}</div>`
         : `<span class="muted">Clipboard blocked — copy manually:</span><div class="copyBlock">${escapeHtml(txt)}</div>`;
     };
     $("#modalHint").innerHTML = "";
@@ -7022,7 +6780,7 @@ $$(".bar button").forEach(btn=>{
     });
   });
 
-  $("#resetBtn").addEventListener("click", ()=>{
+  function clearAllFilters(){
     if(!app.loaded) return;
     $("#q").value = "";
     $("#userFilter").value = "All";
@@ -7044,7 +6802,7 @@ $$(".bar button").forEach(btn=>{
     app.guideRank = null;
     syncSearchClear();
     recompute();
-  });
+  }
 
   // ── Sidebar: desktop = collapsible column; mobile = off-canvas drawer ──
   const _mqMobile = window.matchMedia("(max-width: 680px)");   // phone-mode swap; keep in sync with the CSS @media breakpoint
@@ -7076,22 +6834,19 @@ $$(".bar button").forEach(btn=>{
   _drawerBackdrop?.addEventListener("click", closeDrawer);
   document.addEventListener("keydown", (e)=>{ if(e.key === "Escape" && document.body.classList.contains("drawer-open")) closeDrawer(); });
 
-  // Relocate the secondary header actions (Reset, filename, Open file, Update
-  // taxa) into the drawer on mobile so the header stays compact; move them back
-  // to the header on desktop. Moving the nodes preserves their event listeners.
+  // Relocate the secondary header actions (the "Load new…" button) into the
+  // drawer on mobile so the header stays compact; move them back to the header
+  // on desktop. Moving the nodes preserves their event listeners.
   const _headerEl = document.querySelector("header");
   const _themeBtn = $("#themeToggle");
-  const _resetBtn = $("#resetBtn");
   const _headerMeta = document.querySelector(".headerMeta");
   const _drawerActions = $("#drawerActions");
   function syncHeaderLayout(){
     if(isMobile()){
       _mainEl.classList.remove("sidebar-collapsed");
-      if(_resetBtn && _resetBtn.parentElement !== _drawerActions) _drawerActions.appendChild(_resetBtn);
       if(_headerMeta && _headerMeta.parentElement !== _drawerActions) _drawerActions.appendChild(_headerMeta);
     } else {
       closeDrawer();
-      if(_resetBtn && _resetBtn.parentElement === _drawerActions) _headerEl.insertBefore(_resetBtn, _themeBtn);
       if(_headerMeta && _headerMeta.parentElement === _drawerActions) _headerEl.insertBefore(_headerMeta, _themeBtn);
     }
   }
@@ -7130,10 +6885,6 @@ $$(".bar button").forEach(btn=>{
     try{ if(typeof render === "function" && app && app.loaded) render(); }catch(e){}
     if(mapState.map) setTimeout(()=>{ try{ mapState.map.invalidateSize(); }catch(e){} }, 60);
   });
-
-  $("#titleMode").addEventListener("change", ()=>{ /* affects modal + export */ if(app.lastModalIdx!=null) openModal(app.lastModalIdx); });
-  $("#captionMode").addEventListener("change", ()=>{ if(app.lastModalIdx!=null) openModal(app.lastModalIdx); });
-  $("#keywordMode").addEventListener("change", ()=>{ if(app.lastModalIdx!=null) openModal(app.lastModalIdx); });
 
 
   // ----------------- safe HTML -----------------
