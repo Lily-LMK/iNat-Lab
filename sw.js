@@ -17,12 +17,12 @@
 
 const CACHE_STATIC = 'inatlab-static-v1';
 const CACHE_API    = 'inatlab-api-v1';
-const CACHE_IMG    = 'inatlab-img-v1';
+const CACHE_IMG    = 'inatlab-img-v2';
 
 const API_MAX_AGE     = 60 * 60 * 1000;       // 1 hour
 const IMG_MAX_AGE     = 24 * 60 * 60 * 1000;  // 24 hours
 const API_MAX_ENTRIES = 500;
-const IMG_MAX_ENTRIES = 800;
+const IMG_MAX_ENTRIES = 5000;
 
 /* ── Static CDN assets to precache on install ── */
 const PRECACHE = [
