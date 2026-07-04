@@ -169,15 +169,6 @@
     .chip-bar .fchip:hover{ color: var(--ink); }
     .chip-bar .fchip:hover .fx{ color: var(--warn); }
     .chip-bar .fchip:focus-visible{ outline:2px solid var(--ink); outline-offset:2px; border-radius:2px; }
-    .chip-clear{
-      flex:0 0 auto; margin-left:2px;
-      font-family: var(--font); font-size:11px; font-weight:500;
-      color: var(--muted); cursor:pointer; white-space:nowrap;
-      padding:3px 9px; border-radius:4px;
-      border:1px solid var(--hair); background:transparent;
-      transition: color var(--dur-fast), border-color var(--dur-fast);
-    }
-    .chip-clear:hover{ color: var(--ink); border-color: var(--hair-strong); }
     @keyframes chipIn{ from{opacity:0; transform: translateY(-2px);} to{opacity:1; transform:none;} }
     @media (prefers-reduced-motion: reduce){ .chip-bar .fchip{ animation:none; } }
 
@@ -434,6 +425,30 @@
   border-color: var(--ink);
   box-shadow: inset 0 0 0 1px var(--ink);
 }
+
+/* Compare-users sidebar panel: A/B colour swatches beside the labels so the
+   teal/terracotta coding is legible at the point of choosing, plus a quiet
+   "clear comparison" link shown only when a comparison is active. */
+.cmpSwatch{
+  display:inline-block; width:9px; height:9px; border-radius:2px;
+  margin-right:6px; vertical-align:middle;
+  box-shadow: 0 0 0 1px var(--hair-strong) inset;
+}
+.cmpSwatch-a{ background: var(--user-a); }
+.cmpSwatch-b{ background: var(--user-b); }
+.cmpFoot{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:10px; flex-wrap:wrap;
+}
+.linkBtn{
+  flex:0 0 auto;
+  background:none; border:0; padding:0; cursor:pointer;
+  font-family: var(--font); font-size:11px; color: var(--muted);
+  text-decoration: underline; text-underline-offset:2px;
+  transition: color var(--dur-fast);
+}
+.linkBtn:hover{ color: var(--ink); }
+.linkBtn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:2px; }
 
 /* Species snapshot lens row (Blue / Green / Shared) */
 .cmpBar{
@@ -1102,11 +1117,15 @@
       color: var(--muted);
     }
     .smallBtn{
+      box-sizing: border-box;
       border: 1px solid var(--hair);
       background: var(--raised);
       border-radius: 6px;
       padding: 6px 10px;
       font-size: 12px;
+      line-height: 1.2;
+      color: var(--ink);
+      text-decoration: none;
       cursor: pointer;
     }
     .smallBtn:hover{ background: var(--raised-hi); }
@@ -1145,7 +1164,8 @@
       gap: 10px 16px; flex-wrap: wrap; width: 100%;
     }
     .guideActions{ display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .guideActions .smallBtn{ min-height: 34px; display: inline-flex; align-items: center; }
+    .guideActions .smallBtn{ min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+    .guideActions .smallBtn svg{ flex: 0 0 auto; }
     .fgGallery{ margin-top: 16px; }
     @media (max-width: 620px){
       .fgHeadMain{ align-items: flex-start; }
@@ -1712,7 +1732,15 @@
         </div>
         <div class="drawer-actions" id="drawerActions"></div>
       </div>
-      <!-- 1 · FILTERS — taxon menu + quality grade + rank cascade + search -->
+      <!-- 1 · SNAPSHOT — what the current lens contains, kept at the top -->
+      <details class="accPanel" open>
+        <summary>Snapshot</summary>
+        <div class="accBody">
+          <div class="stats snapshotStats" id="stats"></div>
+        </div>
+      </details>
+
+      <!-- 2 · FILTERS — taxon menu + quality grade + rank cascade + search -->
       <details class="accPanel" open>
         <summary>Filters</summary>
         <div class="accBody">
@@ -1800,31 +1828,6 @@
         </div>
       </details>
 
-      <!-- 2 · COMPARE USERS — user filter + A/B comparison, promoted to its own group -->
-      <details class="accPanel" open>
-        <summary>Compare users</summary>
-        <div class="accBody">
-          <div class="stack">
-            <div class="field">
-              <label for="userFilter">User</label>
-              <select id="userFilter"></select>
-            </div>
-
-            <div class="row">
-              <div class="field">
-                <label>Compare A</label>
-                <select id="cmpA"></select>
-              </div>
-              <div class="field">
-                <label>Compare B</label>
-                <select id="cmpB"></select>
-              </div>
-            </div>
-            <div class="muted small">Pick any two users to enable comparison chips.</div>
-          </div>
-        </div>
-      </details>
-
       <!-- 3 · DATE — range + presets -->
       <details class="accPanel" open>
         <summary>Date</summary>
@@ -1851,11 +1854,32 @@
         </div>
       </details>
 
-      <!-- 4 · SNAPSHOT -->
-      <details class="accPanel" open>
-        <summary>Snapshot</summary>
+      <!-- 4 · COMPARE USERS — single-user focus + A/B comparison (collapsed by default) -->
+      <details class="accPanel" id="cmpPanel">
+        <summary>Compare users</summary>
         <div class="accBody">
-          <div class="stats snapshotStats" id="stats"></div>
+          <div class="stack">
+            <div class="field">
+              <label for="userFilter">User</label>
+              <select id="userFilter"></select>
+            </div>
+
+            <div class="row">
+              <div class="field">
+                <label for="cmpA"><span class="cmpSwatch cmpSwatch-a" aria-hidden="true"></span>Compare A</label>
+                <select id="cmpA"></select>
+              </div>
+              <div class="field">
+                <label for="cmpB"><span class="cmpSwatch cmpSwatch-b" aria-hidden="true"></span>Compare B</label>
+                <select id="cmpB"></select>
+              </div>
+            </div>
+
+            <div class="cmpFoot">
+              <span class="muted small">Pick any two users to compare.</span>
+              <button type="button" id="cmpClear" class="linkBtn" hidden>Clear comparison</button>
+            </div>
+          </div>
         </div>
       </details>
 
@@ -2738,6 +2762,7 @@ function refreshStaticFilters(){
         bEl.value = "";
       }
     }
+    syncCmpClear();
 
     // Date range defaults
     $("#dateFrom").value = app.f.from || app.dateMin || "";
@@ -3053,17 +3078,9 @@ function refreshStaticFilters(){
       bar.appendChild(crumbs);
     }
 
-    // Independent filters, each with a short label.
+    // Independent filters, each with a short label. Removing a parent taxon
+    // chip already cascades to clear its downstream ranks, so no clear-all here.
     for(const c of other) bar.appendChild(makeItem({ ...c, showLabel:true }));
-
-    // Clear-all control, pinned to the far right, resets every filter.
-    const clr = document.createElement("button");
-    clr.type = "button";
-    clr.className = "chip-clear";
-    clr.textContent = "Clear all";
-    clr.setAttribute("aria-label", "Clear all active filters");
-    clr.addEventListener("click", clearAllFilters);
-    bar.appendChild(clr);
   }
 
   // Toggle the sidebar search's clear (✕) button visibility from input state.
@@ -3404,9 +3421,12 @@ function refreshStaticFilters(){
     headMain.insertAdjacentHTML("beforeend", `
       <div class="guideActions">
         <button class="smallBtn" id="guideToRecords">Records view</button>
-        <button class="smallBtn" id="guideBackIndex">↩ ${escapeHtml(GUIDE_RANKS[focus.rankIdx] ? GUIDE_RANKS[focus.rankIdx][0] : "Guide")} index</button>
-        <a id="guideInatLink" href="#" target="_blank" rel="noopener" class="smallBtn" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
-          View on iNaturalist
+        <button class="smallBtn" id="guideBackIndex">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+          <span>${escapeHtml(GUIDE_RANKS[focus.rankIdx] ? GUIDE_RANKS[focus.rankIdx][0] : "Guide")} index</span>
+        </button>
+        <a id="guideInatLink" href="#" target="_blank" rel="noopener" class="smallBtn">
+          <span>View on iNaturalist</span>
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
         </a>
       </div>
@@ -4848,11 +4868,11 @@ function popupHTML(p){
                 if(sel){ sel.value = filtVal; }
                 recompute();
                 e.popup.close();
-                setTab("guide");
+                setTab("records");
               } else {
                 const pk = a.getAttribute("data-path") || "";
                 e.popup.close();
-                applyLineageKey(pk, "guide");
+                applyLineageKey(pk, "records");
               }
             }, { once:true });
           });
@@ -5537,11 +5557,11 @@ push("Title", buildTitle(r));
           if(sel){ sel.value = filtVal; }
           recompute();
           $("#modal").classList.remove("open");
-          setTab("guide");
+          setTab("records");
         } else {
           const pk = a.getAttribute("data-path") || "";
           $("#modal").classList.remove("open");
-          applyLineageKey(pk, "guide");
+          applyLineageKey(pk, "records");
         }
       });
     });
@@ -6687,6 +6707,14 @@ $("#apiUsers").addEventListener("blur", async ()=>{
   $("#dateFrom").addEventListener("change", recompute);
   $("#dateTo").addEventListener("change", recompute);
 
+  // Show the "Clear comparison" link only when both A and B are chosen.
+  function syncCmpClear(){
+    const btn = $("#cmpClear");
+    if(!btn) return;
+    const active = !!(app.compare && app.compare.a && app.compare.b);
+    btn.hidden = !active;
+  }
+
   $("#cmpA").addEventListener("change", ()=>{
     if(!app.loaded) return;
     app.compare.a = $("#cmpA").value || "";
@@ -6695,6 +6723,7 @@ $("#apiUsers").addEventListener("blur", async ()=>{
       $("#cmpB").value = "";
     }
     app.compare.mode = "all";
+    syncCmpClear();
     recompute();
   });
   $("#cmpB").addEventListener("change", ()=>{
@@ -6705,6 +6734,17 @@ $("#apiUsers").addEventListener("blur", async ()=>{
       $("#cmpA").value = "";
     }
     app.compare.mode = "all";
+    syncCmpClear();
+    recompute();
+  });
+  $("#cmpClear").addEventListener("click", ()=>{
+    if(!app.loaded) return;
+    app.compare.a = "";
+    app.compare.b = "";
+    app.compare.mode = "all";
+    $("#cmpA").value = "";
+    $("#cmpB").value = "";
+    syncCmpClear();
     recompute();
   });
 
@@ -6815,30 +6855,6 @@ $$(".bar button").forEach(btn=>{
       recompute();
     });
   });
-
-  function clearAllFilters(){
-    if(!app.loaded) return;
-    $("#q").value = "";
-    $("#userFilter").value = "All";
-    $("#gradeFilter").value = "All";
-    $("#dateFrom").value = "";
-    $("#dateTo").value = "";
-    $("#king").value = "All";
-    $("#phyl").value = "All";
-    $("#cls").value = "All";
-    $("#ord").value = "All";
-    $("#superfam").value = "All";
-    $("#fam").value = "All";
-    $("#subfam").value = "All";
-    $("#tribe").value = "All";
-    $("#genus").value = "All";
-    $("#species").value = "All";
-    app.mapBox = null;
-    app.guideScopeOrder = "";
-    app.guideRank = null;
-    syncSearchClear();
-    recompute();
-  }
 
   // ── Sidebar: desktop = collapsible column; mobile = off-canvas drawer ──
   const _mqMobile = window.matchMedia("(max-width: 680px)");   // phone-mode swap; keep in sync with the CSS @media breakpoint
