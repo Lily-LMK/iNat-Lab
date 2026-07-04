@@ -14,25 +14,25 @@
          A near-colourless interface so the photographs are the colour.
          One source of truth; the dark variant is [data-theme="dark"] below.
          Only one typeface (Inter): Swiss restraint, readability first. */
-      --bg:#FBFAF7;          /* app paper */
+      --bg:#FAFAFB;          /* app paper — cool neutral, not warm cream */
       --panel:#FFFFFF;       /* sidebar, panels, modals */
       --raised:#FFFFFF;      /* cards/tiles — defined by hairline, not fill */
-      --raised-hi:#F4F2EC;   /* hover / subtle recessed tint */
+      --raised-hi:#F0F1F3;   /* hover / subtle recessed tint (cool) */
       --field:#FFFFFF;       /* form inputs (hairline framed) */
       --panel-glass:rgba(255,255,255,.90); /* chrome floating over the map */
-      --ink:#1A1A17;         /* primary text */
-      --ink-2:#3A3A34;       /* strong secondary text */
-      --muted:#6B6B63;       /* secondary text */
-      --muted2:#A6A29A;      /* faint text */
-      --hair:#E7E4DD;        /* hairline borders / rules */
-      --hair-strong:#D8D4CA; /* stronger hairline (dividers, active) */
+      --ink:#18191B;         /* primary text — neutral near-black */
+      --ink-2:#3B3C3F;       /* strong secondary text */
+      --muted:#696B70;       /* secondary text — neutral grey */
+      --muted2:#A3A5AA;      /* faint text */
+      --hair:#E7E8EB;        /* hairline borders / rules (cool) */
+      --hair-strong:#D4D6DA; /* stronger hairline (dividers, active) */
       --shadow: 0 1px 2px rgba(26,26,23,.05);  /* whisper — hairlines do the work */
       --glow: none;
-      --accent:#1A1A17;      /* ink — links, active, primary action */
-      --accent2:#3A3A34;
-      --accent-soft:rgba(26,26,23,.055);  /* active/selected fill */
-      --accent-line:rgba(26,26,23,.32);   /* active/selected border */
-      --focus:#1A1A17;                    /* focus ring (ink on paper) */
+      --accent:#18191B;      /* ink — links, active, primary action */
+      --accent2:#3B3C3F;
+      --accent-soft:rgba(24,25,27,.05);   /* active/selected fill */
+      --accent-line:rgba(24,25,27,.30);   /* active/selected border */
+      --focus:#18191B;                    /* focus ring (ink on paper) */
       --warn:#9A3B2E;
       --user-a:#327379;      /* compare A — teal (USER_PALETTE_LIGHT[0]) */
       --user-b:#A05838;      /* compare B — terracotta (USER_PALETTE_LIGHT[1]) */
@@ -49,26 +49,26 @@
       --dur:.22s;
       --dur-slow:.4s;
     }
-    /* ── Dark variant: soft warm charcoal, same restraint (opt-in) ── */
+    /* ── Dark variant: neutral charcoal, same restraint (opt-in) ── */
     [data-theme="dark"]{
-      --bg:#16150F;
-      --panel:#1C1B15;
-      --raised:#1C1B15;
-      --raised-hi:#26241C;
-      --field:#1C1B15;
-      --panel-glass:rgba(28,27,21,.92);
-      --ink:#F2EFE8;
-      --ink-2:#D8D4C8;
-      --muted:#A8A498;
-      --muted2:#6E6A5E;
-      --hair:#302D25;
-      --hair-strong:#3C382E;
+      --bg:#141517;
+      --panel:#1B1C1F;
+      --raised:#1B1C1F;
+      --raised-hi:#25262A;
+      --field:#1B1C1F;
+      --panel-glass:rgba(27,28,31,.92);
+      --ink:#F0F1F2;
+      --ink-2:#D3D4D7;
+      --muted:#9EA0A5;
+      --muted2:#6A6C71;
+      --hair:#2C2D31;
+      --hair-strong:#3A3B40;
       --shadow: 0 1px 2px rgba(0,0,0,.4);
-      --accent:#F2EFE8;
-      --accent2:#D8D4C8;
-      --accent-soft:rgba(242,239,232,.08);
-      --accent-line:rgba(242,239,232,.30);
-      --focus:#F2EFE8;
+      --accent:#F0F1F2;
+      --accent2:#D3D4D7;
+      --accent-soft:rgba(240,241,242,.08);
+      --accent-line:rgba(240,241,242,.30);
+      --focus:#F0F1F2;
       --warn:#E07A5F;
       --user-a:#61AAB0;
       --user-b:#C6947E;
@@ -391,39 +391,29 @@
   gap: 10px;
   margin-top: 10px;
 }
-/* Snapshot lives in a narrow sidebar even when the window is wide.
-   Give it a 2×2 layout for balance without truncation. */
+/* Snapshot: quiet, typographic figures — no boxes. A prominent number over a
+   small muted label reads like a museum wall-label; whitespace and the panel's
+   own hairline do the framing, so the sidebar stays light. */
 .snapshotStats{
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 14px;
+  margin-top: 4px;
 }
 .stat{
-  border: 1px solid var(--hair);
-  background: var(--raised);
-  border-radius: 8px;
-  padding: 10px;
+  border: 0;
+  background: none;
+  padding: 0;
   min-width: 0;
 }
-.stat .k{ font-family: var(--sans); font-size: 11px; color: var(--muted); }
-.stat .v{ font-family: var(--font); font-size: 14px; font-weight: 700; margin-top: 6px; white-space: nowrap; }
-
-.stat.cmp .v{ font-size: 12px; font-weight: 600; margin-top: 8px; }
-.cmpRow{ display:flex; flex-wrap:wrap; gap:8px; }
-.cmpChip{
-  display:inline-flex; align-items:center; gap:8px;
-  border:1px solid var(--hair);
-  background: var(--panel);
-  border-radius: 999px;
-  padding: 6px 10px;
-  text-decoration:none;
-  color: var(--ink);
-  font-family: var(--font);
-  font-size: 12px;
-  line-height: 1;
+.stat .k{
+  font-family: var(--sans); font-size: 11px; color: var(--muted);
+  letter-spacing: .01em;
 }
-.cmpChip:hover{ box-shadow: 0 1px 0 rgba(0,0,0,0.05); }
-.cmpChip.active{
-  border-color: var(--ink);
-  box-shadow: inset 0 0 0 1px var(--ink);
+.stat .v{
+  font-family: var(--font); font-size: 21px; font-weight: 600;
+  letter-spacing: -.01em; line-height: 1.1; margin-top: 3px;
+  color: var(--ink); white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Compare-users sidebar panel: A/B colour swatches beside the labels so the
@@ -450,19 +440,36 @@
 .linkBtn:hover{ color: var(--ink); }
 .linkBtn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:2px; }
 
-/* Species snapshot lens row (Blue / Green / Shared) */
-.cmpBar{
-  grid-column: 1 / -1;
-  display:flex;
-  flex-wrap:wrap;
-  gap: 10px;
-  align-items:center;
-  padding: 10px;
-  border: 1px solid var(--hair);
-  background: var(--raised);
-  border-radius: 8px;
-  justify-content: center;
+/* Species lens (User A / User B / Shared) — lives inside the Compare-users
+   panel, styled as a clean stacked list: hairline rows, a colour dot, a label,
+   and a right-aligned tabular count. The active lens gets a thin ink marker. */
+.cmpLens{ display:flex; flex-direction:column; margin-top:2px; }
+.lensCap{
+  font-family: var(--sans); font-size: 11px; color: var(--muted);
+  letter-spacing: .01em; margin-bottom: 2px;
 }
+.lensRow{
+  display:flex; align-items:center; gap:10px; width:100%;
+  margin:0; padding:9px 4px 9px 2px;
+  background:none; border:0; border-top:1px solid var(--hair);
+  font:inherit; color:var(--ink); text-align:left; cursor:pointer;
+  transition: background var(--dur-fast);
+}
+.lensRow:last-child{ border-bottom:1px solid var(--hair); }
+.lensRow:hover{ background: var(--raised-hi); }
+.lensRow:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; border-radius:2px; }
+.lensDot{
+  width:9px; height:9px; border-radius:50%; flex:0 0 auto;
+  box-shadow:0 0 0 1px var(--hair-strong) inset;
+}
+.lensLabel{ font-size:12.5px; }
+.lensNum{
+  margin-left:auto; font-size:12px; color:var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.lensRow[aria-pressed="true"]{ box-shadow: inset 2px 0 0 var(--ink); }
+.lensRow[aria-pressed="true"] .lensLabel{ font-weight:650; }
+.lensRow[aria-pressed="true"] .lensNum{ color:var(--ink); font-weight:600; }
 
 .gallery{
       display:grid;
@@ -1874,6 +1881,8 @@
                 <select id="cmpB"></select>
               </div>
             </div>
+
+            <div class="cmpLens" id="cmpLens" hidden></div>
 
             <div class="cmpFoot">
               <span class="muted small">Pick any two users to compare.</span>
@@ -3687,42 +3696,44 @@ function refreshStaticFilters(){
     addStat("Families", st.families.toLocaleString());
     addStat("Species", st.species.toLocaleString());
 
-    // Compare / shared species lens controls
-    if(cmp){
-      const active = (app.compare && app.compare.mode) ? app.compare.mode : "all";
-      const aColor = userColor(cmp.aUser) || "var(--muted2)";
-      const bColor = userColor(cmp.bUser) || "var(--muted2)";
+    // The A/B/Shared species lens lives in the Compare-users panel, not here.
+    renderCompareLens(cmp);
+  }
 
-      const chip = (mode, label, dotColor, n)=>(
-        `<a href="#" class="cmpChip ${active===mode?'active':''}" data-cmp="${mode}">
-           <span class="badge"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dotColor};"></span> ${label}</span>
-           <span class="cmpNum">${n.toLocaleString()}</span>
-         </a>`
-      );
+  // Species lens (User A / User B / Shared) rendered into the Compare-users
+  // panel. Clicking a row scopes records to that user's species (or the shared
+  // set); clicking the active row again clears the lens back to "all".
+  function renderCompareLens(cmp){
+    const box = $("#cmpLens");
+    if(!box) return;
+    if(!cmp){ box.hidden = true; box.innerHTML = ""; return; }
 
-      const aChip = chip("a", "User A", aColor, cmp.aTotal);
-      const bChip = chip("b", "User B", bColor, cmp.bTotal);
-      const sChip = `<a href="#" class="cmpChip ${active==='shared'?'active':''}" data-cmp="shared">
-                       <span class="badge">Shared</span>
-                       <span class="cmpNum">${cmp.shared.toLocaleString()}</span>
-                     </a>`;
+    const active = (app.compare && app.compare.mode) ? app.compare.mode : "all";
+    const aColor = userColor(cmp.aUser) || "var(--user-a)";
+    const bColor = userColor(cmp.bUser) || "var(--user-b)";
+    const row = (mode, label, dotStyle, n)=>(
+      `<button type="button" class="lensRow" data-cmp="${mode}" aria-pressed="${active===mode}">
+         <span class="lensDot" style="${dotStyle}"></span>
+         <span class="lensLabel">${label}</span>
+         <span class="lensNum">${n.toLocaleString()}</span>
+       </button>`
+    );
 
-      const bar = document.createElement("div");
-      bar.className = "cmpBar";
-      bar.innerHTML = `${aChip}${bChip}${sChip}`;
-      el.appendChild(bar);
+    box.innerHTML =
+      `<div class="lensCap">Species lens</div>` +
+      row("a", "User A", `background:${aColor}`, cmp.aTotal) +
+      row("b", "User B", `background:${bColor}`, cmp.bTotal) +
+      row("shared", "Shared", `background:linear-gradient(90deg, ${aColor} 0 50%, ${bColor} 50% 100%)`, cmp.shared);
+    box.hidden = false;
 
-      // Wire up chip clicks (species lens)
-      bar.querySelectorAll(".cmpChip").forEach(a=>{
-        a.addEventListener("click", (e)=>{
-          e.preventDefault();
-          if(!app.compare) return;
-          const mode = a.getAttribute("data-cmp") || "all";
-          app.compare.mode = (app.compare.mode === mode) ? "all" : mode;
-          recompute();
-        });
+    box.querySelectorAll(".lensRow").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        if(!app.compare) return;
+        const mode = btn.getAttribute("data-cmp") || "all";
+        app.compare.mode = (app.compare.mode === mode) ? "all" : mode;
+        recompute();
       });
-    }
+    });
   }
 
 
