@@ -156,6 +156,10 @@ Guide hop, the Field Guide rework, the Records card redesign, the single-scroll-
 refactor, and the Taxa tree redesign — are all shipped. See git history and
 `docs/NEXT-SESSION.md` for detail.
 
-**Next up:** Phase 2 map work, **Step 1 (curated + custom palette)**. Standing decisions: tab
-label stays **"Field Guide"**; tile images use own records only with an honest placeholder;
+**Next up (for a Sonnet session — Lily is near her weekly Opus limit):** three decided, fully
+specced UI changes in `docs/NEXT-SESSION.md` → "Start here next" — (1) Field Guide lands on
+Kingdom, (2) move "Load new…" out of the mobile drawer-top into Add Records, (3) redesign the
+Dates heatmap to a **Viridis** ramp (exact stops given; replaces the stale monochrome-brown
+`heatColor`). Then Phase 2 map work, **Step 1 (curated + custom palette)**. Standing decisions:
+tab label stays **"Field Guide"**; tile images use own records only with an honest placeholder;
 publication export is **clean vector / high-DPI, no basemap tiles**.
