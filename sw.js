@@ -3,7 +3,7 @@
 
    Strategy:
    - Static CDN (Leaflet, esri-leaflet, Inter font): cache-first, indefinite (versioned URLs)
-   - API data (iNat, GBIF, Wikipedia): stale-while-revalidate, 1 hour
+   - API data (iNat, Wikipedia): stale-while-revalidate, 1 hour
    - Images & map tiles: cache-first, 24 hours, LRU eviction
    - Everything else: network-only (no caching)
 
@@ -37,7 +37,6 @@ const STATIC_HOSTS = ['unpkg.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
 const API_PATTERNS = [
   /api\.inaturalist\.org\/v1\//,
-  /api\.gbif\.org\/v1\//,
   /en\.wikipedia\.org\/(api|w\/api)/,
 ];
 
@@ -50,7 +49,6 @@ const IMG_PATTERNS = [
   /server\.arcgisonline\.com/,
   /services\.arcgisonline\.com/,
   /services\.ga\.gov\.au/,
-  /api\.gbif\.org\/v2\/map/,             // GBIF density map tiles
 ];
 
 /* ── Install: precache static assets ── */
