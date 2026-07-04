@@ -24,34 +24,6 @@ The map already colours + legends by taxonomic rank. Step 1 of the remaining Pha
 Then Step 2 (clustering + spiderfy, `Leaflet.markercluster`) and Step 3 (clean vector /
 high-DPI point-map export, no basemap tiles). See `ROADMAP.md` Phase 2.
 
-## Requested UI changes (Lily, 2026-07-05)
-
-1. **Remove the "Clear all" filter button entirely — never show it.** The chip-bar "Clear all"
-   (`index.html:3063–3065`, in the filter-chip renderer) wastes real estate, especially on the
-   phone, and is redundant: x-ing out a parent taxon level already cascades and clears its
-   downstream ranks. Remove the button; `clearAllFilters()` (`~6819`) then has no caller, so
-   remove it too (confirm no other use first). Keep per-chip ✕ removal.
-
-2. **Make the Field Guide focus-header buttons uniform and intentionally designed.** The three
-   actions — **Records view** (`#guideToRecords`), **{Rank} index** (`#guideBackIndex`), and
-   **View on iNaturalist** (`#guideInatLink`) at `index.html:3406–3409` — look mismatched,
-   worst on iPhone. Causes: `#guideInatLink` is an `<a class="smallBtn">` while the others are
-   `<button>`s, and `.smallBtn` (`~1104`) sets no `color`, so the anchor inherits default
-   **link-blue**; and `#guideBackIndex` is prefixed with a `↩` glyph that renders **emoji-style**
-   on iOS. Fix: one consistent treatment (equal height/padding, explicit `color:var(--ink)`, no
-   underline), drop the `↩` emoji (clean inline SVG chevron or nothing), so the group reads as a
-   deliberate, graphic-designer-quality control cluster on desktop and phone. Keep the 44px
-   mobile touch target (`.guideActions .smallBtn`, `~1153`).
-
-3. **Record-detail modal taxa-tree links should filter Records, not hop to Field Guide.** In the
-   record modal, the Taxonomy breadcrumb (`taxonomyBreadcrumbLinks`, rendered `~5515`; click
-   handler `~5529–5544`) calls `applyLineageKey(pk, "guide")` — jumping to the Field Guide. The
-   record **card** trail links (`~3853–3861`) call `applyLineageKey(pk, "records")` — staying and
-   filtering records at that rank. Make the modal match the card: change the modal handler to
-   `applyLineageKey(pk, "records")` + `closeModal()`, so clicking a rank shows other records at
-   that rank. (Related: the map-popup breadcrumb at `~4855` also uses `"guide"` — confirm with
-   Lily whether it should change too.)
-
 ## Visual-polish backlog (independent; do in any order)
 
 - **Research-grade underline.** The `.rg` card bottom-border — revisit weight/colour/placement
@@ -67,6 +39,17 @@ high-DPI point-map export, no basemap tiles). See `ROADMAP.md` Phase 2.
 
 ## Recently shipped (newest first)
 
+- **Sidebar reorg + compare redesign + three requested UI fixes** (branch
+  `sidebar-reorg-ui-polish`, plan `wild-churning-globe.md`; committed, not yet merged/pushed):
+  reordered the sidebar to **Snapshot · Filters · Date · Compare users · Add records** (Snapshot
+  promoted to top; Compare users collapsed by default) and **redesigned the Compare-users panel**
+  (teal/terracotta A/B swatches beside the labels + a "Clear comparison" link that shows only
+  when both are set). Also: **removed the chip-bar "Clear all"** (+ orphaned `clearAllFilters()`
+  and `.chip-clear` CSS); **made the Field Guide focus-header buttons uniform** (`.smallBtn` now
+  ink-coloured, `border-box`, no underline; emoji `↩` → inline SVG chevron); **breadcrumb clicks
+  now filter Records** in both the record modal and the map popup (was Field Guide hop). Verified
+  light + dark, desktop + panels; console clean. Map-popup path is source-verified (canvas
+  renderer — markers aren't DOM-clickable headless; it's a 2-line mirror of the tested modal).
 - **Sidebar / header cleanup** (plan `we-are-going-to-declarative-hearth.md`, Parts 1–4):
   removed the Lightroom metadata engine; slimmed the header (Update-taxa → sidebar, Reset
   removed); **fixed the mobile drawer scroll** (explicit `100dvh`/`border-box` + JS body

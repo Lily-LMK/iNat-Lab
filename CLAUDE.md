@@ -104,9 +104,26 @@ CSV handy (`sample-inat.csv`, git-ignored) for local testing — do not commit i
 
 ## Current chapter
 
-Everything below is on `main` and **pushed** to `origin` (`Lily-LMK/iNat-Lab`, GitHub Pages).
+**Most recent work — sidebar reorg + compare redesign + three requested UI fixes**
+(`~/.claude/plans/wild-churning-globe.md`). On branch **`sidebar-reorg-ui-polish`**, committed
+but **not yet merged to `main` or pushed** (awaiting Lily's go-ahead):
 
-**Most recent work — the sidebar/header cleanup plan**
+- **Sidebar reconsidered.** New order **Snapshot · Filters · Date · Compare users · Add
+  records** — Snapshot promoted to the top; Compare users demoted to its own **collapsed-by-
+  default** panel. That panel was **redesigned**: teal/terracotta A/B colour swatches
+  (`--user-a`/`--user-b`) sit beside the Compare A / Compare B labels, plus a quiet **"Clear
+  comparison"** link (`#cmpClear` + `syncCmpClear()`) shown only when both are set.
+- **Removed the chip-bar "Clear all"** and its now-orphaned `clearAllFilters()` + `.chip-clear`
+  CSS (x-ing a parent taxon chip already cascades to clear downstream ranks). *(Supersedes
+  Part 2's note below — that function no longer exists.)*
+- **Uniform Field Guide focus-header buttons.** `.smallBtn` now sets `color:var(--ink)`,
+  `text-decoration:none`, `box-sizing:border-box`, fixed `line-height` — the "View on
+  iNaturalist" anchor no longer inherits link-blue and matches the buttons' height. The `↩` on
+  the "{Rank} index" button became a clean inline SVG chevron.
+- **Breadcrumb clicks now filter Records** (not a Field Guide hop) in both the record-detail
+  modal and the map popup — matches the record-card trail.
+
+**Earlier — the sidebar/header cleanup plan**
 (`~/.claude/plans/we-are-going-to-declarative-hearth.md`), Parts 1–4, all shipped:
 
 - **Part 1 — removed the Lightroom metadata engine** (three format dropdowns + dead code); the
