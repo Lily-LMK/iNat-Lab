@@ -2860,12 +2860,11 @@
         }catch(e){ /* batch failure — skip; these stay unwarmed and retry next load */ }
         app.warmUp.done = Math.min(app.warmUp.total, start + batch.length);
         updateWarmUpUI();
-        /* Fill tiles in live as photos arrive, without yanking the scroll. */
-        if(app.view === "guide"){
-          const y = window.scrollY;
-          render();
-          window.scrollTo(0, y);
-        }
+        /* Deliberately no per-batch render here: a full render() rebuilds the
+           whole Field Guide (view.innerHTML = "") every ~1.1s, which tears down
+           and recreates every <img> and makes the guide flash. Tiles stay on
+           their r._img fallback and fill in with iNat's taxon photos in a single
+           render once the pass completes (see the .then() below). */
       }
     })().then(()=>{
       app.warmUp.active = false;
