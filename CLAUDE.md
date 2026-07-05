@@ -32,7 +32,14 @@ generic CSV export modal.
   and/or project, with a top-up / full-import mode and a result cap.
 - **Filter cascade:** kingdom → phylum → class → order → superfamily → family → subfamily →
   tribe → genus → species, plus user, quality grade, date range, and free-text search. Active
-  filters render as a **chip bar** in the header; "Clear all" (`clearAllFilters()`) resets them.
+  filters render as a **chip bar** in the header; removing a chip (its ×) clears that filter, and
+  x-ing a parent taxon chip cascades to its descendants. *(The old chip-bar "Clear all" /
+  `clearAllFilters()` was removed in the sidebar reorg — don't reintroduce them.)*
+- **Snapshot as navigation:** the four sidebar Snapshot figures are jump-off links (`.statLink`).
+  **Records** → Records view; **Orders / Families / Species** → the Field Guide **"Browse by"
+  index** at that rank, scoped to the current filter lens (`openGuideIndex()` + the
+  `app.guideForceIndex` flag). Browse-by works **even when a taxon filter is active** — the Guide
+  Index renders when `!focus || app.guideForceIndex`, with a "Back to {focus}" escape.
 - **A/B user comparison:** two users coloured teal (`--user-a`) / terracotta (`--user-b`)
   across badges, snapshot tiles, and map points. Observers use a theme-aware **12-hue palette**
   (`USER_PALETTE_LIGHT`/`_DARK`).
@@ -111,7 +118,38 @@ CSV handy (`sample-inat.csv`, git-ignored) for local testing — do not commit i
 
 ## Current chapter
 
-**Most recent work — Map publication export** (commit `3e7297a`, **merged to `main` + pushed /
+**Most recent work — Snapshot navigation + Browse-by within filters, and a Field Guide warm-up
+flash fix** (on `main`, pushed / live). Two related pieces plus a small earlier fix:
+
+- **Field Guide warm-up flash fixed** (commit `c83ab8e`). `scheduleWarmUp()` was calling
+  `render()` after **every** photo batch (~1.1s); `render()` rebuilds the whole Field Guide
+  (`view.innerHTML = ""`), recreating every `<img>`, so the guide flashed ~once a second while
+  photos fetched. Removed the per-batch render (kept the single end-of-pass `render()` in the
+  `.then()`); tiles hold their `r._img` fallback and fill with iNat photos in one repaint when the
+  pass finishes. Trade-off: no progressive fill mid-pass — the **progressive-fill-without-flash**
+  follow-up (a targeted `patchGuidePhotos()` DOM patch instead of a full render) is specced and
+  ready in `docs/NEXT-SESSION.md` → visual-polish backlog; Lily chose the simple version first and
+  asked to keep the patch option easy to reach for. Note: an **API top-up already re-triggers
+  warm-up** and only fetches taxa not already in `app.taxonPhotos`, so **new species from a top-up
+  are picked up incrementally** — no extra wiring.
+- **Snapshot tallies became navigation, and Browse-by now works under an active taxon filter.**
+  The four sidebar Snapshot figures are buttons (`.statLink`: quiet persistent hairline underline
+  that firms up on hover/focus, theme-aware, keyboard-focusable): **Records** → Records view;
+  **Orders / Families / Species** → the Field Guide **"Browse by" index** at rank 3 / 5 / 9,
+  scoped to the current filter lens, via `openGuideIndex(rankIdx)` (sets the new
+  `app.guideForceIndex` flag + `guideRank`, clears `guideScopeOrder`, `setTab("guide")`). Species
+  lands on browse-by **Species** = one card per species in the set (the "one of each species"
+  result — the only variant that works from any filter state, since the focus-page species plate
+  needs a single focus taxon). Previously the Guide Index (and its Browse-by rank pills) vanished
+  the moment any **taxon** filter set a focus; `renderGuide` now renders the index when
+  `!focus || app.guideForceIndex`, so you can browse the *filtered* set by rank without dropping
+  the filter. When a focus exists the index crumb shows a **"Back to {focus}"** link
+  (`#guideExitForceIndex`) so the mode isn't a trap; the flag resets on a taxon drill
+  (`applyLineageKey`) and on a **direct** Field Guide tab click (fresh entry → normal focus page).
+  Verified end-to-end on `sample-inat.csv` (headless Chrome): all four links; browse-by inside an
+  `Insecta` filter; Back-to-focus; tab-reset; tile-drill → focus page; light + dark; console clean.
+
+**Earlier — Map publication export** (commit `3e7297a`, **merged to `main` + pushed /
 live**). Written brief at `~/.claude/plans/hi-opus-please-familiarise-enumerated-lemur.md` specced
 a single **clean vector** figure (points + legend, no basemap tiles, always light-palette) — Lily
 reviewed the actual rendered output mid-session and asked to see the real map instead, so the

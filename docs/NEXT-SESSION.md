@@ -6,7 +6,8 @@ the settled decisions a fresh session shouldn't re-litigate.
 
 _Last refreshed 2026-07-06. Phase 2 Step 1 (curated map palette + custom colours) and Step (b)
 (map publication export) are both **shipped**. Next up is Phase 2 (c), **clustering + spiderfy**
-— back-burnered, offline not required._
+— back-burnered, offline not required. Also just shipped: Field Guide warm-up no longer flashes,
+and the Snapshot tallies are now navigation (see "Recently shipped")._
 
 ---
 
@@ -26,6 +27,19 @@ No further detail has been specced yet — start with a plan.
 
 ## Visual-polish backlog (independent; do in any order)
 
+- **Field Guide progressive photo fill (targeted DOM patch).** _Ready to pick up — the deferred
+  half of the warm-up-flash fix._ Right now `scheduleWarmUp()` (`index.html`, ~line 2848) does a
+  **single** `render()` when the whole photo pass finishes (no live update during the loop), which
+  killed the once-a-second flash but means tiles stay on their `r._img` fallback until the pass
+  ends (~3–4 min on a big set). To get progressive fill **without** the flash, replace the
+  end-of-pass `render()` with a surgical patch that only touches the tiles whose photo just
+  resolved: tag each Field Guide thumb with `data-tp-id` (the taxon id used for the lookup) in
+  both the index tiles (`renderGuide`, ~line 3580) and the focus tiles (~line 3804), then after
+  each batch call a small `patchGuidePhotos(batchIds)` that finds only the matching thumbs still
+  on the fallback, swaps the `src` (and, for focus tiles, adds the `.fgCredit` line). Leaving every
+  other node untouched is what avoids the teardown/repaint flash. Keep a final `render()` in the
+  `.then()` as a safety sweep. Low risk, self-contained; Lily chose the simple "render once at the
+  end" version first and asked to keep this option easy to reach for.
 - **Research-grade underline.** The `.rg` card bottom-border — revisit weight/colour/placement
   so it reads as an intentional "research grade" cue in both themes.
 - **Name / date typography hierarchy.** Scientific name vs common name vs date — size, weight,
@@ -39,6 +53,32 @@ No further detail has been specced yet — start with a plan.
 
 ## Recently shipped (newest first)
 
+- **Snapshot tallies are navigation + Browse-by within an active filter** (on `main`). The four
+  Snapshot figures in the sidebar are now buttons (`.statLink`, quiet persistent hairline underline
+  that firms up on hover/focus; theme-aware; keyboard-focusable): **Records** → Records view;
+  **Orders / Families / Species** → the Field Guide **"Browse by" index** at that rank (3 / 5 / 9),
+  scoped to the **current filter lens** (`openGuideIndex(rankIdx)` sets a new `app.guideForceIndex`
+  flag + `guideRank`, clears `guideScopeOrder`, then `setTab("guide")`). Species lands on browse-by
+  **Species** = one photo card per species in the set (the "one of each species" result, and the
+  only variant that works from any filter state — the focus-page species plate needs a single focus
+  taxon). **Fixes the "Browse-by vanishes under any taxon filter" problem:** `renderGuide` now
+  shows the index when `!focus || app.guideForceIndex`, so you can browse the *filtered* set by rank
+  without dropping the filter; when a focus exists the crumb offers a **"Back to {focus}"** link
+  (`#guideExitForceIndex`) so it's not a trap. The flag resets on a taxon drill (`applyLineageKey`)
+  and on a **direct** Field Guide tab click (fresh entry → normal focus behaviour), so it never
+  lingers. Verified end-to-end on `sample-inat.csv` (headless): all four links; browse-by inside an
+  `Insecta` filter; Back-to-focus; tab-reset; tile-drill → focus page; light + dark; console clean.
+- **Field Guide warm-up no longer flashes** (commit `c83ab8e`, **on `main` + pushed / live**).
+  `scheduleWarmUp()` used to call `render()` after **every** photo batch (~1.1s), and `render()`
+  rebuilds the whole Field Guide (`view.innerHTML = ""`), tearing down + recreating every `<img>`
+  — so the guide flashed roughly once a second while photos fetched. Dropped the per-batch render
+  (and its `scrollY` save/restore); tiles keep their `r._img` fallback and fill in with iNat's
+  taxon photos in a **single** render when the pass completes. Progress bar (`#warmBar`) unaffected.
+  Trade-off: no progressive fill mid-pass — see the **targeted-patch** backlog item above for the
+  progressive-fill-without-flash follow-up Lily wants kept easy to reach for. (Note: an **API
+  top-up already re-triggers warm-up** — `scheduleWarmUp()` runs after both top-up paths and only
+  fetches taxa not already in `app.taxonPhotos`, so **new species from a top-up are picked up
+  incrementally**, no extra wiring needed.)
 - **Map publication export** (commit `3e7297a`, **merged to `main` + pushed / live**). An
   **"Export map"** button + popover on the map toolbar, with two export modes (the original
   written brief specced a single no-basemap vector figure; Lily saw the bare-dots result and

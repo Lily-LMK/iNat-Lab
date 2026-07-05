@@ -394,6 +394,23 @@
   color: var(--ink-2); white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+/* A Snapshot figure that jumps into a view: keeps the wall-label typography but
+   reads as interactive — hairline underline on hover/focus, full ink on hover. */
+.statLink{
+  display: inline-block; border: 0; background: none; padding: 0 0 1px; margin-top: 3px;
+  text-align: left; cursor: pointer; max-width: 100%;
+  text-decoration: none;
+  /* A quiet, persistent hairline marks the figure as interactive at rest — in
+     keeping with the gallery hairline language — and firms up on hover/focus. */
+  border-bottom: 1px solid var(--hair-strong);
+  transition: color .12s ease, border-color .12s ease;
+}
+.statLink:hover{ color: var(--ink); border-bottom-color: var(--ink); }
+.statLink:focus-visible{
+  outline: none; color: var(--ink);
+  border-bottom-color: var(--ink);
+  box-shadow: 0 2px 0 0 var(--ink);
+}
 
 /* Compare-users sidebar panel: A/B colour swatches beside the labels so the
    teal/terracotta coding is legible at the point of choosing, plus a quiet
@@ -2578,6 +2595,7 @@
     pageSize: 500,
     guideRank: null,
     guideScopeOrder: "",
+    guideForceIndex: false, // show the Guide Index (Browse by rank) even when a taxon filter sets a focus — lets you browse the current filtered set by rank (set via the Snapshot tallies)
     filteredIdx: [],
     lastModalIdx: null,
     mapColorOverrides: {}, // "<colorBy>|<categoryKey>" -> hex, set via legend swatch picker
@@ -3346,8 +3364,9 @@ function refreshStaticFilters(){
   }
 
   function applyLineageKey(pathKey, viewName){
-    // entering a focused taxon page clears any scoped Guide Index
+    // entering a focused taxon page clears any scoped / forced Guide Index
     app.guideScopeOrder = "";
+    app.guideForceIndex = false;
 
     const lineage = safe(pathKey).split("\u001f");
     const isPlaceholder = (v)=> {
@@ -3471,18 +3490,32 @@ function refreshStaticFilters(){
 
   function renderGuide(root){
     const focus = currentFocus();
+    // Normally a taxon filter sets a focus → the focus page. But the Snapshot
+    // tallies (and any "Browse by" entry point) can force the Guide Index so you
+    // can browse the *current filtered set* by rank without dropping the filter.
+    const showIndex = !focus || app.guideForceIndex;
 
     // Header row with rank picker (index mode)
     const wrap = document.createElement("div");
     wrap.className = "guideWrap";
     root.appendChild(wrap);
 
-    if(!focus){
+    if(showIndex){
       const header = document.createElement("div");
       header.className = "guideHeader";
       const scopeOrd = safe(app.guideScopeOrder).trim();
       const hasScope = (scopeOrd && scopeOrd !== "All");
-      header.innerHTML = `<h2 class="guideTitle">Guide Index</h2><div class="guideCrumb">${hasScope ? `Browsing taxa within Order: ${escapeHtml(scopeOrd)}. <a href="#" id="clearGuideScope">Show all</a>` : `Browsing taxa within the current filter lens.`}</div>`;
+      // When a filter set a focus but we're forcing the index, offer a clear way
+      // back to that focus page so the mode isn't a trap.
+      const backHtml = focus
+        ? ` <a href="#" id="guideExitForceIndex">Back to ${escapeHtml(focus.value)}</a>`
+        : "";
+      const crumb = hasScope
+        ? `Browsing taxa within Order: ${escapeHtml(scopeOrd)}. <a href="#" id="clearGuideScope">Show all</a>`
+        : (focus
+            ? `Browsing the current selection by rank.${backHtml}`
+            : `Browsing taxa within the current filter lens.`);
+      header.innerHTML = `<h2 class="guideTitle">Guide Index</h2><div class="guideCrumb">${crumb}</div>`;
       wrap.appendChild(header);
 
       const clearLink = header.querySelector("#clearGuideScope");
@@ -3490,6 +3523,15 @@ function refreshStaticFilters(){
         clearLink.addEventListener("click", (e)=>{
           e.preventDefault();
           app.guideScopeOrder = "";
+          render();
+        });
+      }
+
+      const exitLink = header.querySelector("#guideExitForceIndex");
+      if(exitLink){
+        exitLink.addEventListener("click", (e)=>{
+          e.preventDefault();
+          app.guideForceIndex = false;
           render();
         });
       }
@@ -3920,6 +3962,18 @@ function refreshStaticFilters(){
 
   
 
+  // Open the Field Guide index ("Browse by" rank) scoped to the CURRENT filtered
+  // set, at the given rank. Unlike drilling a tile, this keeps the active filters
+  // in place and shows every taxon of `rankIdx` present in the current lens — so
+  // it also works when a taxon filter is active (which would otherwise force the
+  // focus page and hide Browse-by). Rank indices: Order 3, Family 5, Species 9.
+  function openGuideIndex(rankIdx){
+    app.guideForceIndex = true;
+    app.guideScopeOrder = "";
+    app.guideRank = rankIdx;
+    setTab("guide");
+  }
+
   function renderStats(){
     const st = computeStats(app.filteredIdx);
     const cmp = computeCompare(app.filteredIdx);
@@ -3927,18 +3981,38 @@ function refreshStaticFilters(){
     const el = $("#stats");
     el.innerHTML = "";
 
-    const addStat = (k, v)=>{
+    // Each figure can act as a jump-off: the count is a button when there's
+    // something to show, plain text (and non-interactive) when the tally is zero.
+    const addStat = (k, v, action)=>{
       const d = document.createElement("div");
       d.className = "stat";
-      d.innerHTML = `<div class="k">${k}</div><div class="v">${v}</div>`;
+      const kEl = document.createElement("div");
+      kEl.className = "k";
+      kEl.textContent = k;
+      d.appendChild(kEl);
+      if(action){
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "v statLink";
+        btn.textContent = v;
+        btn.addEventListener("click", action);
+        d.appendChild(btn);
+      }else{
+        const vEl = document.createElement("div");
+        vEl.className = "v";
+        vEl.textContent = v;
+        d.appendChild(vEl);
+      }
       el.appendChild(d);
     };
 
-    // Core totals (always visible)
-    addStat("Records", st.n.toLocaleString());
-    addStat("Orders", st.orders.toLocaleString());
-    addStat("Families", st.families.toLocaleString());
-    addStat("Species", st.species.toLocaleString());
+    // Core totals — the figures double as navigation. Records → Records view;
+    // Orders / Families / Species → the Field Guide "Browse by" index at that
+    // rank, scoped to the current filter lens.
+    addStat("Records", st.n.toLocaleString(), st.n ? ()=> setTab("records") : null);
+    addStat("Orders", st.orders.toLocaleString(), st.orders ? ()=> openGuideIndex(3) : null);
+    addStat("Families", st.families.toLocaleString(), st.families ? ()=> openGuideIndex(5) : null);
+    addStat("Species", st.species.toLocaleString(), st.species ? ()=> openGuideIndex(9) : null);
 
     // The A/B/Shared species lens lives in the Compare-users panel, not here.
     renderCompareLens(cmp);
@@ -6399,9 +6473,12 @@ $("#openRecord").onclick = () => { if(r._url) window.open(r._url, "_blank"); };
     }
   }
   $$(".tab").forEach(t => {
-    t.addEventListener("click", ()=> setTab(t.dataset.tab));
+    // A direct click on the Field Guide tab is a fresh entry: honour the normal
+    // focus-vs-index behaviour, so a forced-index state left over from a Snapshot
+    // jump doesn't linger.
+    t.addEventListener("click", ()=> { if(t.dataset.tab === "guide") app.guideForceIndex = false; setTab(t.dataset.tab); });
     t.addEventListener("keydown", e=>{
-      if(e.key === "Enter" || e.key === " "){ e.preventDefault(); setTab(t.dataset.tab); }
+      if(e.key === "Enter" || e.key === " "){ e.preventDefault(); if(t.dataset.tab === "guide") app.guideForceIndex = false; setTab(t.dataset.tab); }
       else if(e.key === "ArrowRight" || e.key === "ArrowLeft"){
         e.preventDefault();
         const tabs = $$(".tab");
