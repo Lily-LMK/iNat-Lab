@@ -33,9 +33,10 @@ to pull records live by username and/or project.
 - **Map** — Leaflet basemaps (OSM / topo / satellite / Esri topo / geology, with geology
   click-to-identify); observation points coloured **by taxonomic rank or by observer**, with a
   live legend.
-- **Offline** — a service worker caches the app shell and, on import, warms a per-taxon image
-  cache so a loaded set stays explorable offline. Your data is never cached to the repo — only
-  the app shell and your own session's fetched media.
+- **Offline** — a service worker caches the app shell and, on import, warms a durable per-taxon
+  photo cache so a loaded set stays explorable offline. Your data is never cached to the repo —
+  only the app shell and your own session's fetched media. See
+  [Offline & caching](#offline--caching) for what's stored and how to confirm it.
 
 ## Data sources
 
@@ -50,12 +51,51 @@ loads at runtime.
 
 - `index.html` — the whole app: HTML + CSS + JS inline, no framework, no build.
 - `sw.js` — the offline service worker (app-shell + media caching).
-- External deps via CDN: Inter (Google Fonts), Leaflet 1.9.4, esri-leaflet 3.0.12.
+- External deps via CDN: Inter + Literata (Google Fonts), Leaflet 1.9.4, esri-leaflet 3.0.12.
 - Deploys as a static site (GitHub Pages).
 
 The visual identity is "Gallery": a light-default, editorial, photographer-portfolio aesthetic
 (one typeface, hairline/monochrome UI so the photographs are the colour) with an opt-in dark
 theme.
+
+## Offline & caching
+
+iNat Lab uses **explicit offline storage** (the [Cache Storage
+API](https://developer.mozilla.org/docs/Web/API/CacheStorage), driven by the service worker) —
+not the browser's ordinary HTTP cache. Three named caches hold different things:
+
+- **`inatlab-static-*`** — the app shell + CDN assets (Leaflet, esri-leaflet, fonts). Cached
+  indefinitely (versioned URLs).
+- **`inatlab-taxon-photos-*`** — the **Field Guide's** representative photos: iNaturalist's own
+  curated `default_photo` per taxon, keyed by taxon ID. Warmed in the background on import (fetched
+  ~30 taxa per API request), stored in a **dedicated durable bucket** so heavy map use can't evict
+  them. A small JSON index (photo URL + attribution + licence per taxon) lives in the same cache so
+  photos stay referenceable offline across sessions. Field Guide tiles fall back to your own record
+  photo until each taxon's iNat photo is warmed, so the guide is never blank.
+- **`inatlab-img-*`** — map tiles and record photos (Records / Map / detail views), cache-first with
+  a 24-hour TTL and size-capped eviction.
+
+Your CSV / observation data is **never cached to disk and never committed** — only the app shell
+and media your session fetches.
+
+**Durability.** Cached storage is eviction-eligible under disk pressure by default, so on load the
+app calls `navigator.storage.persist()` once to request **persistent storage** for the origin.
+Browsers grant this on their own terms (Chrome silently, from engagement heuristics such as repeat
+visits or bookmarking; Firefox may prompt), so it may not be granted on a first visit.
+
+**Confirming it in DevTools** (Chrome/Edge — **F12** → **Application** tab):
+
+- **Application → Storage** — shows total usage and, under *Storage*, whether the origin is using
+  **persistent** storage. "Clear site data" here wipes all caches (the next import re-warms them).
+- **Application → Cache Storage** — expand to see the three buckets above and inspect individual
+  entries; `inatlab-taxon-photos-*` should fill with iNaturalist photo URLs as warm-up runs.
+- **Console** — a `[iNat Lab] Persistent storage…` line reports the grant result on load. You can
+  also query it live:
+
+  ```js
+  await navigator.storage.persisted();  // true if the origin's storage is persistent
+  await navigator.storage.estimate();   // { usage, quota } in bytes
+  ```
 
 ## Privacy
 

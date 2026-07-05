@@ -128,6 +128,10 @@ are untouched (`r._img` as before).
   `checkTaxonUpdates` fills photos opportunistically. Auto-runs on load via `#warmBar`.
 - **Rendering:** `renderGuide` index + focus tiles use taxon photo → `r._img` → placeholder; muted
   `.fgCredit` photographer/licence line on **focus-page tiles only**.
+- **Durability follow-up** (commit `42fe03c`, on `main`): `navigator.storage.persist()` requested
+  once on boot (after `persisted()`) so the offline photo cache resists eviction — origin-wide,
+  console-logged, no UI chrome. README gained an **"Offline & caching"** section (three Cache
+  Storage buckets + DevTools confirmation steps).
 - Verified end-to-end via headless Chrome + real iNat API on the sample CSV (console clean, cache +
   meta-index correct, hydration on reload). Real-dataset visual pass still recommended (the sample's
   placeholder image URLs 404, hiding the `r._img` fallback).

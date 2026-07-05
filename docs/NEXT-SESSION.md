@@ -45,8 +45,15 @@ follow-up if it becomes annoying.
 
 ## Recently shipped (newest first)
 
-- **Field Guide → iNaturalist representative photos** (commit `4f9ec71`, branch
-  `field-guide-taxon-photos`, **pushed; not yet merged to `main`**). Field Guide tiles now show
+- **Persistent storage + README cache section** (commits `42fe03c` + docs, **merged to `main` +
+  pushed / live**). Call `navigator.storage.persist()` once on boot (after checking `persisted()`)
+  so the warmed offline photo cache resists eviction under disk pressure — origin-wide, guarded,
+  console-logged, no UI chrome (Chrome grants silently via engagement heuristics; Firefox may
+  prompt). Added a README **"Offline & caching"** section documenting the three Cache Storage
+  buckets, the never-cached data, and how to confirm via DevTools → Application → Storage /
+  Cache Storage and `navigator.storage.persisted()/estimate()`.
+- **Field Guide → iNaturalist representative photos** (commit `4f9ec71`, **merged to `main` +
+  pushed / live**). Field Guide tiles now show
   iNaturalist's curated `default_photo` per taxon (Taxa API, keyed by `_taxonId`), **falling back
   to the record's own photo (`r._img`) until warm-up resolves each tile** so the guide is never
   blank — a strict upgrade over the old record-photo-only tiles. Records / Map / record-detail
