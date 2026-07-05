@@ -931,11 +931,18 @@
     }
     .mapLegend .legendDot{
       width:10px; height:10px; border-radius:50%; flex-shrink:0;
-      border:1px solid var(--hair);
+      border:1px solid var(--hair); cursor:pointer;
+    }
+    .mapLegend .legendDot:hover, .mapLegend .legendDot:focus-visible{
+      outline:2px solid var(--accent); outline-offset:1px;
     }
     .mapLegend .legendLabel{
       overflow:hidden; text-overflow:ellipsis; color:var(--ink);
     }
+    .mapLegend .legendReset{
+      font-size:10px; color:var(--muted); text-decoration:underline; cursor:pointer;
+    }
+    .mapLegend .legendReset:hover{ color:var(--ink); }
 
     /* mapFlex retired: map height is now viewport-relative on .mapBox directly */
     /* Flat, hairline-separated sidebar sections (no boxes — hairlines do the work). */
@@ -2241,6 +2248,44 @@
   // Legacy compat wrapper
   function fixedUserColor(u){ return userColor(u); }
 
+  // Curated categorical palette for the map's "colour by taxonomic rank" modes —
+  // colour-blind-safe (validated: OKLCH lightness band + chroma floor + Machado-2009
+  // CVD deltaE + contrast vs. this app's own surfaces), 8 hues in a fixed order,
+  // assigned stably by frequency (commonest category in view -> slot 1), cycling
+  // past 8. Distinct from USER_PALETTE, which stays reserved for user-compare.
+  // A dot's category name is always shown as text beside it (legend, popup), so
+  // identity is never colour-alone even for cycled/adjacent slots.
+  const TAXON_PALETTE_LIGHT = ["#4179be","#309c76","#ca9421","#137213","#554997","#cd5f5f","#d98caa","#d1724d"];
+  const TAXON_PALETTE_DARK  = ["#5189cd","#2c8c6a","#ab7b1c","#137213","#7266cc","#cb5c5c","#c36587","#c0643f"];
+  function taxonPaletteHex(idx){
+    const dark = document.documentElement.dataset.theme === "dark";
+    const pal = dark ? TAXON_PALETTE_DARK : TAXON_PALETTE_LIGHT;
+    return pal[((idx % pal.length) + pal.length) % pal.length];
+  }
+
+  // The exact per-point category key for a colorBy mode — shared by markerColor
+  // (assigns the colour) and buildLegend (labels + edits it), so frequency ranks
+  // and colour overrides always line up with what's actually drawn.
+  function categoryKeyFor(cb, r){
+    if(cb === "user") return "user:" + safe(r._user || "user");
+    const ord = safe(r.taxon_order_name).trim();
+    const fam = safe(r.taxon_family_name).trim();
+    const superfam = safe(r.taxon_superfamily_name).trim();
+    const subfam = safe(r.taxon_subfamily_name).trim();
+    const tri = safe(r.taxon_tribe_name).trim();
+    const gen = safe(r.taxon_genus_name).trim();
+    const sp  = safe(r.taxon_species_name).trim() || safe(r._sci).trim() || safe(r._common).trim();
+    if(cb === "order") return "ord:" + (ord || "Order");
+    if(cb === "family") return "fam:" + (fam || ord || "Family");
+    if(cb === "superfamily") return "superfam:" + (superfam || fam || ord || "Superfamily");
+    if(cb === "subfamily") return "subfam:" + (subfam || superfam || fam || ord || "Subfamily");
+    if(cb === "tribe") return "tribe:" + (tri || subfam || superfam || fam || ord || "Tribe");
+    if(cb === "genus") return "genus:" + (gen || tri || subfam || superfam || fam || ord || "Genus");
+    if(cb === "species") return "sp:" + (sp || gen || fam || ord || "Species");
+    return "fam:" + (fam || ord || "Family");
+  }
+  function overrideKey(cb, key){ return cb + "|" + key; }
+
   function openExport(text, filename, mime="text/plain"){
     const modal = $("#exportModal");
     const ta = $("#exportText");
@@ -2482,6 +2527,7 @@
     guideScopeOrder: "",
     filteredIdx: [],
     lastModalIdx: null,
+    mapColorOverrides: {}, // "<colorBy>|<categoryKey>" -> hex, set via legend swatch picker
   };
 
   // Restore taxon dropdown ordering preference
@@ -4231,59 +4277,18 @@ function refreshStaticFilters(){
   function markerColor(p){
       const r = p.r;
       const cb = mapState.colorBy || "family";
-      const cs = getComputedStyle(document.documentElement);
-      const a = cs.getPropertyValue("--accent").trim() || "#3ddc97";
-      const b = cs.getPropertyValue("--accent2").trim() || "#56d4dd";
-
-      const hueFrom = (s)=>{
-        const str = safe(s);
-        let h = 0;
-        for(let i=0;i<str.length;i++) h = (h * 31 + str.charCodeAt(i)) % 360;
-        return h;
-      };
-      const hash01 = (s)=>{
-        const str = safe(s);
-        let x = 2166136261;
-        for(let i=0;i<str.length;i++){
-          x ^= str.charCodeAt(i);
-          x = Math.imul(x, 16777619);
-        }
-        return ((x >>> 0) % 10000) / 10000;
-      };
-      const hsl = (h, s, l)=> `hsl(${h}, ${s}%, ${l}%)`;
-
-      const colorFromKey = (key)=>{
-        const h = (hueFrom(key) + 360) % 360;
-        const t = hash01("s:"+key);
-        const u = hash01("l:"+key);
-        const s = 55 + Math.round(t * 25);  // 55..80
-        const l = 38 + Math.round(u * 18);  // 38..56
-        return hsl(h, s, l);
-      };
 
       if(cb === "user"){
         const fixed = fixedUserColor(r._user);
         if(fixed) return fixed;
-        return colorFromKey("user:"+safe(r._user||"user"));
       }
 
-      const ord = safe(r.taxon_order_name).trim();
-      const fam = safe(r.taxon_family_name).trim();
-      const superfam = safe(r.taxon_superfamily_name).trim();
-      const subfam = safe(r.taxon_subfamily_name).trim();
-      const tri = safe(r.taxon_tribe_name).trim();
-      const gen = safe(r.taxon_genus_name).trim();
-      const sp  = safe(r.taxon_species_name).trim() || safe(r._sci).trim() || safe(r._common).trim();
+      const key = categoryKeyFor(cb, r);
+      const ov = (app.mapColorOverrides || {})[overrideKey(cb, key)];
+      if(ov) return ov;
 
-      if(cb === "order") return colorFromKey("ord:"+ (ord || "Order"));
-      if(cb === "family") return colorFromKey("fam:"+ (fam || ord || "Family"));
-      if(cb === "superfamily") return colorFromKey("superfam:"+ (superfam || fam || ord || "Superfamily"));
-      if(cb === "subfamily") return colorFromKey("subfam:"+ (subfam || superfam || fam || ord || "Subfamily"));
-      if(cb === "tribe") return colorFromKey("tribe:"+ (tri || subfam || superfam || fam || ord || "Tribe"));
-      if(cb === "genus") return colorFromKey("genus:"+ (gen || tri || subfam || superfam || fam || ord || "Genus"));
-      if(cb === "species") return colorFromKey("sp:"+ (sp || gen || fam || ord || "Species"));
-
-      return a;
+      const rank = (mapState._catRank && mapState._catRank.get(key)) || 0;
+      return taxonPaletteHex(rank);
     }
 
 
@@ -4858,8 +4863,24 @@ function popupHTML(p){
       `;
     }
 
+    // Rank categories by frequency (most common -> slot 0) so palette assignment
+    // is stable for the current view; markerColor + buildLegend both read this.
+    function ensureCategoryRanks(){
+      const cb = mapState.colorBy || "family";
+      const counts = new Map();
+      for(const p of pts){
+        const key = categoryKeyFor(cb, p.r);
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+      const ranked = [...counts.entries()].sort((a,b)=> b[1]-a[1] || a[0].localeCompare(b[0]));
+      const rankMap = new Map();
+      ranked.forEach(([key], i)=> rankMap.set(key, i));
+      mapState._catRank = rankMap;
+    }
+
     function updateMarkers(fit=false){
       if(!mapState.markers) return;
+      ensureCategoryRanks();
       mapState.markers.clearLayers();
       const latlngs = [];
 
@@ -4937,7 +4958,7 @@ function popupHTML(p){
       if(old) old.remove();
 
       const cb = mapState.colorBy || "family";
-      const seen = new Map(); // label -> color
+      const seen = new Map(); // label -> {color, key}
       for(const p of pts){
         const r = p.r;
         let label = "";
@@ -4949,13 +4970,15 @@ function popupHTML(p){
         else if(cb === "tribe") label = safe(r.taxon_tribe_name).trim() || "(unknown)";
         else if(cb === "genus") label = safe(r.taxon_genus_name).trim() || "(unknown)";
         else if(cb === "species") label = safe(r.taxon_species_name).trim() || safe(r._sci).trim() || "(unknown)";
-        if(!seen.has(label)) seen.set(label, markerColor(p));
+        if(!seen.has(label)) seen.set(label, { color: markerColor(p), key: categoryKeyFor(cb, r) });
       }
 
       // Sort by label, cap at 30
       const entries = [...seen.entries()].sort((a,b)=> a[0].localeCompare(b[0]));
       const capped = entries.slice(0, 30);
       const overflow = entries.length - capped.length;
+      const overridePrefix = cb + "|";
+      const hasOverrides = Object.keys(app.mapColorOverrides || {}).some(k=> k.startsWith(overridePrefix));
 
       const legend = document.createElement("div");
       legend.className = "mapLegend";
@@ -4965,22 +4988,59 @@ function popupHTML(p){
       legend.innerHTML = `
         <div class="legendHead">
           <span>${escapeHtml(cbLabel)} <span class="muted" style="font-weight:400">(${entries.length.toLocaleString()})</span></span>
-          <span class="togChar">${isCollapsed ? "▸" : "▾"}</span>
+          <span style="display:flex; align-items:center; gap:8px;">
+            ${hasOverrides ? `<a href="#" class="legendReset" title="Reset custom colours">Reset</a>` : ""}
+            <span class="togChar">${isCollapsed ? "▸" : "▾"}</span>
+          </span>
         </div>
         <div class="legendBody">
-          ${capped.map(([label, color])=>`
+          ${capped.map(([label, {color, key}])=>`
             <div class="legendItem">
-              <span class="legendDot" style="background:${color}"></span>
+              <span class="legendDot" data-key="${escapeHtml(key)}" data-color="${escapeHtml(color)}" style="background:${color}" title="Click to set a custom colour" tabindex="0" role="button" aria-label="Set colour for ${escapeHtml(label)}"></span>
               <span class="legendLabel">${escapeHtml(label)}</span>
             </div>
           `).join("")}
           ${overflow > 0 ? `<div class="legendItem muted" style="padding-top:4px;">+ ${overflow} more</div>` : ""}
         </div>
       `;
-      legend.querySelector(".legendHead").addEventListener("click", ()=>{
+      legend.querySelector(".legendHead").addEventListener("click", (e)=>{
+        if(e.target.closest(".legendReset")) return;
         app._legendCollapsed = !app._legendCollapsed;
         legend.classList.toggle("collapsed");
         legend.querySelector(".togChar").textContent = app._legendCollapsed ? "▸" : "▾";
+      });
+      const resetLink = legend.querySelector(".legendReset");
+      if(resetLink){
+        resetLink.addEventListener("click", (e)=>{
+          e.preventDefault();
+          e.stopPropagation();
+          Object.keys(app.mapColorOverrides).forEach(k=>{
+            if(k.startsWith(overridePrefix)) delete app.mapColorOverrides[k];
+          });
+          updateMarkers(false);
+          buildLegend();
+        });
+      }
+      legend.querySelectorAll(".legendDot").forEach(dot=>{
+        const openPicker = ()=>{
+          const key = dot.getAttribute("data-key");
+          const picker = document.createElement("input");
+          picker.type = "color";
+          picker.value = dot.getAttribute("data-color") || "#888888";
+          picker.style.position = "fixed";
+          picker.style.opacity = "0";
+          picker.style.pointerEvents = "none";
+          document.body.appendChild(picker);
+          picker.addEventListener("input", ()=>{
+            app.mapColorOverrides[overrideKey(cb, key)] = picker.value;
+            updateMarkers(false);
+            buildLegend();
+          });
+          picker.addEventListener("change", ()=>{ picker.remove(); }, { once:true });
+          picker.click();
+        };
+        dot.addEventListener("click", openPicker);
+        dot.addEventListener("keydown", (e)=>{ if(e.key === "Enter" || e.key === " "){ e.preventDefault(); openPicker(); } });
       });
       box.style.position = "relative";
       box.appendChild(legend);
