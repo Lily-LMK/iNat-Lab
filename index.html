@@ -901,6 +901,44 @@
     }
     .mapLegend .legendReset:hover{ color:var(--ink); }
 
+    /* Map publication-export options popover — a small fixed-position dialog anchored
+       under the "Export map" button (index.html body, not the map box, so it survives
+       full-screen/pseudo-fullscreen mode). */
+    .mapExportPopover{
+      position:fixed; z-index:100001; width:220px;
+      background:var(--panel-glass); backdrop-filter:blur(6px);
+      border:1px solid var(--hair); border-radius:8px;
+      box-shadow:0 10px 24px rgba(0,0,0,0.16);
+      padding:12px; font-family:var(--font);
+    }
+    @media (prefers-reduced-motion: no-preference){
+      .mapExportPopover{ animation: mapExportIn .12s ease; }
+    }
+    @keyframes mapExportIn{
+      from{ opacity:0; transform:translateY(-4px); }
+      to{ opacity:1; transform:translateY(0); }
+    }
+    .mapExportRow{ display:flex; flex-direction:column; gap:4px; margin-bottom:10px; }
+    .mapExportRow label{ font-size:11px; color:var(--muted); }
+    .mapExportRow select{
+      font-family:var(--font); font-size:12px; color:var(--ink);
+      background:var(--raised); border:1px solid var(--hair); border-radius:6px;
+      padding:6px 8px;
+    }
+    .mapExportCheck{
+      display:flex; align-items:center; gap:6px;
+      font-size:12px; color:var(--ink); margin-bottom:12px; cursor:pointer;
+    }
+    .mapExportActions{ display:flex; justify-content:flex-end; }
+    .mapExportEmpty{ font-size:12px; color:var(--muted); }
+    .mapExportWarn{
+      font-size:11px; line-height:1.4; color:var(--ink);
+      background:var(--raised); border:1px solid var(--hair); border-radius:6px;
+      padding:8px; margin-bottom:12px;
+    }
+    .mapExportActions .smallBtn:disabled{ opacity:0.5; cursor:not-allowed; }
+    .mapExportActions .smallBtn:disabled:hover{ background:var(--raised); }
+
     /* mapFlex retired: map height is now viewport-relative on .mapBox directly */
     /* Flat, hairline-separated sidebar sections (no boxes — hairlines do the work). */
     /* Persistent Snapshot header — the orientation anchor, never collapsible. */
@@ -2267,6 +2305,42 @@
     modal.setAttribute("aria-hidden","false");
     ta.focus();
     ta.select();
+  }
+
+  function downloadBlob(blob, filename){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=> URL.revokeObjectURL(url), 1000);
+  }
+
+  // Rasterise a self-contained SVG string to a high-DPI PNG blob via an offscreen canvas.
+  // The SVG carries no external references, so the canvas is never tainted.
+  function svgToPNG(svgString, scale=3){
+    return new Promise((resolve, reject)=>{
+      const wMatch = svgString.match(/width="(\d+(?:\.\d+)?)"/);
+      const hMatch = svgString.match(/height="(\d+(?:\.\d+)?)"/);
+      const w = wMatch ? parseFloat(wMatch[1]) : 1000;
+      const h = hMatch ? parseFloat(hMatch[1]) : 1000;
+
+      const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(svgBlob);
+      const img = new Image();
+      img.onload = ()=>{
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(w * scale);
+        canvas.height = Math.round(h * scale);
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        canvas.toBlob((blob)=>{
+          if(blob) resolve(blob); else reject(new Error("PNG export failed"));
+        }, "image/png");
+      };
+      img.onerror = (e)=>{ URL.revokeObjectURL(url); reject(e); };
+      img.src = url;
+    });
   }
 
   // ----------------- CSV parser (robust quotes) -----------------
@@ -4365,6 +4439,31 @@ function refreshStaticFilters(){
     }
     return `hsl(${h}, 55%, 40%)`;
   }
+  // Basemaps whose tile servers send CORS headers, so their tiles can be drawn into a canvas
+  // (for the map-screenshot export) without tainting it. OSM/OpenTopoMap are deliberately
+  // excluded — those servers don't support CORS, so a screenshot capture would either fail
+  // to draw them or throw when the canvas is read back.
+  const CORS_SAFE_BASEMAPS = new Set(["Satellite", "Esri Topo", "Geology"]);
+
+  // Canvas fillText can't interpret HTML entities (e.g. "&copy;") — decode them via a
+  // detached textarea. Only ever fed this app's own hardcoded attribution strings.
+  function decodeEntities(html){
+    const ta = document.createElement("textarea");
+    ta.innerHTML = html;
+    return ta.value;
+  }
+
+  // Synchronously swap to the light theme for the duration of fn, so markerColor /
+  // taxonPaletteHex / userColor return light-palette hex values (the publication export is
+  // always a white-ground/light-palette figure regardless of the app's current theme) without
+  // threading a forceLight arg through them. Restored before the next paint — no visible flash.
+  function withLightTheme(fn){
+    const el = document.documentElement;
+    const prev = el.dataset.theme;
+    if(prev === "dark") el.dataset.theme = "light";
+    try { return fn(); } finally { if(prev !== undefined) el.dataset.theme = prev; else delete el.dataset.theme; }
+  }
+
   function markerColor(p){
       const r = p.r;
       const cb = mapState.colorBy || "family";
@@ -4386,6 +4485,9 @@ function refreshStaticFilters(){
 
   function renderMap(root){
     // Map uses Leaflet + tile basemaps (requires internet for basemap tiles).
+    // A re-render (colour-by change, tab revisit) can orphan a previous export popover,
+    // which lives in document.body rather than inside root — close it first.
+    if(mapState._closeExportPopover){ mapState._closeExportPopover(); mapState._closeExportPopover = null; }
     root.innerHTML = "";
 
     const top = document.createElement("div");
@@ -4408,6 +4510,7 @@ function refreshStaticFilters(){
         <button id="drawBox" class="smallBtn">Draw box</button>
         <button id="clearBox" class="smallBtn" style="display:none">Clear box</button>
         <button id="mapFS" class="smallBtn">Full screen</button>
+        <button id="mapExport" class="smallBtn" aria-haspopup="dialog">Export map</button>
       </div>
       <div class="bar mapTopBar mapSearchPill">
         <input id="mapSearch" class="mapSearchInput" type="text" placeholder="Search location…" autocomplete="off" />
@@ -4619,13 +4722,19 @@ function refreshStaticFilters(){
       attribution: "&copy; OpenStreetMap contributors, tiles &copy; OpenTopoMap (CC-BY-SA)"
     });
 
+    // crossOrigin: true lets these tiles (Esri / GA ArcGIS REST services, which both send
+    // CORS headers) be drawn into a canvas for the map-screenshot export without tainting it.
+    // OSM / OpenTopoMap below deliberately don't get this — those servers don't send CORS
+    // headers, and requesting crossOrigin from them would just fail the tile load entirely.
     const satellite = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
       maxZoom: 19,
+      crossOrigin: true,
       attribution: "Tiles &copy; Esri"
     });
 
     const esriTopo = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}", {
       maxZoom: 19,
+      crossOrigin: true,
       attribution: "Tiles &copy; Esri"
     });
 
@@ -4633,6 +4742,7 @@ function refreshStaticFilters(){
     const gaGeology = L.tileLayer("https://services.ga.gov.au/gis/rest/services/GA_Surface_Geology/MapServer/tile/{z}/{y}/{x}", {
       maxNativeZoom: 14,
       maxZoom: 19,
+      crossOrigin: true,
       attribution: "&copy; Commonwealth of Australia (Geoscience Australia) 2016 (CC BY 4.0)"
     });
 
@@ -4643,6 +4753,7 @@ function refreshStaticFilters(){
       url: "https://services.ga.gov.au/gis/rest/services/Topographic_Base_Map/MapServer",
       layers: [0], // Fixed_Annotation group (place-name annotation; scale-dependent)
       opacity: 1,
+      crossOrigin: true,
       format: "png32",
       transparent: true
     }) : null;
@@ -5140,6 +5251,478 @@ function popupHTML(p){
 
     // Rebuild legend when color-by changes
     colorSel.addEventListener("change", ()=> buildLegend());
+
+    // ----------------- Publication export (SVG + high-DPI PNG) -----------------
+    // Turns the current map into a print-ready figure: coloured points + legend + a small
+    // caption, no web basemap tiles (sidesteps tile CORS/licensing; journal-friendly). Always
+    // white-ground / light-palette regardless of the app's live theme (see withLightTheme).
+    function buildMapSVG({ extent = "data", includeLegend = true } = {}){
+      const crs = mapState.map.options.crs;
+
+      let bounds;
+      if(extent === "view"){
+        bounds = mapState.map.getBounds();
+      } else {
+        const latlngs = pts.map(p=> L.latLng(p.lat, p.lng));
+        bounds = L.latLngBounds(latlngs);
+      }
+
+      const sw = crs.project(bounds.getSouthWest());
+      const ne = crs.project(bounds.getNorthEast());
+      let xmin = Math.min(sw.x, ne.x), xmax = Math.max(sw.x, ne.x);
+      let ymin = Math.min(sw.y, ne.y), ymax = Math.max(sw.y, ne.y);
+
+      // Guard a zero (or near-zero) extent — a single point, or several identical coords —
+      // so the scale calculation below never divides by zero.
+      const MIN_SPAN = 200; // metres
+      if((xmax - xmin) < MIN_SPAN){ const cx = (xmin + xmax) / 2; xmin = cx - MIN_SPAN/2; xmax = cx + MIN_SPAN/2; }
+      if((ymax - ymin) < MIN_SPAN){ const cy = (ymin + ymax) / 2; ymin = cy - MIN_SPAN/2; ymax = cy + MIN_SPAN/2; }
+      const dx = xmax - xmin, dy = ymax - ymin;
+
+      const PAD = 40;
+      const CAPTION_H = 34;
+      const plotW = 1000;
+      const plotH = plotW * (dy / dx);
+      const svgW = plotW + PAD * 2;
+      const svgH = plotH + PAD * 2 + CAPTION_H;
+
+      const scale = plotW / dx;
+      const toX = (x)=> PAD + (x - xmin) * scale;
+      const toY = (y)=> PAD + (ymax - y) * scale; // Mercator y grows north (up); SVG y grows down.
+
+      // Collect every point's colour and the legend enumeration under a forced light theme, so
+      // markerColor / taxonPaletteHex / userColor return the same hex values verbatim (custom
+      // overrides + user colours included) that the light-mode on-screen map would show.
+      let circlesSVG = "";
+      let legendEntries = [];
+      withLightTheme(()=>{
+        for(const p of pts){
+          const proj = crs.project(L.latLng(p.lat, p.lng));
+          const cx = toX(proj.x), cy = toY(proj.y);
+          const hex = markerColor(p);
+          circlesSVG += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="5" fill="${hex}" fill-opacity="0.7" stroke="${hex}" stroke-width="1.5"/>`;
+        }
+
+        if(includeLegend){
+          const cb = mapState.colorBy || "family";
+          const seen = new Map(); // label -> {color, count}
+          for(const p of pts){
+            const r = p.r;
+            let label = "";
+            if(cb === "user") label = safe(r._user).trim() || "(unknown)";
+            else if(cb === "order") label = safe(r.taxon_order_name).trim() || "(unknown)";
+            else if(cb === "family") label = safe(r.taxon_family_name).trim() || "(unknown)";
+            else if(cb === "superfamily") label = safe(r.taxon_superfamily_name).trim() || "(unknown)";
+            else if(cb === "subfamily") label = safe(r.taxon_subfamily_name).trim() || "(unknown)";
+            else if(cb === "tribe") label = safe(r.taxon_tribe_name).trim() || "(unknown)";
+            else if(cb === "genus") label = safe(r.taxon_genus_name).trim() || "(unknown)";
+            else if(cb === "species") label = safe(r.taxon_species_name).trim() || safe(r._sci).trim() || "(unknown)";
+            if(!seen.has(label)) seen.set(label, { color: markerColor(p), count: 0 });
+            seen.get(label).count++;
+          }
+          legendEntries = [...seen.entries()].sort((a,b)=> a[0].localeCompare(b[0]));
+        }
+      });
+
+      // Legend card (top-right), mirroring buildLegend's 30-cap + "+N more".
+      let legendSVG = "";
+      if(includeLegend && legendEntries.length){
+        const capped = legendEntries.slice(0, 30);
+        const overflow = legendEntries.length - capped.length;
+        const rowH = 16;
+        const legendW = 200;
+        const legendPad = 8;
+        const rows = capped.length + (overflow > 0 ? 1 : 0);
+        const legendH = legendPad * 2 + rows * rowH;
+        const legendX = svgW - PAD - legendW;
+        const legendY = PAD;
+        let rowsSVG = "";
+        capped.forEach(([label, {color, count}], i)=>{
+          const ry = legendY + legendPad + i * rowH + rowH / 2;
+          rowsSVG += `
+            <circle cx="${legendX + legendPad + 5}" cy="${ry.toFixed(1)}" r="5" fill="${color}" fill-opacity="0.7" stroke="${color}" stroke-width="1.5"/>
+            <text x="${legendX + legendPad + 16}" y="${(ry + 4).toFixed(1)}" font-size="11" font-family="Inter, system-ui, sans-serif" fill="#1a1a1a">${escapeHtml(label)} (${count})</text>
+          `;
+        });
+        if(overflow > 0){
+          const ry = legendY + legendPad + capped.length * rowH + rowH / 2;
+          rowsSVG += `<text x="${legendX + legendPad}" y="${(ry + 4).toFixed(1)}" font-size="11" font-family="Inter, system-ui, sans-serif" fill="#6b6b6b">+ ${overflow} more</text>`;
+        }
+        legendSVG = `
+          <rect x="${legendX}" y="${legendY}" width="${legendW}" height="${legendH}" rx="6" fill="#ffffff" fill-opacity="0.92" stroke="#d8d8d8" stroke-width="1"/>
+          ${rowsSVG}
+        `;
+      }
+
+      const extentLabel = extent === "view" ? "Current view" : "Data bounds";
+      const cbLabel = mapState.colorBy || "family";
+      const cbLabelCap = cbLabel.charAt(0).toUpperCase() + cbLabel.slice(1);
+      const omitted = app.filteredIdx.length - pts.length;
+      const captionText = `${extentLabel} · ${pts.length.toLocaleString()} records mapped · ${omitted.toLocaleString()} omitted (no coordinate) · Colour: ${cbLabelCap} · iNaturalist / observers · ${isoDate(new Date())}`;
+      const captionY = svgH - CAPTION_H / 2 + 4;
+
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW.toFixed(1)}" height="${svgH.toFixed(1)}" viewBox="0 0 ${svgW.toFixed(1)} ${svgH.toFixed(1)}">
+  <rect x="0" y="0" width="${svgW.toFixed(1)}" height="${svgH.toFixed(1)}" fill="#ffffff"/>
+  ${circlesSVG}
+  ${legendSVG}
+  <text x="${PAD}" y="${captionY.toFixed(1)}" font-size="11" font-family="Inter, system-ui, sans-serif" fill="#4a4a4a">${escapeHtml(captionText)}</text>
+</svg>`;
+    }
+
+    // Wait until the active basemap's tiles have finished loading (fires quickly if already
+    // cached), so a screenshot doesn't capture a half-loaded view. Times out rather than
+    // hanging forever if the 'load' event never fires.
+    function waitForTilesLoaded(timeoutMs = 4000){
+      return new Promise((resolve)=>{
+        const layer = mapState.baseLayers[mapState.baseName || defaultName];
+        if(!layer){ resolve(); return; }
+        let done = false;
+        const finish = ()=>{ if(done) return; done = true; try{ layer.off("load", finish); }catch(e){} resolve(); };
+        layer.once("load", finish);
+        setTimeout(finish, timeoutMs);
+      });
+    }
+
+    // Draw a rounded-rect legend card + rows onto a 2D canvas context, mirroring buildLegend's
+    // 30-cap + "+N more" and the on-screen swatch/label/count layout.
+    function drawLegendOnCanvas(ctx, { originX, originY, scale, entries }){
+      const capped = entries.slice(0, 30);
+      const overflow = entries.length - capped.length;
+      const rowH = 18 * scale;
+      const legendW = 190 * scale;
+      const legendPad = 10 * scale;
+      const rows = capped.length + (overflow > 0 ? 1 : 0);
+      const legendH = legendPad * 2 + rows * rowH;
+      const legendX = originX - legendW;
+      const legendY = originY;
+
+      ctx.save();
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.strokeStyle = "#d8d8d8";
+      ctx.lineWidth = 1 * scale;
+      ctx.beginPath();
+      ctx.roundRect(legendX, legendY, legendW, legendH, 6 * scale);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.font = `${12 * scale}px Inter, system-ui, sans-serif`;
+      ctx.textBaseline = "middle";
+      capped.forEach(([label, { color, count }], i)=>{
+        const ry = legendY + legendPad + i * rowH + rowH / 2;
+        ctx.beginPath();
+        ctx.arc(legendX + legendPad + 6 * scale, ry, 5 * scale, 0, Math.PI * 2);
+        ctx.globalAlpha = 0.7;
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.lineWidth = 1.5 * scale;
+        ctx.strokeStyle = color;
+        ctx.stroke();
+        ctx.fillStyle = "#1a1a1a";
+        ctx.fillText(`${label} (${count})`, legendX + legendPad + 16 * scale, ry);
+      });
+      if(overflow > 0){
+        const ry = legendY + legendPad + capped.length * rowH + rowH / 2;
+        ctx.fillStyle = "#6b6b6b";
+        ctx.fillText(`+ ${overflow} more`, legendX + legendPad, ry);
+      }
+      ctx.restore();
+      return legendH;
+    }
+
+    // Enumerate the current colour-by categories exactly as buildLegend does, but keep a
+    // count per label (the on-screen legend doesn't show counts; the export figure does).
+    function collectLegendEntries(){
+      const cb = mapState.colorBy || "family";
+      const seen = new Map(); // label -> {color, count}
+      for(const p of pts){
+        const r = p.r;
+        let label = "";
+        if(cb === "user") label = safe(r._user).trim() || "(unknown)";
+        else if(cb === "order") label = safe(r.taxon_order_name).trim() || "(unknown)";
+        else if(cb === "family") label = safe(r.taxon_family_name).trim() || "(unknown)";
+        else if(cb === "superfamily") label = safe(r.taxon_superfamily_name).trim() || "(unknown)";
+        else if(cb === "subfamily") label = safe(r.taxon_subfamily_name).trim() || "(unknown)";
+        else if(cb === "tribe") label = safe(r.taxon_tribe_name).trim() || "(unknown)";
+        else if(cb === "genus") label = safe(r.taxon_genus_name).trim() || "(unknown)";
+        else if(cb === "species") label = safe(r.taxon_species_name).trim() || safe(r._sci).trim() || "(unknown)";
+        if(!seen.has(label)) seen.set(label, { color: markerColor(p), count: 0 });
+        seen.get(label).count++;
+      }
+      return [...seen.entries()].sort((a,b)=> a[0].localeCompare(b[0]));
+    }
+
+    // Capture the *actual* on-screen Leaflet map (basemap tiles + points) into a high-DPI PNG.
+    // Unlike buildMapSVG (always a white-ground / light-palette idealised figure), this mirrors
+    // whatever is really rendered — current theme's marker colours included — because the point
+    // is literally "what you see is what you get". Only offered for CORS-friendly basemaps
+    // (see CORS_SAFE_BASEMAPS); OSM/OpenTopoMap would taint the canvas.
+    async function captureMapScreenshot({ extent = "data", includeLegend = true, scale = 3 } = {}){
+      const baseName = mapState.baseName || defaultName;
+      if(!CORS_SAFE_BASEMAPS.has(baseName)){
+        throw new Error("CORS_UNSAFE_BASEMAP");
+      }
+
+      const savedCenter = mapState.map.getCenter();
+      const savedZoom = mapState.map.getZoom();
+      let moved = false;
+
+      try{
+        if(extent === "data"){
+          const latlngs = pts.map(p=> L.latLng(p.lat, p.lng));
+          const bounds = L.latLngBounds(latlngs);
+          // Guard a degenerate (single-point / identical-coord) extent so fitBounds doesn't
+          // zoom to an absurd level.
+          bounds.extend([bounds.getNorthEast().lat + 0.001, bounds.getNorthEast().lng + 0.001]);
+          bounds.extend([bounds.getSouthWest().lat - 0.001, bounds.getSouthWest().lng - 0.001]);
+          mapState.map.fitBounds(bounds, { padding: [40, 40], animate: false });
+          moved = true;
+          await waitForTilesLoaded();
+          await new Promise(r=> setTimeout(r, 60)); // let layout/paint settle after the instant fitBounds
+        }
+
+        const mapEl = el;
+        const rect = mapEl.getBoundingClientRect();
+        const w = Math.round(rect.width), h = Math.round(rect.height);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = w * scale;
+        canvas.height = h * scale;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw every currently-rendered tile image at its actual on-screen position.
+        const tileImgs = Array.from(mapEl.querySelectorAll(".leaflet-tile-pane img"));
+        for(const img of tileImgs){
+          if(!img.complete || !img.naturalWidth) continue;
+          const r = img.getBoundingClientRect();
+          try{
+            ctx.drawImage(img, (r.left - rect.left) * scale, (r.top - rect.top) * scale, r.width * scale, r.height * scale);
+          }catch(e){ /* a broken/cross-origin tile — skip rather than abort the whole capture */ }
+        }
+        // Overlay imagery (e.g. GA place-labels), best-effort.
+        const overlayImgs = Array.from(mapEl.querySelectorAll(".leaflet-overlay-pane img"));
+        for(const img of overlayImgs){
+          if(!img.complete || !img.naturalWidth) continue;
+          const r = img.getBoundingClientRect();
+          try{
+            ctx.drawImage(img, (r.left - rect.left) * scale, (r.top - rect.top) * scale, r.width * scale, r.height * scale);
+          }catch(e){}
+        }
+
+        // Points, drawn fresh at their live screen position — mirrors the on-screen
+        // L.circleMarker style (radius 6 / weight 2 / fillOpacity 0.6) exactly, live theme colours.
+        for(const p of pts){
+          const cp = mapState.map.latLngToContainerPoint([p.lat, p.lng]);
+          const hex = markerColor(p);
+          const cx = cp.x * scale, cy = cp.y * scale, r = 6 * scale;
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.globalAlpha = 0.6;
+          ctx.fillStyle = hex;
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.lineWidth = 2 * scale;
+          ctx.strokeStyle = hex;
+          ctx.stroke();
+        }
+
+        if(includeLegend){
+          const entries = collectLegendEntries();
+          if(entries.length) drawLegendOnCanvas(ctx, { originX: canvas.width - 12 * scale, originY: 12 * scale, scale, entries });
+        }
+
+        // Caption strip along the bottom, over a translucent white bar for legibility on any basemap.
+        const captionH = 30 * scale;
+        ctx.fillStyle = "rgba(255,255,255,0.88)";
+        ctx.fillRect(0, canvas.height - captionH, canvas.width, captionH);
+        const layer = mapState.baseLayers[baseName];
+        const attribution = (layer && layer.getAttribution) ? decodeEntities(layer.getAttribution().replace(/<[^>]+>/g, "")) : "";
+        const omitted = app.filteredIdx.length - pts.length;
+        const cbLabel = mapState.colorBy || "family";
+        const cbLabelCap = cbLabel.charAt(0).toUpperCase() + cbLabel.slice(1);
+        const extentLabel = extent === "view" ? "Current view" : "Data bounds";
+        const captionText = `${extentLabel} · ${pts.length.toLocaleString()} records mapped · ${omitted.toLocaleString()} omitted (no coordinate) · Colour: ${cbLabelCap} · ${attribution} · iNaturalist / observers · ${isoDate(new Date())}`;
+        ctx.fillStyle = "#2a2a2a";
+        ctx.font = `${12 * scale}px Inter, system-ui, sans-serif`;
+        ctx.textBaseline = "middle";
+        ctx.fillText(captionText, 12 * scale, canvas.height - captionH / 2);
+
+        return await new Promise((resolve, reject)=>{
+          canvas.toBlob((blob)=>{
+            if(blob) resolve(blob); else reject(new Error("TAINTED_CANVAS"));
+          }, "image/png");
+        });
+      }finally{
+        if(moved) mapState.map.setView(savedCenter, savedZoom, { animate: false });
+      }
+    }
+
+    // Trigger UI: "Export map" button -> a small keyboard-accessible options popover.
+    const exportBtn = top.querySelector("#mapExport");
+    let exportPopover = null;
+
+    function closeExportPopover(){
+      if(!exportPopover) return;
+      const pop = exportPopover;
+      exportPopover = null;
+      pop.remove();
+      document.removeEventListener("keydown", onExportKeydown, true);
+      document.removeEventListener("pointerdown", onExportOutsideClick, true);
+      if(document.contains(exportBtn)) exportBtn.focus();
+    }
+    mapState._closeExportPopover = closeExportPopover;
+
+    function onExportKeydown(e){
+      if(!exportPopover) return;
+      if(e.key === "Escape"){
+        e.preventDefault();
+        closeExportPopover();
+        return;
+      }
+      if(e.key === "Tab"){
+        const focusables = Array.from(exportPopover.querySelectorAll('button, select, input, [tabindex]:not([tabindex="-1"])'));
+        if(!focusables.length) return;
+        const first = focusables[0], last = focusables[focusables.length - 1];
+        if(e.shiftKey && document.activeElement === first){
+          e.preventDefault(); last.focus();
+        } else if(!e.shiftKey && document.activeElement === last){
+          e.preventDefault(); first.focus();
+        }
+      }
+    }
+
+    function onExportOutsideClick(e){
+      if(exportPopover && !exportPopover.contains(e.target) && e.target !== exportBtn){
+        closeExportPopover();
+      }
+    }
+
+    function openExportPopover(){
+      if(exportPopover){ closeExportPopover(); return; }
+
+      const pop = document.createElement("div");
+      pop.className = "mapExportPopover";
+      pop.setAttribute("role", "dialog");
+      pop.setAttribute("aria-modal", "true");
+      pop.setAttribute("aria-label", "Export map");
+
+      if(pts.length === 0){
+        pop.tabIndex = -1;
+        pop.innerHTML = `<div class="mapExportEmpty">No mapped records to export.</div>`;
+      } else {
+        const baseName = mapState.baseName || defaultName;
+        const screenshotSafe = CORS_SAFE_BASEMAPS.has(baseName);
+        pop.innerHTML = `
+          <div class="mapExportRow">
+            <label for="mapExportMode">Export type</label>
+            <select id="mapExportMode">
+              <option value="screenshot">Map screenshot (real basemap, PNG)</option>
+              <option value="vector">Clean vector plot (points only)</option>
+            </select>
+          </div>
+          <div class="mapExportRow" id="mapExportFormatRow" style="display:none">
+            <label for="mapExportFormat">Format</label>
+            <select id="mapExportFormat">
+              <option value="both">SVG + PNG</option>
+              <option value="svg">SVG only</option>
+            </select>
+          </div>
+          <div class="mapExportRow">
+            <label for="mapExportExtent">Extent</label>
+            <select id="mapExportExtent">
+              <option value="data">Data bounds (recommended)</option>
+              <option value="view">Current view</option>
+            </select>
+          </div>
+          <label class="mapExportCheck">
+            <input type="checkbox" id="mapExportLegend" checked />
+            Include legend
+          </label>
+          <div class="mapExportWarn" id="mapExportWarn" style="display:none"></div>
+          <div class="mapExportActions">
+            <button type="button" id="mapExportGo" class="smallBtn">Export</button>
+          </div>
+        `;
+
+        const modeSel = pop.querySelector("#mapExportMode");
+        const formatRow = pop.querySelector("#mapExportFormatRow");
+        const warnEl = pop.querySelector("#mapExportWarn");
+        const goBtn = pop.querySelector("#mapExportGo");
+
+        const syncMode = ()=>{
+          const mode = modeSel.value;
+          formatRow.style.display = mode === "vector" ? "" : "none";
+          const needsSafeBasemap = mode === "screenshot" && !screenshotSafe;
+          if(needsSafeBasemap){
+            warnEl.style.display = "";
+            warnEl.textContent = `"${baseName}" doesn't support image capture (no CORS). Switch the basemap to Satellite, Esri Topo, or Geology, then reopen this menu.`;
+            goBtn.disabled = true;
+          } else {
+            warnEl.style.display = "none";
+            goBtn.disabled = false;
+          }
+        };
+        modeSel.addEventListener("change", syncMode);
+        syncMode();
+        if(!screenshotSafe) modeSel.value = "vector";
+        syncMode();
+      }
+
+      document.body.appendChild(pop);
+      const r = exportBtn.getBoundingClientRect();
+      const popW = pop.offsetWidth;
+      let left = r.right - popW;
+      if(left < 8) left = 8;
+      pop.style.left = `${left}px`;
+      pop.style.top = `${r.bottom + 6}px`;
+
+      exportPopover = pop;
+      document.addEventListener("keydown", onExportKeydown, true);
+      document.addEventListener("pointerdown", onExportOutsideClick, true);
+
+      const goBtn = pop.querySelector("#mapExportGo");
+      if(goBtn){
+        goBtn.addEventListener("click", async ()=>{
+          const mode = pop.querySelector("#mapExportMode").value;
+          const extentSel = pop.querySelector("#mapExportExtent").value;
+          const includeLegend = pop.querySelector("#mapExportLegend").checked;
+          const stamp = isoDate(new Date());
+
+          if(mode === "screenshot"){
+            goBtn.disabled = true;
+            goBtn.textContent = "Exporting…";
+            try{
+              const blob = await captureMapScreenshot({ extent: extentSel, includeLegend, scale: 3 });
+              downloadBlob(blob, `inat_map_${stamp}.png`);
+            }catch(e){
+              showToast(e && e.message === "CORS_UNSAFE_BASEMAP"
+                ? "This basemap can't be captured — switch to Satellite, Esri Topo, or Geology."
+                : "Map screenshot failed — try Satellite, Esri Topo, or Geology.");
+            }
+          } else {
+            const format = pop.querySelector("#mapExportFormat").value;
+            const svg = buildMapSVG({ extent: extentSel, includeLegend });
+            downloadBlob(new Blob([svg], { type: "image/svg+xml" }), `inat_map_${stamp}.svg`);
+            if(format === "both"){
+              try{
+                const blob = await svgToPNG(svg, 3);
+                downloadBlob(blob, `inat_map_${stamp}.png`);
+              }catch(e){
+                showToast("PNG export failed — SVG downloaded.");
+              }
+            }
+          }
+          closeExportPopover();
+        });
+        goBtn.focus();
+      } else {
+        pop.focus();
+      }
+    }
+
+    exportBtn.addEventListener("click", ()=> openExportPopover());
 
   }
 
@@ -5792,6 +6375,9 @@ $("#openRecord").onclick = () => { if(r._url) window.open(r._url, "_blank"); };
 
   // ----------------- tabs -----------------
   function setTab(name){
+    // The map export popover lives in document.body (not the map root), so leaving the Map
+    // tab while it's open would otherwise orphan it.
+    if(mapState._closeExportPopover){ mapState._closeExportPopover(); mapState._closeExportPopover = null; }
     app.view = name;
     $$(".tab").forEach(t => { const on = t.dataset.tab === name; t.classList.toggle("active", on); t.setAttribute("aria-selected", on ? "true" : "false"); });
 
