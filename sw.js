@@ -18,6 +18,12 @@
 const CACHE_STATIC = 'inatlab-static-v2';
 const CACHE_API    = 'inatlab-api-v1';
 const CACHE_IMG    = 'inatlab-img-v2';
+/* Field Guide representative photos (iNat default_photo per taxon). A dedicated,
+   durable bucket so they are NEVER evicted by map-tile churn in CACHE_IMG. iNat
+   photo CDN hosts are shared by record photos and taxon photos, so host-based
+   routing can't tell them apart — presence in THIS cache is the reliable signal.
+   Populated + trimmed by the page (see cacheTaxonPhotoImage in index.html). */
+const CACHE_TAXON_PHOTOS = 'inatlab-taxon-photos-v1';
 
 const API_MAX_AGE     = 60 * 60 * 1000;       // 1 hour
 const IMG_MAX_AGE     = 24 * 60 * 60 * 1000;  // 24 hours
@@ -65,7 +71,7 @@ self.addEventListener('install', event => {
 
 /* ── Activate: clean up old cache versions ── */
 self.addEventListener('activate', event => {
-  const keep = new Set([CACHE_STATIC, CACHE_API, CACHE_IMG]);
+  const keep = new Set([CACHE_STATIC, CACHE_API, CACHE_IMG, CACHE_TAXON_PHOTOS]);
   event.waitUntil(
     caches.keys()
       .then(names => Promise.all(names.filter(n => !keep.has(n)).map(n => caches.delete(n))))
@@ -86,9 +92,12 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  /* Images & map tiles: cache-first, 24h TTL, LRU */
+  /* Images & map tiles: cache-first, 24h TTL, LRU.
+     Taxon photos (Field Guide) live in a dedicated durable bucket — check it
+     first so they survive CACHE_IMG eviction; otherwise fall through to the
+     shared image/tile cache. */
   if (IMG_PATTERNS.some(p => p.test(url.href))) {
-    event.respondWith(cacheFirstTTL(request, CACHE_IMG, IMG_MAX_AGE, IMG_MAX_ENTRIES));
+    event.respondWith(taxonPhotoThenImg(request));
     return;
   }
 
@@ -102,6 +111,17 @@ self.addEventListener('fetch', event => {
 });
 
 /* ═══ Caching strategies ═══ */
+
+/* Field Guide taxon photos: serve from the durable dedicated bucket if present,
+   otherwise treat as an ordinary image/tile (shared CACHE_IMG, TTL + LRU). The
+   dedicated copy is written by the page (cacheTaxonPhotoImage); this handler only
+   reads it, so it survives heavy map-tile eviction in CACHE_IMG. */
+async function taxonPhotoThenImg(request) {
+  const durable = await caches.open(CACHE_TAXON_PHOTOS);
+  const hit = await durable.match(request);
+  if (hit) return hit;
+  return cacheFirstTTL(request, CACHE_IMG, IMG_MAX_AGE, IMG_MAX_ENTRIES);
+}
 
 /* Cache-first: serve from cache if present, otherwise fetch and cache. */
 async function cacheFirst(request, cacheName) {

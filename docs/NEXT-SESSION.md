@@ -4,88 +4,31 @@ The immediate-actions companion to `ROADMAP.md` (full phase plan) and `../CLAUDE
 (orientation + current chapter). Keep this lean: what to do next, the near-term backlog, and
 the settled decisions a fresh session shouldn't re-litigate.
 
-_Last refreshed 2026-07-05. Phase 2 Step 1 (curated map palette + custom colours) is **shipped**
-(see Recently shipped). Testing that feature turned up three more items; two easy ones are now
-**shipped** (see Recently shipped) — the Field Guide photo-source change below is the remaining
-deep task, do it next before Phase 2 Step 2._
+_Last refreshed 2026-07-05. Phase 2 Step 1 (curated map palette + custom colours) is **shipped**,
+and the three items testing it turned up are all **shipped** too — including the deep one, the
+Field Guide iNaturalist-photo switch (see Recently shipped). Next up is **Phase 2 Step 2**
+(clustering + spiderfy)._
 
 ---
 
-## Start here next — Field Guide representative photos
+## Start here next — Phase 2 Step 2: map clustering + spiderfy
 
-Found while testing the new map colouring/legend work. House rules apply: single-file
-`index.html`, **no build**; branch off `main`; verify in-browser **light + dark + mobile
-(375px)**; console clean; focused commits; **don't push until Lily asks**. (Local test data: a
-git-ignored `sample-inat.csv`.)
+House rules apply: single-file `index.html`, **no build**; branch off `main`; verify in-browser
+**light + dark + mobile (375px)**; console clean; focused commits; **don't push until Lily asks**.
+(Local test data: a git-ignored `sample-inat.csv`.)
 
-### 1 · Field Guide photos: switch to iNaturalist's representative photo per species (decided)
+Add **`Leaflet.markercluster`** (CDN) so co-located iNat points cluster and spiderfy on click, and
+cluster icons colour by the dominant category (matching the curated per-rank/user palette already
+built in Step 1). See `ROADMAP.md` Phase 2 (b). Then Step 3 — a clean vector / high-DPI point-map
+**export** (points + legend + chosen colours, **no web basemap tiles**) for publication.
 
-**Decided with Lily:** Field Guide tiles will show iNaturalist's own curated `default_photo` for
-each species (from the Taxa API) as the **primary** image source — online and offline, not just
-an offline fallback — instead of a photo pulled from the loaded dataset. This also solves the
-original "offline coverage is thin" + "reusable across datasets" complaint outright: the photo is
-stable per `_taxonId`, not tied to any specific observation, so it's inherently shared across
-overlapping datasets and never depends on which row happened to load first. Lily also wants a
-small **photographer/licence credit** shown on the tile/detail view, since this is iNaturalist's
-photo, not one of her own records.
-
-- **Data source — no new API endpoint needed.** `fetchTaxonLineage(taxonId)` (`index.html:5731`)
-  already calls `GET https://api.inaturalist.org/v1/taxa/{id}` and discards everything except
-  ancestor rank names. The same response's `results[0].default_photo` (`{ url, attribution,
-  license_code, ... }`) is sitting right there unused — extend `fetchTaxonLineage`'s return value
-  (or add a sibling using the same fetch) to also capture
-  `{ photoUrl: toMediumImage(default_photo.url), attribution: default_photo.attribution, license:
-  default_photo.license_code }`. `toMediumImage()` already exists (`index.html:2345-2351`,
-  upsizes iNat's `square`/`small`/etc. URL segment to `medium`) — reuse it, don't reinvent it.
-- **Rate limits are the real constraint, not concurrency.** The existing `scheduleWarmUp()`
-  (`index.html:2655-2726`) fetches known CDN photo URLs directly with 4-way concurrency — fine for
-  plain image fetches, but hitting the iNat **Taxa API** per species is a different kind of
-  request, and this app already throttles that endpoint deliberately: `checkTaxonUpdates()`
-  (`index.html:5805-…`) sleeps **1100ms between requests** to stay within iNat's rate limits. A
-  cold warm-up of a large species list (up to 5,000) making one API call per taxon at ~1/sec
-  pacing could take **over an hour** — much slower than today's pure-image warm-up. Mitigate by:
-  - Skipping any taxon whose photo is **already in the durable cache** before making the API call
-    (see below) — re-warming an already-covered dataset, or loading a second overlapping dataset,
-    then costs nothing for the taxa already secured. This is also what makes progress resumable
-    across a reload/interruption, for free — no separate progress store needed.
-  - Reusing the existing warm-up progress bar (`#warmBar`, `index.html:1966`) and its cancel
-    control as-is — it already communicates a long background task.
-  - Worth deciding during implementation whether this rides along with the existing "Update taxa"
-    lineage-sync pass (`checkTaxonUpdates`) so the app isn't making two separate rate-limited
-    passes over the same taxon list, or runs as its own pass off the same `_taxonId` list.
-- **Durable, taxon-keyed storage — do NOT write into `r._img`.** `r._img` means "this record's own
-  photo" per this app's data-integrity conventions (provenance matters — see CLAUDE.md). iNat's
-  representative photo is a different kind of thing (curated/enriched, not observed), so it gets
-  its own store: a dedicated `CACHE_TAXON_PHOTOS` service-worker bucket, sized independently
-  (~5,500–6,000 entries) and **never sharing eviction with map tiles** (see the shared-`CACHE_IMG`
-  eviction bug below — still worth fixing regardless of photo source), **plus** a small in-page
-  index — e.g. `app.taxonPhotos = Map<taxonId, {url, attribution, license}>` — populated by the
-  warm-up pass and consulted by the Field Guide tile renderer instead of `r._img`.
-- **Rendering:** the Field Guide tile/detail image lookup switches from "representative row's
-  `_img`" to "`app.taxonPhotos.get(taxonId)?.url`", falling back to the existing **honest
-  placeholder** (unchanged convention) when a taxon has no iNat default photo yet (still warming,
-  offline before the first warm-up, or the taxon genuinely has none on iNat). Show a small muted
-  attribution line wherever the entry's `attribution` is present — same restrained treatment as
-  other metadata in this app (`.muted`/`.small`), not a prominent badge.
-- **Records / Map / record-detail modal are unaffected** — this change is scoped to the Field
-  Guide's taxon representation only; those views keep showing the observation's own photo
-  (`r._img`) exactly as today.
-- **Still worth fixing regardless:** the existing image cache's shared eviction bug. Species
-  photos and basemap tiles (OSM/OpenTopoMap/ArcGIS/GA geology — `sw.js:44-53`) currently land in
-  the *same* bucket, `CACHE_IMG` (`sw.js:20`), with one flat `IMG_MAX_ENTRIES = 5000` FIFO trim
-  (`sw.js:180-188`, oldest-inserted evicted first, regardless of type) — heavy map panning/zooming
-  can quietly evict already-warmed taxon photos. The new `CACHE_TAXON_PHOTOS` bucket above sidesteps
-  this for Field Guide photos specifically by design (separate bucket, separate budget).
-- **Revises a settled decision** (see Settled decisions below): "tile images use each record's own
-  photo only" now applies to Records/Map/modal views only — the Field Guide switches to
-  iNaturalist's representative photo by design, with attribution.
-- **Verify:** load a dataset, let warm-up run (or trigger "Update taxa"), confirm Field Guide tiles
-  show iNaturalist's photos with a small credit line; confirm a second, overlapping dataset doesn't
-  re-fetch photos for species already warmed; confirm offline browsing still shows warmed photos
-  after heavy map use; confirm Records/Map/modal are untouched.
-
-Then Phase 2 Step 2 (clustering + spiderfy, `Leaflet.markercluster`) and Step 3 (clean vector /
-high-DPI point-map export, no basemap tiles). See `ROADMAP.md` Phase 2.
+Watch-outs when wiring the cluster layer in: it must respect the existing **"Colour by"** control
+and the `app.mapColorOverrides` custom colours; keep the honest "records with no coordinate" note;
+and precache the new CDN URLs in `sw.js` (`CACHE_STATIC`, bump the version) so the map still works
+offline. The taxon-photo warm-up now churns `CACHE_IMG` less (photos have their own bucket), but
+map tiles + record photos still share `CACHE_IMG` — a heavy clustered map session could still evict
+record photos; splitting basemap **tiles** into their own SW bucket is a cheap, still-unfixed
+follow-up if it becomes annoying.
 
 ## Visual-polish backlog (independent; do in any order)
 
@@ -102,6 +45,32 @@ high-DPI point-map export, no basemap tiles). See `ROADMAP.md` Phase 2.
 
 ## Recently shipped (newest first)
 
+- **Field Guide → iNaturalist representative photos** (commit `4f9ec71`, branch
+  `field-guide-taxon-photos`, **pushed; not yet merged to `main`**). Field Guide tiles now show
+  iNaturalist's curated `default_photo` per taxon (Taxa API, keyed by `_taxonId`), **falling back
+  to the record's own photo (`r._img`) until warm-up resolves each tile** so the guide is never
+  blank — a strict upgrade over the old record-photo-only tiles. Records / Map / record-detail
+  modal are untouched (`r._img` as before).
+  - **Durable, separate storage:** a dedicated `CACHE_TAXON_PHOTOS` service-worker bucket, checked
+    **before** the shared `CACHE_IMG` in the SW fetch handler, so warmed taxon photos survive
+    map-tile eviction. A small JSON meta-index (url + attribution + license per taxon) persisted in
+    the same cache re-hydrates `app.taxonPhotos` on boot (`loadTaxonPhotoIndex`) so photos stay
+    referenceable offline across sessions.
+  - **`fetchTaxonLineage`** now also returns `default_photo` (url via `toMediumImage` + attribution
+    + license); **`checkTaxonUpdates`** fills photos opportunistically while it already crawls.
+  - **Batched, resumable warm-up:** `scheduleWarmUp` rewritten to fetch **up to 30 taxa per Taxa-API
+    request** (the endpoint accepts comma-separated IDs) at ~1.1s pacing — ~30× fewer calls, so a
+    ~5,800-taxon set warms in **~3–4 min instead of ~100 min**. Skips already-warmed taxa (resumable
+    across reloads, free for overlapping datasets); image bytes warm in a **separate bounded (6-way)
+    background queue** so slow downloads never stall the metadata pass. Progress via the existing
+    `#warmBar` + cancel; runs automatically on load.
+  - **Attribution:** muted photographer/licence credit on the **focus-page** child tiles only (dense
+    index grid stays clean); shown only when the tile is actually iNat's photo.
+  - Verified end-to-end via headless Chrome + real iNat API on the sample CSV (warm-up runs,
+    dedicated cache fills with images + meta key, tiles show iNat photos, meta-index re-hydrates on
+    reload, console clean). **Still worth a real-dataset visual pass** — the sample's placeholder
+    image URLs 404, so the `r._img` fallback couldn't be seen there; on real data tiles fill
+    instantly and upgrade as warm-up runs.
 - **Map toolbar flattened + dismissable status message** (commit `f2e6b8e`, **merged to `main`
   + pushed / live**): the map's Color-by/Draw-box/Clear-box/Full-screen/search controls dropped
   the last boxed `.pill` styling in the app — Color by now uses `.field`, the buttons and search
@@ -178,11 +147,14 @@ high-DPI point-map export, no basemap tiles). See `ROADMAP.md` Phase 2.
 - Tab label stays **"Field Guide"** (Lily's call).
 - **Records / Map / record-detail modal** use **each record's own photo only** (no multi-source
   cascade); honest placeholder when a taxon has no photographed record.
-- **Field Guide tiles use iNaturalist's own `default_photo` per species** (Taxa API), not a photo
-  from the loaded dataset — **revised 2026-07-05**, Lily's call, because it solves offline
-  coverage + cross-dataset reuse cleanly (stable per `_taxonId`) and iNat's curated photos are
-  simply better representative images. Shown with a small photographer/licence credit since it's
-  not her own record. See "Start here next" for the implementation spec.
+- **Field Guide tiles prefer iNaturalist's own `default_photo` per taxon** (Taxa API, keyed by
+  `_taxonId`), **falling back to the record's own `r._img`** until warm-up resolves each tile (so the
+  guide is never blank), then to the honest placeholder — **shipped 2026-07-05**, commit `4f9ec71`.
+  Chosen because iNat's curated photos are better representative images and solve offline coverage +
+  cross-dataset reuse (stable per `_taxonId`); the `r._img` fallback keeps tiles instant on large
+  datasets. Muted photographer/licence credit shown on **focus-page tiles only**, and only when the
+  shown image is iNat's. Warm-up is **batched (30 IDs/request) + resumable**. Records / Map /
+  record-detail modal keep using `r._img` only, as before.
 - Observer palette is the **12-hue theme-aware calm set** (`USER_PALETTE_LIGHT`/`_DARK`), all
   ≥5:1 on their own surface; observer marker is an **inline SVG crosshair** (⌖).
 - **No GBIF** anywhere — not the UI, not the SW, not future phases, unless explicitly reintroduced.

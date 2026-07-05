@@ -108,7 +108,31 @@ CSV handy (`sample-inat.csv`, git-ignored) for local testing — do not commit i
 
 ## Current chapter
 
-**Most recent work — sidebar reorg → cool-neutral redesign → serif wordmark**
+**Most recent work — Field Guide → iNaturalist representative photos**
+(`~/.claude/plans/we-re-in-planning-mode-cheeky-moonbeam.md`). Branch
+**`field-guide-taxon-photos`**, commit `4f9ec71`, **pushed; not yet merged to `main`**. The Field
+Guide now illustrates each taxon with iNaturalist's curated `default_photo` (Taxa API, keyed by
+`_taxonId`) instead of a photo from the loaded dataset, **falling back to the record's own `r._img`**
+until warm-up resolves each tile so the guide is never blank (Lily's call after a blank-guide
+regression — a strict upgrade over the old record-photo tiles). Records / Map / record-detail modal
+are untouched (`r._img` as before).
+
+- **Storage:** a dedicated durable `CACHE_TAXON_PHOTOS` SW bucket, checked **before** the shared
+  `CACHE_IMG` in the fetch handler so warmed photos survive map-tile eviction. A JSON meta-index
+  (url + attribution + license) persisted in the same cache re-hydrates `app.taxonPhotos` on boot
+  (`loadTaxonPhotoIndex`) — offline-durable across sessions.
+- **Data:** `fetchTaxonLineage` also returns `default_photo`; a new `fetchTaxonPhotosBatch` fetches
+  **up to 30 taxa per request** (comma-separated IDs). `scheduleWarmUp` rewritten to batch at ~1.1s
+  pacing (~30× fewer calls: ~5,800 taxa in ~3–4 min, not ~100), skip already-warmed taxa (resumable),
+  and warm image bytes in a **separate bounded 6-way queue** so slow downloads don't stall the pass.
+  `checkTaxonUpdates` fills photos opportunistically. Auto-runs on load via `#warmBar`.
+- **Rendering:** `renderGuide` index + focus tiles use taxon photo → `r._img` → placeholder; muted
+  `.fgCredit` photographer/licence line on **focus-page tiles only**.
+- Verified end-to-end via headless Chrome + real iNat API on the sample CSV (console clean, cache +
+  meta-index correct, hydration on reload). Real-dataset visual pass still recommended (the sample's
+  placeholder image URLs 404, hiding the `r._img` fallback).
+
+**Earlier — sidebar reorg → cool-neutral redesign → serif wordmark**
 (`~/.claude/plans/wild-churning-globe.md`). Branch **`sidebar-reorg-ui-polish`**, **merged to
 `main` and pushed** (live on GitHub Pages). Three passes:
 
