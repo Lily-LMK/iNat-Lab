@@ -5,47 +5,20 @@ The immediate-actions companion to `ROADMAP.md` (full phase plan) and `../CLAUDE
 the settled decisions a fresh session shouldn't re-litigate.
 
 _Last refreshed 2026-07-05. Phase 2 Step 1 (curated map palette + custom colours) is **shipped**
-(see Recently shipped). Testing that feature turned up three more items, fully specced below —
-do these next, before Phase 2 Step 2._
+(see Recently shipped). Testing that feature turned up three more items; two easy ones are now
+**shipped** (see Recently shipped) — the Field Guide photo-source change below is the remaining
+deep task, do it next before Phase 2 Step 2._
 
 ---
 
-## Start here next — three items from testing the map feature
+## Start here next — Field Guide representative photos
 
 Found while testing the new map colouring/legend work. House rules apply: single-file
 `index.html`, **no build**; branch off `main`; verify in-browser **light + dark + mobile
 (375px)**; console clean; focused commits; **don't push until Lily asks**. (Local test data: a
 git-ignored `sample-inat.csv`.)
 
-### 1 · Map toolbar still uses the pre-redesign `.pill` style
-
-The map's own control bar (Color by / Draw box / Clear box / Full screen / location search) is
-the last place still using the old boxed-chip look from before the cool-neutral "gallery"
-redesign — bordered `.pill` containers (`var(--panel)` fill, `box-shadow`-free but still a
-nested box) instead of today's flat, hairline convention used everywhere else.
-
-- Markup: `renderMap()`, `index.html:4300-4327` — three `.pill`-wrapped groups (`Color by`
-  select; Draw box/Clear box/Full screen buttons; the search pill).
-- CSS: `.pill` base rules `index.html:213-263`, `.mapTop`/`.mapSearchPill` overrides
-  `index.html:846-873`. **Confirmed via grep: `.pill` is used nowhere else in the app any more**
-  (the header dropped it in the sidebar reorg) — so it's safe to fully repurpose/retire, not just
-  patch around.
-- Target style — match the current sidebar/header convention already in the file:
-  - The "Color by" label+select → `.field` pattern (`index.html:376-395`): label above,
-    `var(--field)` background, `var(--hair)` border, focus ring via `--accent-soft`. No wrapping
-    box.
-  - Draw box / Clear box / Full screen buttons → `.smallBtn` (`index.html:1156-1168`): flat,
-    `var(--raised)` fill, `var(--hair)` border, `var(--raised-hi)` hover, no shadow. Group them in
-    a `.bar` (`index.html:717-724`) instead of a `.pill` for spacing.
-  - Search input → the same flat treatment as `.field input`/`.mapSearchPill input` already gets
-    (keep the existing focus ring), just drop its `.pill` wrapper box.
-- **Verify:** map toolbar reads as part of the same flat "gallery" system as the sidebar and
-  header — no boxed chips — in light + dark + mobile; Color by / Draw box / Clear box / Full
-  screen / search all still function (they're only losing their wrapper, not their listeners —
-  keep IDs `#mapColorBy`, `#drawBox`, `#clearBox`, `#mapFS`, `#mapSearch`, `#mapSearchBtn`,
-  `#mapStatus` unchanged since JS queries them by id).
-
-### 2 · Field Guide photos: switch to iNaturalist's representative photo per species (decided)
+### 1 · Field Guide photos: switch to iNaturalist's representative photo per species (decided)
 
 **Decided with Lily:** Field Guide tiles will show iNaturalist's own curated `default_photo` for
 each species (from the Taxa API) as the **primary** image source — online and offline, not just
@@ -111,24 +84,6 @@ photo, not one of her own records.
   re-fetch photos for species already warmed; confirm offline browsing still shows warmed photos
   after heavy map use; confirm Records/Map/modal are untouched.
 
-### 3 · Make the API top-up completion message dismissable
-
-`setStatus()` (`index.html:2636`) writes into a persistent inline span, `#status`
-(`index.html:1978`, in the tab bar; wraps to its own row on mobile via the `@media (max-width:
-620px)` rule at `index.html:316-322`). Used for the top-up-complete message
-(`index.html:6453-6457`: "Top-up complete: +N new, N updated…") among others — it has no
-auto-dismiss and no manual close, so it sits there until the next status update overwrites it.
-
-- **Do:** add a small "×" dismiss control next to the status text, shown only while there's a
-  message, that clears it on click. Mirror the existing `.warmCancel` button already used for the
-  cache warm-up progress bar (`index.html:2649-2652`) for a consistent pattern/markup style.
-  `setStatus(msg)` currently does `$("#status").textContent = msg` — needs to build/update a small
-  child structure (text + dismiss button) instead of a bare text node, and the dismiss handler just
-  clears it (`$("#status").textContent = ""` or hide the wrapper).
-- **Verify:** trigger a top-up (or any `setStatus()` call), confirm the × appears and clears the
-  message on click without affecting the tabs or layout; mobile wrap behaviour (`620px` rule)
-  still holds with the extra button in place.
-
 Then Phase 2 Step 2 (clustering + spiderfy, `Leaflet.markercluster`) and Step 3 (clean vector /
 high-DPI point-map export, no basemap tiles). See `ROADMAP.md` Phase 2.
 
@@ -147,6 +102,16 @@ high-DPI point-map export, no basemap tiles). See `ROADMAP.md` Phase 2.
 
 ## Recently shipped (newest first)
 
+- **Map toolbar flattened + dismissable status message** (commit `f2e6b8e`, **merged to `main`
+  + pushed / live**): the map's Color-by/Draw-box/Clear-box/Full-screen/search controls dropped
+  the last boxed `.pill` styling in the app — Color by now uses `.field`, the buttons and search
+  use `.bar`/`.smallBtn`/`.mapSearchInput`, matching the sidebar/header convention exactly.
+  `.pill` CSS (confirmed dead everywhere else) removed outright rather than left orphaned.
+  Separately, `setStatus()` (`index.html:2593`) now builds a text + "×" structure (mirroring
+  `.warmCancel`) instead of a bare text node, so persistent messages like the top-up-complete
+  banner can be dismissed instead of sitting until overwritten. Verified via headless-Chrome CDP:
+  real CSV load + Map tab in light/dark/375px-mobile, console clean, Draw box/Full screen/search
+  still functional (only lost their wrapper box, not their listeners).
 - **Phase 2, Step 1 — curated map palette + custom colours** (commit `82a454f`, **merged to
   `main` + pushed / live**): replaced the hash→HSL marker-colour generator with a designed,
   colour-blind-safe 8-hue categorical palette (light + dark, validated against the dataviz
@@ -154,8 +119,9 @@ high-DPI point-map export, no basemap tiles). See `ROADMAP.md` Phase 2.
   Added `app.mapColorOverrides` (keyed `colorBy|category`); `markerColor` checks it before the
   ranked palette slot. Legend swatches are editable — click/Enter a dot opens a native colour
   picker, live-recolours markers + legend, with a "Reset" affordance per colour-by mode.
-  Source-reviewed + parse-checked; **live testing surfaced the three items above** (map toolbar
-  styling, offline image coverage, dismissable top-up message) — now specced as "Start here next."
+  Source-reviewed + parse-checked; **live testing surfaced three items** (map toolbar styling,
+  offline image coverage, dismissable top-up message) — the first and third are now shipped
+  above; offline image coverage (Field Guide photo source) is the remaining "Start here next."
 - **Three decided UI changes** (commit `1c5f583`, **merged to `main` + pushed / live**):
   - **Field Guide lands on Kingdom.** `rankIdx` fallback `3 → 0` (`index.html:3297`); a fresh
     Field-Guide visit (no prior drill, `app.guideRank` null) now opens at Kingdom.
@@ -216,7 +182,7 @@ high-DPI point-map export, no basemap tiles). See `ROADMAP.md` Phase 2.
   from the loaded dataset — **revised 2026-07-05**, Lily's call, because it solves offline
   coverage + cross-dataset reuse cleanly (stable per `_taxonId`) and iNat's curated photos are
   simply better representative images. Shown with a small photographer/licence credit since it's
-  not her own record. See "Start here next" #2 for the implementation spec.
+  not her own record. See "Start here next" for the implementation spec.
 - Observer palette is the **12-hue theme-aware calm set** (`USER_PALETTE_LIGHT`/`_DARK`), all
   ≥5:1 on their own surface; observer marker is an **inline SVG crosshair** (⌖).
 - **No GBIF** anywhere — not the UI, not the SW, not future phases, unless explicitly reintroduced.
