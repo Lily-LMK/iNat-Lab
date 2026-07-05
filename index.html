@@ -210,57 +210,8 @@
     .searchbox .s-clr:hover{ background: var(--raised-hi); color: var(--ink); }
     .searchbox .s-clr svg{ width:13px; height:13px; display:block; }
 
-    .pill{
-      border:1px solid var(--hair);
-      background: var(--panel);
-      border-radius: 6px;
-      padding: 7px 10px;
-      display:flex; align-items:center; gap:10px;
-    }
-    header .pill{ flex: 1 1 260px; min-width: 220px; }
-    header .pill.compact{ flex: 0 0 auto; min-width: unset; }
-
-    .pill label{ font-family: var(--sans); font-size:12px; color:var(--muted); }
-    .pill input[type="file"]{ font-family: var(--sans); font-size:12px; color:var(--ink); }
-
     .fileName{ font-family: var(--sans); font-size: 11px; color: var(--muted); max-width: 170px; overflow:hidden; text-overflow: ellipsis; white-space: nowrap; }
     .fileInputHidden{ position:absolute; left:-9999px; width:1px; height:1px; opacity:0; }
-    .pill select, .pill input[type="date"], .pill input[type="text"]{
-      font-family: var(--font);
-      font-size: 12px;
-      border:1px solid var(--hair);
-      border-radius: 6px;
-      padding: 6px 8px;
-      background: var(--field);
-      color: var(--ink);
-      outline: none;
-      min-width: 140px;
-      transition: border .2s, box-shadow .2s;
-    }
-    .pill select:focus, .pill input[type="text"]:focus, .pill input[type="date"]:focus{ border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
-    .pill button, .pill label.btnlike{
-      font-family: var(--font);
-      font-size: 12px;
-      border:1px solid var(--hair);
-      border-radius: 6px;
-      padding: 7px 10px;
-      background: var(--raised);
-      cursor:pointer;
-    }
-    .pill label.btnlike{ display:inline-flex; align-items:center; justify-content:center; user-select:none; }
-
-    .pill button.primary{
-      border-color: var(--accent-line);
-      background: var(--accent-soft);
-      color: var(--accent);
-      font-weight: 600;
-    }
-    .pill button:hover{ filter: brightness(1.15); }
-
-    .pill input[type="text"], .pill select, .pill input[type="date"]{
-      min-width: 0;
-      max-width: 46vw;
-    }
 
 
     main{
@@ -320,6 +271,13 @@
       .tabs .tabSpacer{ display:none; }
       .tabs #status{ flex-basis:100%; margin-left:0; padding:0 0 10px; }
     }
+    #status{ display:inline-flex; align-items:center; gap:6px; }
+    #status:empty{ display:none; }
+    .statusClear{
+      background:none; border:none; cursor:pointer;
+      color:var(--muted2); font-size:.82rem; padding:0 2px; line-height:1;
+    }
+    .statusClear:hover{ color:var(--ink); }
     /* Editorial underline nav: text tabs, an ink rule under the active one. */
     .tab{
       font-family: var(--font);
@@ -846,16 +804,15 @@
     .mapTop{
       display:flex;
       gap: 8px;
-      align-items:center;
+      align-items:flex-end;
       flex-wrap:wrap;
       margin-bottom: 10px;
     }
-    .mapTop .pill{
-      box-shadow: none;
-    }
+    .mapColorField{ width: 170px; }
+    .mapTop .bar{ margin: 0; }
 
     /* Map: location search */
-    .mapSearchPill input{
+    .mapSearchInput{
       font-family: var(--font);
       font-size: 12px;
       border:1px solid var(--hair);
@@ -867,7 +824,7 @@
       outline:none;
       box-sizing:border-box;
     }
-    .mapSearchPill input:focus{
+    .mapSearchInput:focus{
       border-color: var(--accent-line);
       box-shadow: 0 0 0 3px var(--accent-soft);
     }
@@ -2633,7 +2590,22 @@
     };
   }
 
-  function setStatus(msg){ $("#status").textContent = msg; }
+  function setStatus(msg){
+    const el = $("#status");
+    el.textContent = "";
+    if(!msg) return;
+    const span = document.createElement("span");
+    span.className = "statusMsg";
+    span.textContent = msg;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "statusClear";
+    btn.setAttribute("aria-label", "Dismiss message");
+    btn.title = "Dismiss";
+    btn.textContent = "×";
+    btn.addEventListener("click", ()=>{ el.textContent = ""; }, { once:true });
+    el.append(span, btn);
+  }
 
   // ----------------- cache warm-up -----------------
   function updateWarmUpUI(){
@@ -4300,8 +4272,8 @@ function refreshStaticFilters(){
     const top = document.createElement("div");
     top.className = "mapTop";
     top.innerHTML = `
-      <div class="pill">
-        <label>Color by</label>
+      <div class="field mapColorField">
+        <label for="mapColorBy">Color by</label>
         <select id="mapColorBy">
           <option value="user">User</option>
           <option value="order">Order</option>
@@ -4313,14 +4285,14 @@ function refreshStaticFilters(){
           <option value="species">Species</option>
         </select>
       </div>
-      <div class="pill">
-        <button id="drawBox">Draw box</button>
-        <button id="clearBox" style="display:none">Clear box</button>
-        <button id="mapFS">Full screen</button>
+      <div class="bar mapTopBar">
+        <button id="drawBox" class="smallBtn">Draw box</button>
+        <button id="clearBox" class="smallBtn" style="display:none">Clear box</button>
+        <button id="mapFS" class="smallBtn">Full screen</button>
       </div>
-      <div class="pill mapSearchPill">
-        <input id="mapSearch" type="text" placeholder="Search location…" autocomplete="off" />
-        <button id="mapSearchBtn">Go</button>
+      <div class="bar mapTopBar mapSearchPill">
+        <input id="mapSearch" class="mapSearchInput" type="text" placeholder="Search location…" autocomplete="off" />
+        <button id="mapSearchBtn" class="smallBtn">Go</button>
       </div>
 
       <span class="muted small" id="mapStatus"></span>
