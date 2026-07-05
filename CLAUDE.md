@@ -44,6 +44,9 @@ generic CSV export modal.
 - **Map:** Leaflet + esri-leaflet; **Streets (OSM) / Topo (OpenTopoMap) / Satellite (ArcGIS) /
   Esri Topo / GA Surface Geology** basemaps, with click-to-identify on the geology layer. Points
   are coloured **by a chosen taxonomic rank or by user**, with a live legend (see Phase 2).
+  **"Export map"** produces a print-ready figure in two modes: a **screenshot** of the real
+  rendered map (basemap tiles + points + legend, PNG, CORS-safe basemaps only) or a **clean
+  vector plot** (SVG + high-DPI PNG, no basemap tiles, always light-palette).
 
 ## Roadmap / where this is going (see `docs/ROADMAP.md`)
 
@@ -54,10 +57,10 @@ palette** (light + dark), and the masthead wordmark uses a **serif (Literata)** 
 Inter UI — the one reserved exception to the single-typeface system (everything else stays
 Inter). Remaining phases:
 
-1. **Phase 2 — Map by taxonomic rank.** *Core is built* (colour + legend by rank). Remaining,
-   agreed with Lily: (a) a **curated colour-blind-safe palette with per-category custom colours**,
-   (b) **clustering + spiderfy** (Leaflet.markercluster), (c) a **clean vector / high-DPI
-   point-map export** for publication (no web basemap tiles). Build order a → b → c.
+1. **Phase 2 — Map by taxonomic rank.** (a) **curated colour-blind-safe palette with
+   per-category custom colours** and (b) **publication export** (map screenshot + clean vector
+   plot, see "Current chapter") are **shipped**. Remaining: (c) **clustering + spiderfy**
+   (Leaflet.markercluster), back-burnered, offline not required.
 2. **Phase 3 — Species deep-dive panel** (Wikipedia description, rank-appropriate common names,
    representative image, external links).
 3. **Phase 4 — Spatial context layers** (IBRA/IMCRA bioregions, LGAs, geology, elevation).
@@ -108,7 +111,42 @@ CSV handy (`sample-inat.csv`, git-ignored) for local testing — do not commit i
 
 ## Current chapter
 
-**Most recent work — Field Guide → iNaturalist representative photos**
+**Most recent work — Map publication export** (commit `3e7297a`, **merged to `main` + pushed /
+live**). Written brief at `~/.claude/plans/hi-opus-please-familiarise-enumerated-lemur.md` specced
+a single **clean vector** figure (points + legend, no basemap tiles, always light-palette) — Lily
+reviewed the actual rendered output mid-session and asked to see the real map instead, so the
+feature shipped as **two modes** rather than a straight rebuild:
+
+- **Map screenshot (PNG)** — `captureMapScreenshot()` captures the *actual* rendered Leaflet map
+  (basemap tiles + coloured points + legend + caption) by drawing loaded tile `<img>`s and
+  overlay imagery onto an offscreen canvas at their live on-screen position, then drawing points
+  fresh via `latLngToContainerPoint` + `markerColor` (live theme colours — this mode is literally
+  "what you see is what you get", unlike the vector mode). **Restricted to CORS-friendly
+  basemaps** (`CORS_SAFE_BASEMAPS`: Satellite / Esri Topo / Geology — the Esri/GA ArcGIS REST
+  services, now given `crossOrigin: true`); OSM/OpenTopoMap tiles don't send CORS headers and
+  would taint the canvas, so the popover shows an honest inline message instead of a broken
+  export. `waitForTilesLoaded()` lets a "data bounds" extent pan/zoom the map, wait for tiles,
+  capture, then restore the original view.
+- **Clean vector plot (SVG + high-DPI PNG)** — `buildMapSVG()` + `svgToPNG()`, the original
+  brief's figure: projects points via `crs.project` (no tiles), always white-ground/light-palette
+  regardless of the app's theme via `withLightTheme()` (a synchronous temporary `data-theme` swap
+  so `markerColor`/`taxonPaletteHex` return light-palette hex verbatim — overrides and user
+  colours included — restored before the next paint, no visible flash). Kept as a second option
+  since it's still a legitimate theme-independent "journal figure" format, and it was already
+  built + tested before the mid-session pivot.
+- Both modes share **Extent** (data bounds / current view) and **include-legend** controls in the
+  export popover, and pull colours from `markerColor`/`categoryKeyFor`/`_catRank` — the same
+  functions the live map uses — so custom legend overrides and per-user colours always match the
+  on-screen map exactly. Honest **omitted-no-coordinate** count in the caption either way.
+- **Trigger UI:** an `#mapExport` button in the map toolbar opens a small fixed-position popover
+  (`.mapExportPopover`) — keyboard-trapped (Tab cycles within it), Escape closes and returns focus
+  to the button, closes itself if orphaned by a tab switch or map re-render (`mapState._closeExportPopover`).
+- Verified end-to-end via headless-Chrome CDP against `sample-inat.csv`: custom colour override
+  carries through to both circles and the legend swatch; zero-point and single-point extents
+  don't NaN/crash; screenshot mode visually confirmed against real Esri satellite tiles of Mount
+  Nebo; light/dark/375px all clean, console clean throughout.
+
+**Earlier — Field Guide → iNaturalist representative photos**
 (`~/.claude/plans/we-re-in-planning-mode-cheeky-moonbeam.md`). Branch
 **`field-guide-taxon-photos`**, commit `4f9ec71`, **pushed; not yet merged to `main`**. The Field
 Guide now illustrates each taxon with iNaturalist's curated `default_photo` (Taxa API, keyed by
@@ -184,10 +222,9 @@ Guide hop, the Field Guide rework, the Records card redesign, the single-scroll-
 refactor, and the Taxa tree redesign — are all shipped. See git history and
 `docs/NEXT-SESSION.md` for detail.
 
-**Next up (for a Sonnet session — Lily is near her weekly Opus limit):** three decided, fully
-specced UI changes in `docs/NEXT-SESSION.md` → "Start here next" — (1) Field Guide lands on
-Kingdom, (2) move "Load new…" out of the mobile drawer-top into Add Records, (3) redesign the
-Dates heatmap to a **Viridis** ramp (exact stops given; replaces the stale monochrome-brown
-`heatColor`). Then Phase 2 map work, **Step 1 (curated + custom palette)**. Standing decisions:
-tab label stays **"Field Guide"**; tile images use own records only with an honest placeholder;
-publication export is **clean vector / high-DPI, no basemap tiles**.
+**Next up:** Phase 2 (c), **clustering + spiderfy** (`Leaflet.markercluster`) — see
+`docs/NEXT-SESSION.md` → "Start here next". Back-burnered relative to the rest of Phase 2;
+offline/`sw.js` precache not needed. Standing decisions: tab label stays **"Field Guide"**; tile
+images use own records only with an honest placeholder; publication export has **two modes** — a
+real-basemap screenshot (CORS-safe basemaps only) and a clean vector plot (no basemap tiles,
+always light-palette) — see "Current chapter" above.

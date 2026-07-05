@@ -4,65 +4,25 @@ The immediate-actions companion to `ROADMAP.md` (full phase plan) and `../CLAUDE
 (orientation + current chapter). Keep this lean: what to do next, the near-term backlog, and
 the settled decisions a fresh session shouldn't re-litigate.
 
-_Last refreshed 2026-07-05. Phase 2 Step 1 (curated map palette + custom colours) is **shipped**,
-and the three items testing it turned up are all **shipped** too — including the deep one, the
-Field Guide iNaturalist-photo switch (see Recently shipped). Next up is the **map publication
-export** (clean vector / high-DPI point map); clustering + spiderfy is back-burnered behind it._
+_Last refreshed 2026-07-06. Phase 2 Step 1 (curated map palette + custom colours) and Step (b)
+(map publication export) are both **shipped**. Next up is Phase 2 (c), **clustering + spiderfy**
+— back-burnered, offline not required._
 
 ---
 
-## Start here next — Phase 2: publication export (clean vector / high-DPI point map)
-
-**Reordered 2026-07-05 (Lily's call):** publication export is now next; clustering + spiderfy moves
-after it and is **back-burnered** — Lily doesn't need the map offline for now, so skip the `sw.js`
-precache/offline work when clustering eventually lands.
+## Start here next — Phase 2 (c): clustering + spiderfy
 
 House rules apply: single-file `index.html`, **no build**; branch off `main`; verify in-browser
 **light + dark + mobile (375px)**; console clean; focused commits; **don't push until Lily asks**.
 (Local test data: a git-ignored `sample-inat.csv`.)
 
-**Goal:** export the current map as a print-ready figure — points + legend + chosen colours, **no
-web basemap tiles** (avoids tile CORS/licensing; gives a clean, journal-friendly graphic). Decided
-over a basemap screenshot.
+**Goal:** add `Leaflet.markercluster` (CDN, keyless) so co-located iNat points (identical/near
+coords are common) cluster and spiderfy on click, keeping dense top-ups readable and fast. Cluster
+icons should colour by the dominant category, respecting the "Colour by" control and
+`app.mapColorOverrides`. **Offline/`sw.js` precache is not needed for this** (Lily's call — she
+doesn't need the map offline).
 
-**Reuse, don't reinvent** (so the figure matches the on-screen map exactly):
-- `markerColor(p)` (`index.html:4368`) already returns each point's colour for the current
-  `mapState.colorBy` (`index.html:2457`), honouring `app.mapColorOverrides` (the custom legend
-  colours). Feed the export from the *same* function.
-- The per-point category-key logic (~`index.html:2233`) + `buildLegend()` (`index.html:5047`)
-  already enumerate categories, counts, and colours — reuse them to draw the export legend.
-- Points are `app.filteredIdx` rows with finite `_lat`/`_lng` (built at `index.html:4507`); records
-  without coordinates are already excluded on the map. Carry that forward and print an **honest
-  "N records omitted (no coordinate)"** note on/near the figure.
-
-**Approach (recommended):**
-- **SVG (true vector):** project each point's lat/lng into an output box and draw `<circle>`s
-  coloured via `markerColor`, plus an SVG legend (swatch + label + count) and a small caption
-  (extent, omitted-count, attribution "iNaturalist / observer"). Scales losslessly for print. Reuse
-  Leaflet's projection *without tiles*: `mapState.map.options.crs.project(L.latLng(lat,lng))` gives
-  Web-Mercator metres — fit those to the output box over the chosen bounds so shapes match the map.
-- **High-DPI PNG (optional companion):** draw the same to an offscreen `<canvas>` at 2–4× and
-  `toBlob()` for a raster fallback. No new deps — SVG is string-built, PNG via canvas; stays
-  single-file / no-build.
-
-**Decide with Lily at session start:**
-- **Format:** SVG only, or SVG + high-DPI PNG.
-- **Extent:** current map view vs. tight data bounding box (recommend **data bounds** so the figure
-  isn't tied to pan/zoom).
-- **Chrome:** clean point cloud vs. optional thin frame / scale bar / N-arrow (recommend minimal).
-- **Trigger/UI:** an **"Export map"** button in the map toolbar → small options popover (format,
-  extent, include legend) → file download. (The generic export modal is CSV-oriented; a direct file
-  download likely fits better.)
-
-**Verify:** load a set with coordinates, colour by a rank *and* by user, set a custom legend colour,
-export → open the SVG/PNG and confirm points + colours + legend match the on-screen map, the
-omitted-no-coordinate count is honest, and there are **no basemap tiles** in the output. The figure
-itself renders on a white/transparent ground (light/dark N/A), but the trigger UI must pass
-light/dark/375px + console clean.
-
-Then (back-burnered): Phase 2 **clustering + spiderfy** (`Leaflet.markercluster`, CDN) — cluster
-co-located points, spiderfy on click, cluster icons colour by dominant category, respecting the
-"Colour by" control + `mapColorOverrides`. Offline/`sw.js` precache **not needed** (Lily's call).
+No further detail has been specced yet — start with a plan.
 
 ## Visual-polish backlog (independent; do in any order)
 
@@ -79,6 +39,31 @@ co-located points, spiderfy on click, cluster icons colour by dominant category,
 
 ## Recently shipped (newest first)
 
+- **Map publication export** (commit `3e7297a`, **merged to `main` + pushed / live**). An
+  **"Export map"** button + popover on the map toolbar, with two export modes (the original
+  written brief specced a single no-basemap vector figure; Lily saw the bare-dots result and
+  asked for the real map, so this shipped as two modes instead):
+  - **Map screenshot (PNG)** — captures the *actual* rendered Leaflet map (basemap tiles +
+    coloured points + legend + caption) via canvas. Restricted to CORS-friendly basemaps
+    (`CORS_SAFE_BASEMAPS`: Satellite/Esri Topo/Geology — all Esri/GA ArcGIS REST services, now
+    given `crossOrigin: true`); OSM/OpenTopoMap tiles don't send CORS headers, so instead of a
+    silent failure the popover shows an honest inline message telling Lily to switch basemap
+    first. Marker colours use the **live theme** (screenshot = "what you see is what you get"),
+    unlike the vector mode below.
+  - **Clean vector plot (SVG + high-DPI PNG)** — the original brief's figure: points + legend +
+    caption, **no basemap tiles**, always white-ground/light-palette regardless of the app's
+    theme (`withLightTheme()` temporarily swaps `data-theme` so `markerColor`/`taxonPaletteHex`
+    return light-palette hex verbatim, restored before the next paint — no visible flash). Kept
+    as a second option since it's still a legitimate theme-independent "journal figure" format.
+  - Both share **Extent** (data bounds / current view) and **include-legend** controls, and pull
+    colours from `markerColor`/`categoryKeyFor`/`_catRank` — the same functions the live map
+    uses — so custom legend overrides and per-user colours always match the on-screen map
+    exactly. Popover is keyboard-trapped (Tab cycles within it), Escape closes and returns focus
+    to the button, closes itself if orphaned by a tab switch or map re-render.
+  - Verified via headless-Chrome CDP against `sample-inat.csv`: custom colour override carries
+    through to both circles and legend swatch; honest omitted-no-coordinate caption; zero-point
+    and single-point extents don't NaN/crash; screenshot mode visually confirmed against real
+    Esri satellite tiles of Mount Nebo; light/dark/375px all clean, no console errors.
 - **Persistent storage + README cache section** (commits `42fe03c` + docs, **merged to `main` +
   pushed / live**). Call `navigator.storage.persist()` once on boot (after checking `persisted()`)
   so the warmed offline photo cache resists eviction under disk pressure — origin-wide, guarded,
@@ -199,6 +184,10 @@ co-located points, spiderfy on click, cluster icons colour by dominant category,
 - Observer palette is the **12-hue theme-aware calm set** (`USER_PALETTE_LIGHT`/`_DARK`), all
   ≥5:1 on their own surface; observer marker is an **inline SVG crosshair** (⌖).
 - **No GBIF** anywhere — not the UI, not the SW, not future phases, unless explicitly reintroduced.
-- Publication map export = **clean vector / high-DPI, no basemap tiles**.
+- Publication map export = **two modes** (shipped 2026-07-06, commit `3e7297a`): a **map
+  screenshot** (real basemap tiles, PNG, CORS-safe basemaps only) and a **clean vector plot**
+  (SVG + high-DPI PNG, no basemap tiles, always light-palette). The original brief specced only
+  the vector mode; Lily asked for the real map after seeing the bare-dots result, so the
+  screenshot mode was added rather than replacing it. Don't re-litigate — see "Recently shipped".
 - Lily's own iNaturalist username may appear as a **placeholder example** — her observations are
   public and meant to be shared. Don't re-flag it.

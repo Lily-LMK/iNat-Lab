@@ -19,9 +19,10 @@ Work in **small, verifiable slices**; keep `main` deployable; the five views (Re
 Field Guide, Dates, Map) and the ingest/metadata engine keep working throughout.
 
 > **Status:** Phases **0, 1 complete** and live on GitHub Pages
-> (https://lily-lmk.github.io/iNat-Lab/). **Phase 2's core is built** (map colour + legend by
-> rank); its remaining polish is refined below. The app has since had a sidebar/header cleanup
-> and a full 10-rank taxonomy backbone — see `../CLAUDE.md` "Current chapter".
+> (https://lily-lmk.github.io/iNat-Lab/). **Phase 2 (a) and (b) are shipped** (curated/custom
+> palette; publication export — screenshot + vector modes); **(c) clustering + spiderfy**
+> remains, back-burnered. The app has since had a sidebar/header cleanup and a full 10-rank
+> taxonomy backbone — see `../CLAUDE.md` "Current chapter".
 
 ---
 
@@ -42,26 +43,28 @@ Field Guide, Dates, Map) and the ingest/metadata engine keep working throughout.
 - [x] Onboarding / empty state (wordmark + "Load CSV" / "Pull from iNaturalist" CTAs).
 - [x] Service worker (`sw.js`) — app-shell + media caching, with per-taxon warm-up on import.
 
-## Phase 2 — Map by taxonomic rank 🟡 CORE DONE, polish remaining
+## Phase 2 — Map by taxonomic rank 🟡 (a) + (b) DONE, (c) remaining
 
 Built: a **"Colour by"** control (User | Order | Family | Superfamily | Subfamily | Tribe |
 Genus | Species), deterministic per-category colours with rank fallback, and a collapsible
-**legend** with counts. Remaining (build order **reordered 2026-07-05, Lily's call**: a → b → c,
-where publication export was promoted ahead of clustering):
+**legend** with counts.
 
 - [x] **(a) Curated palette + custom colours.** ✅ Shipped. Designed colour-blind-safe 8-hue
       categorical scale, assigned stably by frequency; editable legend swatches (click → colour
       picker) writing `app.mapColorOverrides`, with per-mode reset.
-- [ ] **(b) Publication export.** ← **next.** A **clean vector / high-DPI point-map** export
-      (points + legend + chosen colours, **no web basemap tiles**) suitable for print. Decided over
-      a basemap screenshot to be journal-friendly and to avoid tile CORS/licensing. Feed it from the
-      same `markerColor` + legend so the figure matches the on-screen map. See `NEXT-SESSION.md`
-      "Start here next" for the spec.
-- [ ] **(c) Clustering + spiderfy.** Add `Leaflet.markercluster` (CDN) so co-located iNat points
-      cluster and spiderfy on click; cluster icons colour by the dominant category. **Back-burnered**
-      and **offline not required** — skip any `sw.js` precache work for this (Lily doesn't need the
-      map offline for now).
-- [ ] Honest labelling of records with **no coordinate** (never silently drop them) — fold into (b).
+- [x] **(b) Publication export.** ✅ Shipped (commit `3e7297a`). An **"Export map"** button +
+      popover, with **two modes**: a **map screenshot** (the actual rendered basemap tiles +
+      points + legend, PNG, via canvas — restricted to CORS-friendly basemaps: Satellite/Esri
+      Topo/Geology) and a **clean vector plot** (SVG + high-DPI PNG, no basemap tiles, always
+      light-palette). The written brief specced only the vector figure; Lily asked to see the
+      real map after reviewing the bare-dots result, so the screenshot mode was added alongside
+      it rather than replacing it. Both honestly report omitted no-coordinate records and reuse
+      `markerColor`/`categoryKeyFor`/`_catRank` so exported colours (incl. custom overrides)
+      match the on-screen map exactly.
+- [ ] **(c) Clustering + spiderfy.** ← **next.** Add `Leaflet.markercluster` (CDN) so co-located
+      iNat points cluster and spiderfy on click; cluster icons colour by the dominant category.
+      **Back-burnered** and **offline not required** — skip any `sw.js` precache work for this
+      (Lily doesn't need the map offline for now).
 
 Not prioritised: click-a-legend-entry-to-filter (colour-editing already lives in the legend).
 
