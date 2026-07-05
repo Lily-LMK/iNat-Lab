@@ -15,7 +15,7 @@
    status, because fetch() resolves for those — only rejections propagate.
 */
 
-const CACHE_STATIC = 'inatlab-static-v2';
+const CACHE_STATIC = 'inatlab-static-v3';
 const CACHE_API    = 'inatlab-api-v1';
 const CACHE_IMG    = 'inatlab-img-v2';
 /* Field Guide representative photos (iNat default_photo per taxon). A dedicated,
@@ -37,10 +37,27 @@ const PRECACHE = [
   'https://unpkg.com/esri-leaflet@3.0.12/dist/esri-leaflet.js',
   'https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400;1,14..32,500&display=swap',
   'https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400..600&display=swap',
+  /* Same-origin site icons + manifest. Relative (no leading slash) so they resolve
+     against the SW scope — correct both locally and under the /iNat-Lab/ project page. */
+  './favicon.ico',
+  './favicon-16x16.png',
+  './favicon-32x32.png',
+  './favicon-48x48.png',
+  './apple-touch-icon.png',
+  './icon-192.png',
+  './icon-512.png',
+  './site.webmanifest',
 ];
 
 /* ── URL pattern matching ── */
 const STATIC_HOSTS = ['unpkg.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
+
+/* Same-origin static assets served cache-first. Matched by filename (last path
+   segment) so it works regardless of the deploy subpath (e.g. /iNat-Lab/). */
+const LOCAL_STATIC_FILES = new Set([
+  'favicon.ico', 'favicon-16x16.png', 'favicon-32x32.png', 'favicon-48x48.png',
+  'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'site.webmanifest',
+]);
 
 const API_PATTERNS = [
   /api\.inaturalist\.org\/v1\//,
@@ -88,6 +105,12 @@ self.addEventListener('fetch', event => {
 
   /* Static CDN: cache-first, indefinite */
   if (STATIC_HOSTS.some(h => url.hostname === h || url.hostname.endsWith('.' + h))) {
+    event.respondWith(cacheFirst(request, CACHE_STATIC));
+    return;
+  }
+
+  /* Same-origin site icons + manifest: cache-first, indefinite (offline-durable). */
+  if (url.origin === self.location.origin && LOCAL_STATIC_FILES.has(url.pathname.split('/').pop())) {
     event.respondWith(cacheFirst(request, CACHE_STATIC));
     return;
   }
