@@ -1634,6 +1634,7 @@
     .drawer-top-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--hair); }
     .drawer-title{ font-family:var(--heading); font-weight:600; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
     .drawer-actions{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:16px; }
+    .drawer-actions:empty{ display:none; }  /* "Load new…" now lives in Add Records; leave no gap when empty */
     .drawer-actions .headerMeta{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-left:0; }
     .drawer-actions .fileName{ flex-basis:100%; }
 
@@ -1918,7 +1919,7 @@
       <details class="accPanel">
         <summary>Add records</summary>
         <div class="accBody">
-          <div class="stack">
+          <div class="stack" id="addRecordsBody">
             <div class="field">
               <label>Usernames</label>
               <input id="apiUsers" type="text" placeholder="iNat username(s): e.g. lily_kumpe, friend"/>
@@ -3294,7 +3295,7 @@ function refreshStaticFilters(){
         });
       }
 
-      const rankIdx = Number.isFinite(app.guideRank) ? app.guideRank : 3;
+      const rankIdx = Number.isFinite(app.guideRank) ? app.guideRank : 0;
 
       const rankRow = document.createElement("div");
       rankRow.className = "guidePanel";
@@ -5052,24 +5053,17 @@ function popupHTML(p){
       }catch(e){ return ""; }
     };
 
-// Colour mapping (greens dominate; rare highlight colour on very big nights)
-// 1–20 lime; 21–50 true green; 51–74 dark green; 75+ highlight colour
+// Colour mapping — truncated Viridis (teal → green → gold): perceptually
+// uniform, colour-blind-safe. Empty + quiet days stay faint so busy days glow;
+// the dark-purple low end of viridis is deliberately skipped (it reads as loud).
 const heatColor = (c)=>{
-  // Monochrome ink ramp: quiet paper for empty → deep ink for busy days.
   const dark = document.documentElement.dataset.theme === "dark";
-  if(!c || c<=0) return dark ? "#211F18" : "#EFEDE6";  // empty day
-  if(dark){
-    if(c<=20) return "#3A362B";
-    if(c<=50) return "#5C5645";
-    if(c<=74) return "#847C66";
-    if(c<=99) return "#B4AC94";
-    return "#F2EFE8";
-  }
-  if(c<=20) return "#DAD5C8";
-  if(c<=50) return "#B9B2A1";
-  if(c<=74) return "#8A8172";
-  if(c<=99) return "#544E44";
-  return "#1A1A17";
+  if(!c || c<=0) return dark ? "#1F2329" : "#EAEDF0";  // empty day — faint
+  if(c<=20) return "#2A788E";   // viridis ~0.4  teal
+  if(c<=50) return "#22A884";   // viridis ~0.6  green
+  if(c<=74) return "#44BF70";   // viridis ~0.7  bright green
+  if(c<=99) return "#7AD151";   // viridis ~0.8  lime
+  return "#FDE725";             // viridis  1.0  gold — busiest days glow
 };
 
     // ---- UI ----
@@ -5174,8 +5168,9 @@ const heatColor = (c)=>{
       const cell = document.createElement("button");
       cell.type = "button";
       cell.className = "dayCell" + (inYear ? "" : " empty");
-      cell.style.background = inYear ? heatColor(c) : "#F0EEE7";
-      if(inYear && c>=100) cell.style.borderColor = "rgba(26,26,23,.35)";
+      const _dark = document.documentElement.dataset.theme === "dark";
+      cell.style.background = inYear ? heatColor(c) : (_dark ? "#1B1C1F" : "#EEF0F2");  // out-of-year: faint cool neutral
+      if(inYear && c>=100) cell.style.borderColor = _dark ? "rgba(240,241,242,.35)" : "rgba(24,25,27,.30)";
       cell.title = inYear ? `${ymd} ${moonEmoji(ymd)}: ${c.toLocaleString()} record${c===1?"":"s"}` : "";
       cell.disabled = !inYear || c===0;
 
@@ -6951,19 +6946,20 @@ $$(".bar button").forEach(btn=>{
   document.addEventListener("keydown", (e)=>{ if(e.key === "Escape" && document.body.classList.contains("drawer-open")) closeDrawer(); });
 
   // Relocate the secondary header actions (the "Load new…" button) into the
-  // drawer on mobile so the header stays compact; move them back to the header
-  // on desktop. Moving the nodes preserves their event listeners.
+  // Add Records panel on mobile so the header stays compact and Snapshot leads
+  // the drawer; move them back to the header on desktop. Moving the nodes (not
+  // cloning) preserves their event listeners.
   const _headerEl = document.querySelector("header");
   const _themeBtn = $("#themeToggle");
   const _headerMeta = document.querySelector(".headerMeta");
-  const _drawerActions = $("#drawerActions");
+  const _addRecordsBody = $("#addRecordsBody");
   function syncHeaderLayout(){
     if(isMobile()){
       _mainEl.classList.remove("sidebar-collapsed");
-      if(_headerMeta && _headerMeta.parentElement !== _drawerActions) _drawerActions.appendChild(_headerMeta);
+      if(_headerMeta && _addRecordsBody && _headerMeta.parentElement !== _addRecordsBody) _addRecordsBody.insertBefore(_headerMeta, _addRecordsBody.firstChild);
     } else {
       closeDrawer();
-      if(_headerMeta && _headerMeta.parentElement === _drawerActions) _headerEl.insertBefore(_headerMeta, _themeBtn);
+      if(_headerMeta && _headerMeta.parentElement === _addRecordsBody) _headerEl.insertBefore(_headerMeta, _themeBtn);
     }
   }
   syncHeaderLayout();
