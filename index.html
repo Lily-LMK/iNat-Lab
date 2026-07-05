@@ -7212,6 +7212,22 @@ $$(".bar button").forEach(btn=>{
     });
   }
 
+  // Ask the browser to keep our storage from being evicted under disk pressure.
+  // Cache Storage and IndexedDB are both eviction-eligible by default; a granted
+  // persistence promise makes the warmed offline photo cache "best-effort durable"
+  // instead. Origin-wide + one-time (covers Cache Storage and any future IDB).
+  // Chrome grants this silently from engagement heuristics; Firefox may prompt.
+  if(navigator.storage && navigator.storage.persist){
+    navigator.storage.persisted().then(already => {
+      if(already){ console.info("[iNat Lab] Storage already persistent."); return; }
+      return navigator.storage.persist().then(granted => {
+        console.info(granted
+          ? "[iNat Lab] Persistent storage granted — offline photos won't be evicted under pressure."
+          : "[iNat Lab] Persistent storage not granted — offline photos may be evicted under storage pressure.");
+      });
+    }).catch(()=>{ /* storage manager unavailable — best-effort only */ });
+  }
+
   // Hydrate the durable taxon-photo index so Field Guide tiles resolve from
   // cache immediately (incl. offline). Re-render if the guide is already showing.
   loadTaxonPhotoIndex().then(()=>{
