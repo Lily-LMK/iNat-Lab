@@ -4,80 +4,17 @@ The immediate-actions companion to `ROADMAP.md` (full phase plan) and `../CLAUDE
 (orientation + current chapter). Keep this lean: what to do next, the near-term backlog, and
 the settled decisions a fresh session shouldn't re-litigate.
 
-_Last refreshed 2026-07-05. Three decided UI changes are fully specced below ("Start here
-next") for a **Sonnet** session — Lily is near her weekly Opus limit and will pick these up in a
-couple of days. They're mechanical + one decided colour ramp; do them before the Phase 2 work._
+_Last refreshed 2026-07-05. The three decided UI changes are **shipped** (see Recently shipped);
+next up is **Phase 2, Step 1 — curated map palette + custom colours**, specced below._
 
 ---
 
-## Start here next — three decided UI changes (ready for a Sonnet session)
+## Start here next — Phase 2, Step 1: curated palette + custom colours
 
-Three small, Lily-approved changes, fully specced so they can be implemented cold. Do these
-**before** the Phase 2 work below. House rules apply: single-file `index.html`, **no build**;
-branch off `main`; verify in-browser **light + dark + mobile (375px)**; console clean; focused
-commits; **don't push until Lily asks**. (Local test data: a git-ignored `sample-inat.csv`.)
-
-### 1 · Field Guide should land on **Kingdom** (not Order)
-- `index.html:3297` — `const rankIdx = Number.isFinite(app.guideRank) ? app.guideRank : 3;`
-  Change the fallback **`3` → `0`** (Kingdom = rank index 0; Order = 3). `app.guideRank` starts
-  `null` (`~2480`), so the fallback is what runs on a fresh Field-Guide visit.
-- **Verify:** opening the Field Guide with no prior drill lands on the **Kingdom** level with the
-  Kingdom "browse by" pill active and kingdom tiles shown. Grep for any other hard-coded Order
-  default so nothing re-forces it.
-
-### 2 · Move **"Load new…"** out of the drawer-top into the **Add Records** panel (mobile)
-- `syncHeaderLayout()` (`index.html:6960`) currently appends `.headerMeta` (the `#loadCsvBtn`
-  "Load new…" button) to `#drawerActions` at the **top of the mobile drawer** — above Snapshot.
-  Lily wants it **nested inside the Add Records section** instead.
-- **Do:** in the mobile branch of `syncHeaderLayout()`, relocate `.headerMeta` into the **Add
-  Records** panel body instead of `#drawerActions`. Add a stable id to the Add Records
-  `<details>` accBody/`.stack` (e.g. `#addRecordsBody`) and append there; put it at the **top** of
-  that panel's body. Desktop branch unchanged (button returns to the header via
-  `insertBefore(_headerMeta, _themeBtn)`). Move the node (don't clone) so its listener is kept, as
-  the existing comment notes. Ensure the now-unused `.drawer-actions` container leaves no visual
-  gap on mobile.
-- **Verify:** on a phone, the open drawer shows **Snapshot first**; "Load new…" appears **inside
-  Add Records** and still opens the file picker; on desktop it's still top-right in the header.
-
-### 3 · Redesign the **Dates heatmap** colour ramp → **Viridis** (decided)
-The calendar heatmap `heatColor(c)` (`index.html:5057`) is a **monochrome warm-grey ramp** using
-stale pre-cool-palette hexes — it reads as muddy brown and doesn't reward busy days. Replace it
-with a **perceptually-uniform, colour-blind-safe Viridis-style sequential scale.**
-
-**Design intent:** most days are empty/quiet, so **empty + low buckets stay faint** (they must not
-shout); the count buckets then climb a **truncated viridis (teal → green → gold)** so busier days
-are brighter/hotter and the busiest **glow**. Deliberately skip viridis's dark-purple low end
-(it would make quiet days visually loud).
-
-Keep the existing count thresholds. Recommended stops — **verify in the browser and nudge any
-step that's low-contrast on its background** (esp. the dark-theme low steps and the gold ≥100 on
-white):
-
-| bucket | light | dark |
-|---|---|---|
-| empty (c ≤ 0) | `#EAEDF0` | `#1F2329` |
-| 1–20   | `#2A788E` | `#2A788E` |
-| 21–50  | `#22A884` | `#22A884` |
-| 51–74  | `#44BF70` | `#44BF70` |
-| 75–99  | `#7AD151` | `#7AD151` |
-| ≥ 100  | `#FDE725` | `#FDE725` |
-
-Also in `renderDates` (`~5177–5178`): the **out-of-year** fill is stale warm cream `#F0EEE7` —
-change to a faint cool neutral (light `#EEF0F2`, dark `#1B1C1F`, matched to the empty tile). The
-**≥100 border** `rgba(26,26,23,.35)` is warm ink — make it theme-aware/subtle (light
-`rgba(24,25,27,.30)`, dark `rgba(240,241,242,.35)`), or drop it (the gold tile already reads).
-(`heatColor` already branches on `document.documentElement.dataset.theme === "dark"`.)
-
-- **Verify:** the year grid reads as a clean viridis heatmap in **both themes** — quiet days
-  faint, busy days climbing teal→green→gold, busiest glowing; **no brown left**; the day tooltip
-  and day-click → filter-Records still work.
-
-_Viridis reference samples used: 0.4 `#2a788e`, 0.6 `#22a884`, ~0.7 `#44bf70`, 0.8 `#7ad151`,
-1.0 `#fde725`._
-
-## After the three changes — Phase 2, Step 1: curated palette + custom colours
-
-The map already colours + legends by taxonomic rank. Step 1 of the remaining Phase 2 work:
+The map already colours + legends by taxonomic rank. Step 1 of the remaining Phase 2 work.
+House rules apply: single-file `index.html`, **no build**; branch off `main`; verify in-browser
+**light + dark + mobile (375px)**; console clean; focused commits; **don't push until Lily asks**.
+(Local test data: a git-ignored `sample-inat.csv`.)
 
 - Replace the hash→HSL colour generator (`markerColor`, ~line 4177 in `index.html`) with a
   **designed, colour-blind-safe categorical palette**, assigned **stably by frequency** (most
@@ -106,6 +43,20 @@ high-DPI point-map export, no basemap tiles). See `ROADMAP.md` Phase 2.
 
 ## Recently shipped (newest first)
 
+- **Three decided UI changes** (commit `1c5f583`, **merged to `main` + pushed / live**):
+  - **Field Guide lands on Kingdom.** `rankIdx` fallback `3 → 0` (`index.html:3297`); a fresh
+    Field-Guide visit (no prior drill, `app.guideRank` null) now opens at Kingdom.
+  - **"Load new…" moved into Add Records on mobile.** `syncHeaderLayout()` now moves `.headerMeta`
+    to the top of the Add Records body (`#addRecordsBody`) instead of `#drawerActions`, so Snapshot
+    leads the drawer; node moved (listener kept); desktop path unchanged; empty `.drawer-actions`
+    hidden via `:empty` so no gap remains.
+  - **Viridis Dates heatmap.** `heatColor()` (`index.html:5057`) swapped from the stale monochrome
+    warm-grey ramp to a truncated viridis scale (empty `#EAEDF0`/`#1F2329`; 1–20 `#2A788E`; 21–50
+    `#22A884`; 51–74 `#44BF70`; 75–99 `#7AD151`; ≥100 `#FDE725`). Out-of-year fill + ≥100 border in
+    `renderDates` made faint cool-neutral + theme-aware. No brown left.
+  - Served/loaded clean (HTTP 200); source-reviewed. **Real-browser pass still recommended** —
+    Field Guide → Kingdom tiles; phone (375px) drawer Snapshot-first + "Load new…" in Add Records
+    opening the picker; Dates grid teal→green→gold in both themes with day-click filter intact.
 - **Sidebar reorg → cool-neutral redesign → serif wordmark** (branch `sidebar-reorg-ui-polish`,
   plan `wild-churning-globe.md`; **merged to `main` + pushed / live**). Three passes:
   - **Reorg + three requested fixes.** Compare users pulled into its own panel (teal/terracotta
