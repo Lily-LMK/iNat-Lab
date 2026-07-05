@@ -4,28 +4,119 @@ The immediate-actions companion to `ROADMAP.md` (full phase plan) and `../CLAUDE
 (orientation + current chapter). Keep this lean: what to do next, the near-term backlog, and
 the settled decisions a fresh session shouldn't re-litigate.
 
-_Last refreshed 2026-07-05. The three decided UI changes are **shipped** (see Recently shipped);
-next up is **Phase 2, Step 1 — curated map palette + custom colours**, specced below._
+_Last refreshed 2026-07-05. Phase 2 Step 1 (curated map palette + custom colours) is **shipped**
+(see Recently shipped). Testing that feature turned up three more items, fully specced below —
+do these next, before Phase 2 Step 2._
 
 ---
 
-## Start here next — Phase 2, Step 1: curated palette + custom colours
+## Start here next — three items from testing the map feature
 
-The map already colours + legends by taxonomic rank. Step 1 of the remaining Phase 2 work.
-House rules apply: single-file `index.html`, **no build**; branch off `main`; verify in-browser
-**light + dark + mobile (375px)**; console clean; focused commits; **don't push until Lily asks**.
-(Local test data: a git-ignored `sample-inat.csv`.)
+Found while testing the new map colouring/legend work. House rules apply: single-file
+`index.html`, **no build**; branch off `main`; verify in-browser **light + dark + mobile
+(375px)**; console clean; focused commits; **don't push until Lily asks**. (Local test data: a
+git-ignored `sample-inat.csv`.)
 
-- Replace the hash→HSL colour generator (`markerColor`, ~line 4177 in `index.html`) with a
-  **designed, colour-blind-safe categorical palette**, assigned **stably by frequency** (most
-  common taxon → first swatch), cycling when categories exceed the palette.
-- Store overrides in an `app.mapColorOverrides` map keyed by `colorBy` + category; `markerColor`
-  checks the override first, then the palette slot.
-- Make the **legend swatches editable** (`buildLegend`, ~4881): click a dot → native colour
-  picker → markers + legend recolour live; a "reset colours" affordance. This is where Lily's
-  per-taxon colour choices live (needed for publication figures).
+### 1 · Map toolbar still uses the pre-redesign `.pill` style
 
-Then Step 2 (clustering + spiderfy, `Leaflet.markercluster`) and Step 3 (clean vector /
+The map's own control bar (Color by / Draw box / Clear box / Full screen / location search) is
+the last place still using the old boxed-chip look from before the cool-neutral "gallery"
+redesign — bordered `.pill` containers (`var(--panel)` fill, `box-shadow`-free but still a
+nested box) instead of today's flat, hairline convention used everywhere else.
+
+- Markup: `renderMap()`, `index.html:4300-4327` — three `.pill`-wrapped groups (`Color by`
+  select; Draw box/Clear box/Full screen buttons; the search pill).
+- CSS: `.pill` base rules `index.html:213-263`, `.mapTop`/`.mapSearchPill` overrides
+  `index.html:846-873`. **Confirmed via grep: `.pill` is used nowhere else in the app any more**
+  (the header dropped it in the sidebar reorg) — so it's safe to fully repurpose/retire, not just
+  patch around.
+- Target style — match the current sidebar/header convention already in the file:
+  - The "Color by" label+select → `.field` pattern (`index.html:376-395`): label above,
+    `var(--field)` background, `var(--hair)` border, focus ring via `--accent-soft`. No wrapping
+    box.
+  - Draw box / Clear box / Full screen buttons → `.smallBtn` (`index.html:1156-1168`): flat,
+    `var(--raised)` fill, `var(--hair)` border, `var(--raised-hi)` hover, no shadow. Group them in
+    a `.bar` (`index.html:717-724`) instead of a `.pill` for spacing.
+  - Search input → the same flat treatment as `.field input`/`.mapSearchPill input` already gets
+    (keep the existing focus ring), just drop its `.pill` wrapper box.
+- **Verify:** map toolbar reads as part of the same flat "gallery" system as the sidebar and
+  header — no boxed chips — in light + dark + mobile; Color by / Draw box / Clear box / Full
+  screen / search all still function (they're only losing their wrapper, not their listeners —
+  keep IDs `#mapColorBy`, `#drawBox`, `#clearBox`, `#mapFS`, `#mapSearch`, `#mapSearchBtn`,
+  `#mapStatus` unchanged since JS queries them by id).
+
+### 2 · Offline image caching isn't covering enough species for the Field Guide offline
+
+**This one needs a decision from Lily before coding — see the open question below.**
+
+There's already a warm-up mechanism (`scheduleWarmUp()`, `index.html:2655-2726`, called after CSV
+load / API top-up / taxon sync at `index.html:6458,6594,6688`): it dedupes `app.rows` by
+scientific name, takes one representative photo URL per unique taxon (`r._img`), caps at
+`WARM_CAP = 5000`, and background-fetches whatever isn't already in `caches` so the service worker
+(`sw.js`) picks it up. So the "one photo per species, up to 5,000" idea is already built — Lily's
+report that offline coverage is thin points to it being undermined, not missing entirely. Two
+concrete causes found reading `sw.js`:
+
+- **Shared eviction with map tiles.** Species photos and basemap tiles (OSM/OpenTopoMap/ArcGIS/GA
+  geology — `sw.js:44-53`) land in the *same* bucket, `CACHE_IMG` (`sw.js:20`), with a single flat
+  `IMG_MAX_ENTRIES = 5000` FIFO trim (`sw.js:180-188`, oldest-inserted evicted first, regardless
+  of type). Panning/zooming the map during a session can fetch thousands of small tile requests
+  that get inserted *after* the warm-up's species photos — and FIFO trim doesn't distinguish them,
+  so heavy map use can quietly evict already-warmed species photos. **This is the prime suspect.**
+- **24h TTL forces a revalidation attempt**, not a hard delete — `cacheFirstTTL`
+  (`sw.js:118-145`) still serves the stale cached copy if a revalidation fetch throws (i.e.
+  offline), so this alone shouldn't break true offline use. Worth confirming in testing, but the
+  FIFO-eviction issue above is the more likely culprit.
+
+**Recommended fix:** give species photos their own durable cache bucket in `sw.js`, e.g.
+`CACHE_TAXON_PHOTOS`, sized independently (~5,500–6,000 entries) and **never sharing eviction with
+map tiles or API responses**. `scheduleWarmUp()` writes into it explicitly instead of relying on
+the generic `IMG_PATTERNS` route.
+
+**Open question for Lily — "identifiable and reusable... even when there's overlap of species"
+across datasets:** today's representative photo for a species is *whichever row happens to be
+first* in the currently loaded CSV/rows for that scientific name — i.e. it's really "a photo of an
+observation of species X," not "the photo for species X." Loading a different export (a new year,
+someone else's data) where the first-seen observation of an overlapping species is a *different*
+photo won't reuse anything cached today, even though it's the same species — because nothing is
+keyed by species identity, only by URL. Every row already carries a stable `_taxonId`
+(`index.html:2601,2631` on import; already used for iNat taxon-lineage sync,
+`index.html:5812-5857`), so keying the durable cache by `_taxonId` (falling back to `_sci` for
+older CSVs without a taxon_id column) instead of by URL would make it genuinely reusable across
+datasets. **The catch:** this means the Field Guide could show a photo from a *different*
+observation than the one currently loaded when serving a taxon from the durable offline cache —
+a deliberate, scoped exception to the settled "each record's own photo only, no cascade" rule
+(see Settled decisions below), limited strictly to the offline/durable-cache fallback path — the
+live/online render would still always prefer the current dataset's own `_img`. **Decide with Lily
+before implementing:** is that exception acceptable, scoped that narrowly? (Recommended: yes —
+online behaviour is unchanged; it only helps when offline and only for taxa without a fresher
+photo available.)
+
+- **Verify (once implemented):** load a CSV, let warm-up finish, go offline (devtools "Offline" +
+  disable the SW's network passthrough or airplane mode), browse the Field Guide across several
+  ranks — tiles for warmed taxa show images, not placeholders; browsing the Map heavily afterward
+  doesn't evict them; loading a second, overlapping dataset doesn't re-download species already
+  secured.
+
+### 3 · Make the API top-up completion message dismissable
+
+`setStatus()` (`index.html:2636`) writes into a persistent inline span, `#status`
+(`index.html:1978`, in the tab bar; wraps to its own row on mobile via the `@media (max-width:
+620px)` rule at `index.html:316-322`). Used for the top-up-complete message
+(`index.html:6453-6457`: "Top-up complete: +N new, N updated…") among others — it has no
+auto-dismiss and no manual close, so it sits there until the next status update overwrites it.
+
+- **Do:** add a small "×" dismiss control next to the status text, shown only while there's a
+  message, that clears it on click. Mirror the existing `.warmCancel` button already used for the
+  cache warm-up progress bar (`index.html:2649-2652`) for a consistent pattern/markup style.
+  `setStatus(msg)` currently does `$("#status").textContent = msg` — needs to build/update a small
+  child structure (text + dismiss button) instead of a bare text node, and the dismiss handler just
+  clears it (`$("#status").textContent = ""` or hide the wrapper).
+- **Verify:** trigger a top-up (or any `setStatus()` call), confirm the × appears and clears the
+  message on click without affecting the tabs or layout; mobile wrap behaviour (`620px` rule)
+  still holds with the extra button in place.
+
+Then Phase 2 Step 2 (clustering + spiderfy, `Leaflet.markercluster`) and Step 3 (clean vector /
 high-DPI point-map export, no basemap tiles). See `ROADMAP.md` Phase 2.
 
 ## Visual-polish backlog (independent; do in any order)
@@ -43,6 +134,15 @@ high-DPI point-map export, no basemap tiles). See `ROADMAP.md` Phase 2.
 
 ## Recently shipped (newest first)
 
+- **Phase 2, Step 1 — curated map palette + custom colours** (commit `82a454f`, **merged to
+  `main` + pushed / live**): replaced the hash→HSL marker-colour generator with a designed,
+  colour-blind-safe 8-hue categorical palette (light + dark, validated against the dataviz
+  skill's checks), assigned stably by frequency (commonest category → slot 1, cycling past 8).
+  Added `app.mapColorOverrides` (keyed `colorBy|category`); `markerColor` checks it before the
+  ranked palette slot. Legend swatches are editable — click/Enter a dot opens a native colour
+  picker, live-recolours markers + legend, with a "Reset" affordance per colour-by mode.
+  Source-reviewed + parse-checked; **live testing surfaced the three items above** (map toolbar
+  styling, offline image coverage, dismissable top-up message) — now specced as "Start here next."
 - **Three decided UI changes** (commit `1c5f583`, **merged to `main` + pushed / live**):
   - **Field Guide lands on Kingdom.** `rankIdx` fallback `3 → 0` (`index.html:3297`); a fresh
     Field-Guide visit (no prior drill, `app.guideRank` null) now opens at Kingdom.
