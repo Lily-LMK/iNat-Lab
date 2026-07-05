@@ -6,29 +6,63 @@ the settled decisions a fresh session shouldn't re-litigate.
 
 _Last refreshed 2026-07-05. Phase 2 Step 1 (curated map palette + custom colours) is **shipped**,
 and the three items testing it turned up are all **shipped** too — including the deep one, the
-Field Guide iNaturalist-photo switch (see Recently shipped). Next up is **Phase 2 Step 2**
-(clustering + spiderfy)._
+Field Guide iNaturalist-photo switch (see Recently shipped). Next up is the **map publication
+export** (clean vector / high-DPI point map); clustering + spiderfy is back-burnered behind it._
 
 ---
 
-## Start here next — Phase 2 Step 2: map clustering + spiderfy
+## Start here next — Phase 2: publication export (clean vector / high-DPI point map)
+
+**Reordered 2026-07-05 (Lily's call):** publication export is now next; clustering + spiderfy moves
+after it and is **back-burnered** — Lily doesn't need the map offline for now, so skip the `sw.js`
+precache/offline work when clustering eventually lands.
 
 House rules apply: single-file `index.html`, **no build**; branch off `main`; verify in-browser
 **light + dark + mobile (375px)**; console clean; focused commits; **don't push until Lily asks**.
 (Local test data: a git-ignored `sample-inat.csv`.)
 
-Add **`Leaflet.markercluster`** (CDN) so co-located iNat points cluster and spiderfy on click, and
-cluster icons colour by the dominant category (matching the curated per-rank/user palette already
-built in Step 1). See `ROADMAP.md` Phase 2 (b). Then Step 3 — a clean vector / high-DPI point-map
-**export** (points + legend + chosen colours, **no web basemap tiles**) for publication.
+**Goal:** export the current map as a print-ready figure — points + legend + chosen colours, **no
+web basemap tiles** (avoids tile CORS/licensing; gives a clean, journal-friendly graphic). Decided
+over a basemap screenshot.
 
-Watch-outs when wiring the cluster layer in: it must respect the existing **"Colour by"** control
-and the `app.mapColorOverrides` custom colours; keep the honest "records with no coordinate" note;
-and precache the new CDN URLs in `sw.js` (`CACHE_STATIC`, bump the version) so the map still works
-offline. The taxon-photo warm-up now churns `CACHE_IMG` less (photos have their own bucket), but
-map tiles + record photos still share `CACHE_IMG` — a heavy clustered map session could still evict
-record photos; splitting basemap **tiles** into their own SW bucket is a cheap, still-unfixed
-follow-up if it becomes annoying.
+**Reuse, don't reinvent** (so the figure matches the on-screen map exactly):
+- `markerColor(p)` (`index.html:4368`) already returns each point's colour for the current
+  `mapState.colorBy` (`index.html:2457`), honouring `app.mapColorOverrides` (the custom legend
+  colours). Feed the export from the *same* function.
+- The per-point category-key logic (~`index.html:2233`) + `buildLegend()` (`index.html:5047`)
+  already enumerate categories, counts, and colours — reuse them to draw the export legend.
+- Points are `app.filteredIdx` rows with finite `_lat`/`_lng` (built at `index.html:4507`); records
+  without coordinates are already excluded on the map. Carry that forward and print an **honest
+  "N records omitted (no coordinate)"** note on/near the figure.
+
+**Approach (recommended):**
+- **SVG (true vector):** project each point's lat/lng into an output box and draw `<circle>`s
+  coloured via `markerColor`, plus an SVG legend (swatch + label + count) and a small caption
+  (extent, omitted-count, attribution "iNaturalist / observer"). Scales losslessly for print. Reuse
+  Leaflet's projection *without tiles*: `mapState.map.options.crs.project(L.latLng(lat,lng))` gives
+  Web-Mercator metres — fit those to the output box over the chosen bounds so shapes match the map.
+- **High-DPI PNG (optional companion):** draw the same to an offscreen `<canvas>` at 2–4× and
+  `toBlob()` for a raster fallback. No new deps — SVG is string-built, PNG via canvas; stays
+  single-file / no-build.
+
+**Decide with Lily at session start:**
+- **Format:** SVG only, or SVG + high-DPI PNG.
+- **Extent:** current map view vs. tight data bounding box (recommend **data bounds** so the figure
+  isn't tied to pan/zoom).
+- **Chrome:** clean point cloud vs. optional thin frame / scale bar / N-arrow (recommend minimal).
+- **Trigger/UI:** an **"Export map"** button in the map toolbar → small options popover (format,
+  extent, include legend) → file download. (The generic export modal is CSV-oriented; a direct file
+  download likely fits better.)
+
+**Verify:** load a set with coordinates, colour by a rank *and* by user, set a custom legend colour,
+export → open the SVG/PNG and confirm points + colours + legend match the on-screen map, the
+omitted-no-coordinate count is honest, and there are **no basemap tiles** in the output. The figure
+itself renders on a white/transparent ground (light/dark N/A), but the trigger UI must pass
+light/dark/375px + console clean.
+
+Then (back-burnered): Phase 2 **clustering + spiderfy** (`Leaflet.markercluster`, CDN) — cluster
+co-located points, spiderfy on click, cluster icons colour by dominant category, respecting the
+"Colour by" control + `mapColorOverrides`. Offline/`sw.js` precache **not needed** (Lily's call).
 
 ## Visual-polish backlog (independent; do in any order)
 

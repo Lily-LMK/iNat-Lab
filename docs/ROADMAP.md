@@ -46,21 +46,24 @@ Field Guide, Dates, Map) and the ingest/metadata engine keep working throughout.
 
 Built: a **"Colour by"** control (User | Order | Family | Superfamily | Subfamily | Tribe |
 Genus | Species), deterministic per-category colours with rank fallback, and a collapsible
-**legend** with counts. Remaining, agreed with Lily (build order a → b → c):
+**legend** with counts. Remaining (build order **reordered 2026-07-05, Lily's call**: a → b → c,
+where publication export was promoted ahead of clustering):
 
-- [ ] **(a) Curated palette + custom colours.** Replace the hash-HSL generator with a designed,
-      colour-blind-safe categorical scale assigned stably (by frequency). Make legend swatches
-      **editable** (click → colour picker) so Lily can choose her own colour per category —
-      needed for publication figures.
-- [ ] **(b) Clustering + spiderfy.** Add `Leaflet.markercluster` (CDN) so co-located iNat points
-      cluster and spiderfy on click; cluster icons colour by the dominant category.
-- [ ] **(c) Publication export.** A **clean vector / high-DPI point-map** export (points +
-      legend + chosen colours, **no web basemap tiles**) suitable for print. Decided over a
-      basemap screenshot to be journal-friendly and to avoid tile CORS/licensing.
-- [ ] Honest labelling of records with **no coordinate** (never silently drop them).
+- [x] **(a) Curated palette + custom colours.** ✅ Shipped. Designed colour-blind-safe 8-hue
+      categorical scale, assigned stably by frequency; editable legend swatches (click → colour
+      picker) writing `app.mapColorOverrides`, with per-mode reset.
+- [ ] **(b) Publication export.** ← **next.** A **clean vector / high-DPI point-map** export
+      (points + legend + chosen colours, **no web basemap tiles**) suitable for print. Decided over
+      a basemap screenshot to be journal-friendly and to avoid tile CORS/licensing. Feed it from the
+      same `markerColor` + legend so the figure matches the on-screen map. See `NEXT-SESSION.md`
+      "Start here next" for the spec.
+- [ ] **(c) Clustering + spiderfy.** Add `Leaflet.markercluster` (CDN) so co-located iNat points
+      cluster and spiderfy on click; cluster icons colour by the dominant category. **Back-burnered**
+      and **offline not required** — skip any `sw.js` precache work for this (Lily doesn't need the
+      map offline for now).
+- [ ] Honest labelling of records with **no coordinate** (never silently drop them) — fold into (b).
 
-Not prioritised: click-a-legend-entry-to-filter (colour-editing lives in the legend, so they
-overlap — revisit alongside (a)).
+Not prioritised: click-a-legend-entry-to-filter (colour-editing already lives in the legend).
 
 ## Phase 3 — Species deep-dive panel
 
