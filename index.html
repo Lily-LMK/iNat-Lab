@@ -1110,6 +1110,16 @@
       font-size: 12px;
       color: var(--muted);
     }
+    /* iNaturalist photographer/licence credit — quiet, single-line, truncated. */
+    .fgCredit{
+      margin-top: 4px;
+      font-size: 10px;
+      line-height: 1.3;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .smallBtn{
       box-sizing: border-box;
       border: 1px solid var(--hair);
@@ -2477,6 +2487,7 @@
     },
     compare: { enabled:false, a:"", b:"", mode:"all" },
     warmUp: { active:false, cancel:false, done:0, total:0 },
+    taxonPhotos: new Map(), // taxonId -> {url, attribution, license}: iNat default_photo per taxon (Field Guide)
     view: "records",
     page: 1,
     pageSize: 500,
@@ -2607,6 +2618,97 @@
     el.append(span, btn);
   }
 
+  // ----------------- taxon representative photos (Field Guide) -----------------
+  // The Field Guide illustrates each taxon with iNaturalist's own curated
+  // default_photo (from the Taxa API), keyed by _taxonId so it's stable and
+  // shared across datasets. Images live in a dedicated durable SW cache; a small
+  // JSON meta-index (url + attribution + license per taxon) is persisted in the
+  // same cache so photos remain referenceable offline across sessions.
+  const TAXON_PHOTO_CACHE = "inatlab-taxon-photos-v1";
+  const TAXON_META_KEY    = "/__inatlab_taxon_photo_index__"; // synthetic same-origin cache key; never network-fetched
+  const TAXON_PHOTO_CAP   = 6000;
+
+  let _taxonMetaSaveTimer = null;
+
+  // Hydrate app.taxonPhotos from the durable meta-index (once, at startup).
+  async function loadTaxonPhotoIndex(){
+    if(!("caches" in window)) return;
+    try{
+      const cache = await caches.open(TAXON_PHOTO_CACHE);
+      const resp = await cache.match(TAXON_META_KEY);
+      if(!resp) return;
+      const obj = await resp.json();
+      if(obj && typeof obj === "object"){
+        for(const [id, meta] of Object.entries(obj)){
+          if(meta && meta.url) app.taxonPhotos.set(id, meta);
+        }
+      }
+    }catch(e){ /* cache unavailable or corrupt index — start empty */ }
+  }
+
+  // Persist the whole map as one small JSON blob (debounced).
+  function saveTaxonPhotoIndex(){
+    if(!("caches" in window)) return;
+    clearTimeout(_taxonMetaSaveTimer);
+    _taxonMetaSaveTimer = setTimeout(async ()=>{
+      try{
+        const obj = {};
+        for(const [id, meta] of app.taxonPhotos) obj[id] = meta;
+        const cache = await caches.open(TAXON_PHOTO_CACHE);
+        await cache.put(TAXON_META_KEY, new Response(JSON.stringify(obj), {
+          headers: { "content-type": "application/json" }
+        }));
+      }catch(e){ /* best-effort persistence */ }
+    }, 1500);
+  }
+
+  // Fetch the image bytes into the durable bucket (opaque no-cors response is fine
+  // for <img> display and cache.put). FIFO-trim to the cap, excluding the meta key.
+  async function cacheTaxonPhotoImage(url){
+    if(!("caches" in window) || !url) return;
+    try{
+      const cache = await caches.open(TAXON_PHOTO_CACHE);
+      const existing = await cache.match(url);
+      if(existing) return;
+      const resp = await fetch(url, { mode:"no-cors", credentials:"omit" });
+      await cache.put(url, resp);
+      // Trim: drop oldest image entries (never the meta key) when over cap.
+      const keys = await cache.keys();
+      const imgKeys = keys.filter(req => !req.url.endsWith(TAXON_META_KEY));
+      if(imgKeys.length > TAXON_PHOTO_CAP){
+        const excess = imgKeys.length - TAXON_PHOTO_CAP;
+        for(let i=0;i<excess;i++) await cache.delete(imgKeys[i]);
+      }
+    }catch(e){ /* offline / network error — skip; meta index still records the url */ }
+  }
+
+  // Bounded background queue for warming image bytes into the durable bucket.
+  // Kept separate from the API pacing so downloads (which can be slow on poor
+  // connections) never stall the fast batched metadata pass. The browser also
+  // caps ~6 connections/host; this bounds the pending queue on our side too.
+  const _imgWarmQueue = [];
+  let _imgWarmActive = 0;
+  const IMG_WARM_CONC = 6;
+  function pumpTaxonPhotoImages(){
+    while(_imgWarmActive < IMG_WARM_CONC && _imgWarmQueue.length){
+      const url = _imgWarmQueue.shift();
+      _imgWarmActive++;
+      cacheTaxonPhotoImage(url).catch(()=>{}).finally(()=>{ _imgWarmActive--; pumpTaxonPhotoImages(); });
+    }
+  }
+
+  // Record a taxon's representative photo: update the in-page map + persist the
+  // meta-index immediately (so tiles can render the URL right away), and queue
+  // the image bytes for durable caching in the background.
+  function recordTaxonPhoto(taxonId, photo){
+    const id = safe(taxonId).trim();
+    if(!id || !photo || !photo.url) return;
+    app.taxonPhotos.set(id, { url: photo.url, attribution: photo.attribution || "", license: photo.license || "" });
+    saveTaxonPhotoIndex();
+    _imgWarmQueue.push(photo.url);
+    pumpTaxonPhotoImages();
+  }
+
   // ----------------- cache warm-up -----------------
   function updateWarmUpUI(){
     const bar = $("#warmBar");
@@ -2619,8 +2721,8 @@
     const pct = w.total > 0 ? Math.round((w.done / w.total) * 100) : 0;
     bar.hidden = false;
     bar.innerHTML =
-      `<span class="warmMsg">Preparing ${w.total.toLocaleString()} taxa for offline… ${pct}%</span>` +
-      `<button class="warmCancel" aria-label="Cancel cache warm-up" title="Cancel">×</button>`;
+      `<span class="warmMsg">Fetching representative photos for ${w.total.toLocaleString()} taxa… ${pct}%</span>` +
+      `<button class="warmCancel" aria-label="Cancel photo fetch" title="Cancel">×</button>`;
     bar.querySelector(".warmCancel")?.addEventListener("click", ()=>{ app.warmUp.cancel = true; }, { once:true });
   }
 
@@ -2635,62 +2737,57 @@
 
     if(!app.rows || !app.rows.length) return;
 
-    /* One representative photo per unique taxon — the same image the Field Guide tile shows.
-       Keyed by _sci so the work scales with distinct taxa, not observation count. */
-    const byTaxon = new Map();
-    for(const r of app.rows){
-      const key = (r._sci || "").trim();
-      if(!key) continue;
-      const url = (r._img || "").trim();
-      if(!url || !url.startsWith("http")) continue;
-      if(!byTaxon.has(key)) byTaxon.set(key, url);
-    }
-    if(!byTaxon.size) return;
+    /* Ensure the durable photo index is hydrated so we can skip already-warmed
+       taxa (resumable across reloads; free for overlapping datasets). */
+    if(!app.taxonPhotos.size) await loadTaxonPhotoIndex();
 
-    /* Cap well above any realistic personal species list. */
-    const WARM_CAP = 5000;
-    const allUrls = Array.from(byTaxon.values());
-    const urls = allUrls.length > WARM_CAP ? allUrls.slice(0, WARM_CAP) : allUrls;
+    /* Unique taxon ids across the loaded rows, capped. The representative photo
+       is iNat's own default_photo per taxon (fetched from the Taxa API), so the
+       work scales with distinct taxa, not observation count. */
+    const ids = uniq(app.rows.map(r => safe(r._taxonId).trim()).filter(Boolean));
+    const capped = ids.length > TAXON_PHOTO_CAP ? ids.slice(0, TAXON_PHOTO_CAP) : ids;
 
-    /* Skip URLs already in any cache. */
-    let toFetch = [];
-    try{
-      for(const url of urls){
-        const hit = await caches.match(url);
-        if(!hit) toFetch.push(url);
-      }
-    }catch(e){
-      return; // caches API unavailable (insecure context, etc.)
-    }
+    /* Skip taxa we already have a photo for (hydrated from the durable index). */
+    const toFetch = capped.filter(id => !app.taxonPhotos.has(id));
     if(!toFetch.length) return;
 
     app.warmUp = { active:true, cancel:false, done:0, total:toFetch.length };
     updateWarmUpUI();
 
-    const CONCURRENCY = 4;
-    let idx = 0;
-
-    async function warmWorker(){
-      while(idx < toFetch.length){
+    /* Batched + paced: one request resolves up to BATCH taxa (the iNat Taxa API
+       accepts comma-separated IDs), so ~1.1s between requests covers 30 taxa at a
+       time rather than one. Skips above cost nothing, so an already warmed dataset
+       never reaches here. Image bytes warm in a separate bounded background queue
+       (recordTaxonPhoto), so slow downloads never stall this metadata pass. */
+    const BATCH = 30;
+    (async ()=>{
+      for(let start=0; start<toFetch.length; start += BATCH){
         if(app.warmUp.cancel) break;
-        const url = toFetch[idx++];
+        if(start > 0) await sleep(1100);
+        if(app.warmUp.cancel) break;
+        const batch = toFetch.slice(start, start + BATCH);
         try{
-          await fetch(url, { credentials:"omit" });
-        }catch(e){ /* network error — skip */ }
-        app.warmUp.done++;
-        if(app.warmUp.done % 4 === 0 || app.warmUp.done === app.warmUp.total) updateWarmUpUI();
-        /* Yield to the browser between fetches. */
-        await new Promise(r => ("requestIdleCallback" in window)
-          ? requestIdleCallback(r, { timeout:2500 })
-          : setTimeout(r, 12));
+          const photos = await fetchTaxonPhotosBatch(batch);
+          for(const id of batch){
+            const ph = photos.get(String(id));
+            if(ph) recordTaxonPhoto(id, ph);
+          }
+        }catch(e){ /* batch failure — skip; these stay unwarmed and retry next load */ }
+        app.warmUp.done = Math.min(app.warmUp.total, start + batch.length);
+        updateWarmUpUI();
+        /* Fill tiles in live as photos arrive, without yanking the scroll. */
+        if(app.view === "guide"){
+          const y = window.scrollY;
+          render();
+          window.scrollTo(0, y);
+        }
       }
-    }
-
-    Promise.all(
-      Array.from({ length: Math.min(CONCURRENCY, toFetch.length) }, warmWorker)
-    ).then(()=>{
+    })().then(()=>{
       app.warmUp.active = false;
       updateWarmUpUI();
+      saveTaxonPhotoIndex();
+      /* Fill in tiles live if the Field Guide is the current view. */
+      if(app.view === "guide") render();
     }).catch(()=>{
       app.warmUp.active = false;
       updateWarmUpUI();
@@ -3389,9 +3486,12 @@ function refreshStaticFilters(){
         card.className = "guideCard";
         const span = (g.first && g.last) ? `${g.first} → ${g.last}` : (g.last || g.first || "—");
 
-        // Image first (web-optimised): a representative photo from our own
-        // records leads each tile; the occurrence info follows below it.
-        const repImg = safe(r._img).trim();
+        // Image first (web-optimised). Prefer iNaturalist's curated representative
+        // photo for this taxon (keyed by _taxonId); until warm-up resolves it, fall
+        // back to the record's own photo so the tile is never blank, then to the
+        // honest placeholder when neither exists.
+        const tp = app.taxonPhotos.get(safe(r._taxonId).trim());
+        const repImg = (tp && tp.url) ? safe(tp.url).trim() : safe(r._img).trim();
         const thumbHtml = repImg
           ? `<div class="thumb"><img loading="lazy" src="${escapeAttr(repImg)}" alt=""/></div>`
           : `<div class="thumb"><div class="thumb-placeholder"><svg class="ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="1.5"/><circle cx="8.5" cy="10" r="1.4"/><path d="M4 16.5l4.5-4 3.5 3 3-2.5 5 4.5"/></svg></div></div>`;
@@ -3612,7 +3712,15 @@ function refreshStaticFilters(){
           ${shown.map(g=>{
             const r = app.rows[g.repIdx];
             const pk = pathKeyFromRowAtRank(r, g.rankIdx);
-            const img = r._img ? `<img loading="lazy" src="${escapeAttr(r._img)}" alt=""/>` : `<div class="noimg">no image</div>`;
+            // Prefer iNat's curated photo for this taxon (keyed by _taxonId); fall
+            // back to the record's own photo until warm-up resolves it.
+            const tp = app.taxonPhotos.get(safe(r._taxonId).trim());
+            const src = (tp && tp.url) ? safe(tp.url).trim() : safe(r._img).trim();
+            const img = src ? `<img loading="lazy" src="${escapeAttr(src)}" alt=""/>` : `<div class="noimg">no image</div>`;
+            // Credit only when the shown image is iNat's (not the user's own record).
+            const credit = (tp && tp.url && tp.attribution)
+              ? `<div class="fgCredit muted small">${escapeHtml(tp.attribution)}</div>`
+              : "";
             const isItalic = (g.rankIdx >= 8);
             const nmHtml = isItalic ? `<em>${escapeHtml(g.nm)}</em>` : escapeHtml(g.nm);
             const rankLabel = isMixed ? `<span class="muted" style="font-size:10px;">${escapeHtml(GUIDE_RANKS[g.rankIdx][0])}</span> · ` : "";
@@ -3622,6 +3730,7 @@ function refreshStaticFilters(){
                 <div class="meta">
                   <div class="name">${nmHtml}</div>
                   <div class="count">${rankLabel}${g.count.toLocaleString()} records</div>
+                  ${credit}
                 </div>
               </div>
             `;
@@ -3637,6 +3746,16 @@ function refreshStaticFilters(){
       ${childHTML}
     `;
     wrap.appendChild(right);
+
+    // Degrade a genuinely broken taxon photo to the "no image" placeholder.
+    right.querySelectorAll(".fgChildTile .thumb img").forEach(img=>{
+      img.addEventListener("error", function(){
+        const ph = document.createElement("div");
+        ph.className = "noimg";
+        ph.textContent = "no image";
+        this.replaceWith(ph);
+      }, { once:true });
+    });
 
     right.querySelectorAll(".fgChildTile").forEach(el=>{
       el.addEventListener("click", ()=>{
@@ -5725,6 +5844,13 @@ $("#openRecord").onclick = () => { if(r._url) window.open(r._url, "_blank"); };
       else if(t.rank && ["subspecies","variety","form","hybrid"].includes(t.rank)) sp = t.name || "";
     }
 
+    // iNaturalist's own representative photo for this taxon (Field Guide image
+    // source). Upsize the thumbnail URL segment to "medium" for tile display.
+    const dp = t.default_photo;
+    const photo = (dp && dp.url)
+      ? { url: toMediumImage(dp.url), attribution: dp.attribution || "", license: dp.license_code || "" }
+      : null;
+
     return {
       taxon_kingdom_name: safe(rankToName.get("kingdom")).trim(),
       taxon_phylum_name: safe(rankToName.get("phylum")).trim(),
@@ -5735,8 +5861,28 @@ $("#openRecord").onclick = () => { if(r._url) window.open(r._url, "_blank"); };
       taxon_subfamily_name: safe(rankToName.get("subfamily")).trim(),
       taxon_tribe_name: safe(rankToName.get("tribe")).trim(),
       taxon_genus_name: safe(rankToName.get("genus")).trim(),
-      taxon_species_name: safe(sp).trim()
+      taxon_species_name: safe(sp).trim(),
+      photo
     };
+  }
+
+  // Batch photo lookup for the Field Guide warm-up: the iNat Taxa API accepts up
+  // to ~30 comma-separated IDs per request, so one call resolves 30 taxa instead
+  // of one — a ~30× speedup over per-taxon fetching at the same polite pacing.
+  // Returns Map<idString, {url, attribution, license}> for taxa that have a photo.
+  async function fetchTaxonPhotosBatch(ids){
+    const out = new Map();
+    if(!ids || !ids.length) return out;
+    const url = `https://api.inaturalist.org/v1/taxa/${ids.join(",")}?per_page=${ids.length}`;
+    const data = await fetchJson(url);
+    const results = (data && Array.isArray(data.results)) ? data.results : [];
+    for(const t of results){
+      const dp = t && t.default_photo;
+      if(t && t.id != null && dp && dp.url){
+        out.set(String(t.id), { url: toMediumImage(dp.url), attribution: dp.attribution || "", license: dp.license_code || "" });
+      }
+    }
+    return out;
   }
 
   function closeTaxonModal(){
@@ -5800,6 +5946,12 @@ $("#openRecord").onclick = () => { if(r._url) window.open(r._url, "_blank"); };
           continue;
         }
         if(!lineage) continue;
+
+        // Opportunistically capture iNat's representative photo for the Field
+        // Guide while we're already paying the per-taxon API cost here.
+        if(lineage.photo && !app.taxonPhotos.has(taxonId)){
+          recordTaxonPhoto(taxonId, lineage.photo);
+        }
 
         // indices for rows with this taxon id
         const idxs = [];
@@ -7059,6 +7211,12 @@ $$(".bar button").forEach(btn=>{
       console.warn("[iNat Lab] Service worker registration failed:", err);
     });
   }
+
+  // Hydrate the durable taxon-photo index so Field Guide tiles resolve from
+  // cache immediately (incl. offline). Re-render if the guide is already showing.
+  loadTaxonPhotoIndex().then(()=>{
+    if(app.taxonPhotos.size && app.view === "guide") render();
+  });
 
   // Boot
   render();
