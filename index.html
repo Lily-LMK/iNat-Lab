@@ -7189,7 +7189,21 @@ async function fetchObservationsByUsers(userCsv, maxN, onProgress, onBatch){
     recompute();
   }
 
-  
+  function clearMapRegionBox(){
+    // A drawn region box is meaningless against a replaced dataset and would
+    // silently hide new records (same trap as a stale date filter). Callers
+    // recompute afterwards; the map view re-restores its rectangle from
+    // app.mapBox on render, so clearing it here is enough for future renders.
+    app.mapBox = null;
+    if(mapState.box){
+      if(mapState.box.rect && mapState.map){
+        try{ mapState.map.removeLayer(mapState.box.rect); }catch(e){}
+      }
+      mapState.box.rect = null;
+      mapState.box.bounds = null;
+    }
+  }
+
   async function testApi(){
     const usersRaw = safe($("#apiUsers") && $("#apiUsers").value).trim();
     const project_id = safe($("#apiProject") && $("#apiProject").value).trim();
@@ -7379,6 +7393,7 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     app.f.grade = "All";
     const userSel = $("#userFilter"); if(userSel) userSel.value = "All";
     const gradeSel = $("#gradeFilter"); if(gradeSel) gradeSel.value = "All";
+    clearMapRegionBox();
     app.f.king = "All";
     app.f.phyl = "All";
     app.f.cls = "All";
@@ -7532,6 +7547,8 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     // Default filter dates = all time
     app.f.from = "";
     app.f.to = "";
+
+    clearMapRegionBox();
 
     refreshStaticFilters();
 
