@@ -6967,12 +6967,12 @@ $("#openRecord").onclick = () => { if(r._url) window.open(r._url, "_blank"); };
       }
     }
   }
-async function fetchObservationsByUsers(userCsv, maxN, onProgress){
+async function fetchObservationsByUsers(userCsv, maxN, onProgress, onBatch){
     const users = parseUserList(userCsv);
     const user_id = users.join(",");
     const project_id = safe($("#apiProject") && $("#apiProject").value).trim();
     if(!user_id && !project_id) throw new Error("Enter a username or set project_id.");
-const per_page = 200;
+    const per_page = 200;
     const results = [];
     let page = 1;
 
@@ -6990,18 +6990,38 @@ const per_page = 200;
       if(project_id) params.set("project_id", project_id);
       const url = `${INAT_API}?${params.toString()}`;
 
-      const data = await fetchJson(url);
+      let resp;
+      for(let attempt=0; attempt<3; attempt++){
+        resp = await fetch(url, { headers: { "Accept":"application/json" } });
+        if(resp.status === 429){
+          await sleep(1500 + attempt*800);
+          continue;
+        }
+        break;
+      }
+      if(!resp.ok){
+        const txt = await resp.text().catch(()=> "");
+        throw new Error(`API request failed (${resp.status}). ${txt.slice(0,200)}`);
+      }
+
+      const data = await resp.json();
       const batch = Array.isArray(data.results) ? data.results : [];
       if(!batch.length) break;
 
       await enrichTaxaForObservations(batch);
 
-      for(const o of batch){
-        results.push(o);
-        if(results.length >= maxN) break;
-      }
+      const kept = batch.slice(0, maxN - results.length);
+      for(const o of kept) results.push(o);
 
       const total_pages = Number(data.total_pages || 0);
+
+      if(typeof onBatch === "function"){
+        await onBatch(kept, { page, total_pages });
+      }
+      if(typeof onProgress === "function"){
+        try{ onProgress(results.length, data); }catch(e){}
+      }
+
       if(total_pages && page >= total_pages) break;
 
       page += 1;
@@ -7011,7 +7031,7 @@ const per_page = 200;
     return results;
   }
 
-  async function fetchObservationsDelta(userCsv, maxN, created_d1, project_id, onProgress){
+  async function fetchObservationsDelta(userCsv, maxN, created_d1, project_id, onProgress, onBatch){
     const users = parseUserList(userCsv);
     const user_id = users.join(",");
     if(!user_id && !project_id) throw new Error("Enter a username or project_id.");
@@ -7055,11 +7075,12 @@ const per_page = 200;
 
       await enrichTaxaForObservations(batch);
 
-      for(const o of batch){
-        results.push(o);
-        if(results.length >= maxN) break;
-      }
+      const kept = batch.slice(0, maxN - results.length);
+      for(const o of kept) results.push(o);
 
+      if(typeof onBatch === "function"){
+        await onBatch(kept, { page, total_pages: Number(data.total_pages || 0) });
+      }
       if(typeof onProgress === "function"){
         try{ onProgress(results.length, data); }catch(e){}
       }
@@ -7129,6 +7150,45 @@ const per_page = 200;
     return touched;
   }
 
+  // Merge raw API observations into app.rows, deduping by observation id via the
+  // caller-owned byId Map (id → index in app.rows). Returns counts plus the max
+  // created_at timestamp seen, for advancing the top-up baseline.
+  function mergeApiObservations(observations, byId){
+    let added = 0, patched = 0, maxCreatedTms = -Infinity;
+    for(const o of observations){
+      const ct = parseTime((o && o.created_at) || "");
+      if(Number.isFinite(ct) && ct > maxCreatedTms) maxCreatedTms = ct;
+
+      const obj = obsToRowObj(o);
+      const rid = safe(obj._id).trim();
+      if(!rid) continue;
+
+      if(byId.has(rid)){
+        const base = app.rows[byId.get(rid)];
+        if(mergePreferCSV(base, obj)) patched += 1;
+      } else {
+        obj._source = "api";
+        app.rows.push(obj);
+        byId.set(rid, app.rows.length - 1);
+        added += 1;
+      }
+    }
+    return { added, patched, maxCreatedTms };
+  }
+
+  // Recompute the derived lists from app.rows, then refresh the filter inputs
+  // (date span, users, grades, taxon selects) and re-render.
+  function finalizeDataMerge(){
+    app.users = uniq(app.rows.map(o=>o._user).filter(Boolean)).sort((a,b)=>a.localeCompare(b));
+    app.grades = uniq(app.rows.map(o=>o._grade).filter(Boolean)).sort((a,b)=>a.localeCompare(b));
+    const dates = app.rows.map(o=>o._date).filter(Boolean).sort();
+    app.dateMin = dates.length ? dates[0] : "";
+    app.dateMax = dates.length ? dates[dates.length-1] : "";
+    refreshStaticFilters();
+    refreshTaxonSelectors();
+    recompute();
+  }
+
   
   async function testApi(){
     const usersRaw = safe($("#apiUsers") && $("#apiUsers").value).trim();
@@ -7189,8 +7249,12 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     // Cutoff: start at the most recent created_at in the loaded CSV (no buffer).
     const baseTms = Number.isFinite(app.csvMaxCreatedAtTms) ? app.csvMaxCreatedAtTms : (app.csvFileLastModified || Date.now());
     const created_d1 = isoDate(new Date(baseTms));
-    // Ensure new API records are visible in the default date range.
-    $("#dateTo").value = isoDate(new Date());
+    // Clear the date filter so topped-up records outside the old span stay visible;
+    // refreshStaticFilters() below repopulates the inputs with the new full span.
+    app.f.from = "";
+    app.f.to = "";
+    $("#dateFrom").value = "";
+    $("#dateTo").value = "";
 
     if(userList.length){
       setStatus("Fetching totals…");
@@ -7207,47 +7271,52 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     const projMsg = project_id ? ` • project_id=${project_id}` : "";
     setStatus(`Top-up: fetching uploads since ${created_d1}${capMsg}${projMsg}`);
 
-    const data = await fetchObservationsDelta(userList.join(","), maxN, created_d1, project_id, (n)=>{
-      setStatus(`Top-up: ${n.toLocaleString()} fetched since ${created_d1}${capMsg}${projMsg}`);
-    });
-
-    // Merge into CSV baseline
+    // Merge into the loaded baseline as pages arrive (dedupe by observation id).
     const byId = new Map();
     for(let i=0;i<app.rows.length;i++){
-      byId.set(safe(app.rows[i]._id), i);
+      const rid = safe(app.rows[i]._id).trim();
+      if(rid) byId.set(rid, i);
     }
 
     let added = 0;
     let patched = 0;
+    let pagesMerged = 0;
+    let maxCreatedTms = -Infinity;
+    let topUpError = null;
 
-    for(const o of data){
-      const obj = obsToRowObj(o);
-      if(!obj._id) continue;
-
-      if(byId.has(obj._id)){
-        const idx = byId.get(obj._id);
-        const base = app.rows[idx];
-        if(mergePreferCSV(base, obj)) patched += 1;
-      } else {
-        obj._source = "api";
-        app.rows.push(obj);
-        byId.set(obj._id, app.rows.length - 1);
-        added += 1;
-      }
+    try{
+      await fetchObservationsDelta(userList.join(","), maxN, created_d1, project_id, (n)=>{
+        setStatus(`Top-up: ${n.toLocaleString()} fetched since ${created_d1}${capMsg}${projMsg}`);
+      }, (batch)=>{
+        const res = mergeApiObservations(batch, byId);
+        added += res.added;
+        patched += res.patched;
+        if(res.maxCreatedTms > maxCreatedTms) maxCreatedTms = res.maxCreatedTms;
+        pagesMerged += 1;
+        // Show records as they arrive: render after the first page, then every third.
+        if(pagesMerged === 1 || pagesMerged % 3 === 0) recompute();
+      });
+    }catch(err){
+      topUpError = err;
     }
 
-    // Recompute derived lists
-    app.users = uniq(app.rows.map(o=>o._user).filter(Boolean)).sort((a,b)=>a.localeCompare(b));
-    app.grades = uniq(app.rows.map(o=>o._grade).filter(Boolean)).sort((a,b)=>a.localeCompare(b));
-    const dates = app.rows.map(o=>o._date).filter(Boolean).sort();
-    app.dateMin = dates.length ? dates[0] : "";
-    app.dateMax = dates.length ? dates[dates.length-1] : "";
+    if(topUpError && !pagesMerged){
+      throw topUpError; // nothing merged — let the caller's error path report it
+    }
 
-    refreshStaticFilters();
-    refreshTaxonSelectors();
-    recompute();
+    // Advance the top-up baseline: csvMaxCreatedAtTms means "max created_at covered
+    // (CSV or API)". Delta pages arrive created_at asc, so even a capped or partial
+    // fetch leaves a contiguous covered prefix.
+    if(Number.isFinite(maxCreatedTms) && (!Number.isFinite(app.csvMaxCreatedAtTms) || maxCreatedTms > app.csvMaxCreatedAtTms)){
+      app.csvMaxCreatedAtTms = maxCreatedTms;
+    }
 
-    if(added===0 && patched===0){
+    finalizeDataMerge();
+
+    if(topUpError){
+      console.error(topUpError);
+      setStatus(`Top-up stopped after +${added.toLocaleString()} new, ${patched.toLocaleString()} updated (${pagesMerged} page${pagesMerged===1?"":"s"}): ${safe(topUpError.message || topUpError)}`);
+    } else if(added===0 && patched===0){
       setStatus(`Top-up complete: no changes since ${created_d1}${projMsg}. (This can be normal if nothing new was added to the project since your CSV.)`);
     } else {
       setStatus(`Top-up complete: +${added.toLocaleString()} new, ${patched.toLocaleString()} updated (since ${created_d1})${projMsg}`);
@@ -7287,73 +7356,29 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     }
     setStatus(`Full import: ${usersMsg}${projMsg} — fetching…${capMsg}`);
 
-    const data = await fetchObservationsByUsers(userList.join(","), maxN, (n, payload)=>{
-      setStatus(`Full import: ${n.toLocaleString()} loaded${capMsg}${projMsg}`);
-    });
-
-
-    const objs = data.map(obsToRowObj);
-    objs.sort((a,b)=> (Number.isFinite(b._tms)?b._tms:0) - (Number.isFinite(a._tms)?a._tms:0));
-
-    const usersSet = uniq(objs.map(o=>o._user).filter(Boolean)).sort((a,b)=>a.localeCompare(b));
-    const grades = uniq(objs.map(o=>o._grade).filter(Boolean)).sort((a,b)=>a.localeCompare(b));
-    const dates = objs.map(o=>o._date).filter(Boolean).sort();
-    const dateMin = dates.length ? dates[0] : "";
-    const dateMax = dates.length ? dates[dates.length-1] : "";
-
-    // If we already have a loaded dataset (e.g., CSV) then "Full import" should MERGE into it,
-    // not overwrite it. Dedupe/patch by observation id.
-    let mergedAdded = 0;
-    let mergedPatched = 0;
-
-    if(app.loaded && Array.isArray(app.rows) && app.rows.length){
-      const byId = new Map();
-      for(let i=0;i<app.rows.length;i++){
-        const rid = safe(app.rows[i]._id).trim();
-        if(rid) byId.set(rid, i);
-      }
-
-      for(const obj of objs){
-        const rid = safe(obj._id).trim();
-        if(!rid) continue;
-        if(byId.has(rid)){
-          const idx = byId.get(rid);
-          const base = app.rows[idx];
-          // Prefer richer existing record when merging; patch with API if it adds value.
-          if(mergePreferCSV(base, obj)) mergedPatched += 1;
-        } else {
-          obj._source = "api";
-          app.rows.push(obj);
-          byId.set(rid, app.rows.length - 1);
-          mergedAdded += 1;
-        }
-      }
-
-      // Recompute derived lists after merge
-      app.users = uniq(app.rows.map(o=>o._user).filter(Boolean)).sort((a,b)=>a.localeCompare(b));
-      app.grades = uniq(app.rows.map(o=>o._grade).filter(Boolean)).sort((a,b)=>a.localeCompare(b));
-      const d2 = app.rows.map(o=>o._date).filter(Boolean).sort();
-      app.dateMin = d2.length ? d2[0] : "";
-      app.dateMax = d2.length ? d2[d2.length-1] : "";
-
-    } else {
-      // No dataset loaded yet: behave like a normal load.
-      app.loaded = true;
+    const startingFresh = !(app.loaded && Array.isArray(app.rows) && app.rows.length);
+    if(startingFresh){
+      // Behave like a normal load — but leave app.loaded false until the first
+      // page merges, so a failed fresh import keeps the onboarding state.
       app.headers = [];
       app.col = {};
       app.rawRows = null;
-      app.rows = objs;
-      app.users = usersSet;
-      app.grades = grades;
-      app.dateMin = dateMin;
-      app.dateMax = dateMax;
+      app.rows = [];
     }
 
-$("#q").value = "";
+    // Reset all filters up front so incoming records are never hidden mid-import.
+    // No refreshStaticFilters() here: it would write the stale date span back into
+    // the inputs; empty date inputs mean "no date constraint" while pages arrive.
+    $("#q").value = "";
+    syncSearchClear();
     app.f.from = "";
     app.f.to = "";
+    $("#dateFrom").value = "";
+    $("#dateTo").value = "";
     app.f.user = "All";
     app.f.grade = "All";
+    const userSel = $("#userFilter"); if(userSel) userSel.value = "All";
+    const gradeSel = $("#gradeFilter"); if(gradeSel) gradeSel.value = "All";
     app.f.king = "All";
     app.f.phyl = "All";
     app.f.cls = "All";
@@ -7364,8 +7389,6 @@ $("#q").value = "";
     app.f.tribe = "All";
     app.f.genus = "All";
     app.f.species = "All";
-
-    refreshStaticFilters();
 
     $("#king").innerHTML = "";
     $("#phyl").innerHTML = "";
@@ -7378,17 +7401,66 @@ $("#q").value = "";
     $("#genus").innerHTML = "";
     $("#species").innerHTML = "";
 
-    refreshTaxonSelectors();
-    recompute();
+    // Persistent dedupe index (empty when starting fresh — one merge path for both).
+    const byId = new Map();
+    for(let i=0;i<app.rows.length;i++){
+      const rid = safe(app.rows[i]._id).trim();
+      if(rid) byId.set(rid, i);
+    }
+
+    const importStartTms = Date.now();
+    let pagesMerged = 0;
+    let fetchedCount = 0;
+    let mergedAdded = 0;
+    let mergedPatched = 0;
+    let importError = null;
+
+    try{
+      await fetchObservationsByUsers(userList.join(","), maxN, (n)=>{
+        setStatus(`Full import: ${n.toLocaleString()} loaded${capMsg}${projMsg}`);
+      }, (batch)=>{
+        const res = mergeApiObservations(batch, byId);
+        mergedAdded += res.added;
+        mergedPatched += res.patched;
+        fetchedCount += batch.length;
+        if(!app.loaded && app.rows.length) app.loaded = true;
+        pagesMerged += 1;
+        // Show records as they arrive: render after the first page, then every
+        // third page (~5–7 s apart). The full refresh (date span, users/grades,
+        // taxon selects) waits for the final pass below.
+        if(pagesMerged === 1 || pagesMerged % 3 === 0) recompute();
+      });
+    }catch(err){
+      importError = err;
+    }
+
+    if(importError && !pagesMerged){
+      // Nothing merged: leave the app exactly as it was (a fresh start keeps the
+      // onboarding view) and let the caller's error path report it.
+      throw importError;
+    }
+
+    if(startingFresh){
+      // Baseline for the next top-up: anything uploaded after this import began.
+      // (Max created_at seen would over-advance — a capped observed_on-ordered
+      // fetch may be missing old-dated records with recent uploads.)
+      app.csvMaxCreatedAtTms = importStartTms;
+    }
+    // When merging into a CSV baseline, csvMaxCreatedAtTms stays at the CSV
+    // cutoff — a capped full import can't prove coverage beyond it.
+
+    finalizeDataMerge();
 
     const totalsText = ($("#apiTotals") && $("#apiTotals").textContent) ? (" • " + $("#apiTotals").textContent) : "";
-    if(mergedAdded || mergedPatched){
-      setStatus(`Imported ${objs.length.toLocaleString()} observations from API (cap ${maxN.toLocaleString()}) • merged: +${mergedAdded.toLocaleString()} new, ${mergedPatched.toLocaleString()} updated${totalsText}`);
+    if(importError){
+      console.error(importError);
+      setStatus(`Import stopped after ${fetchedCount.toLocaleString()} records (${pagesMerged} page${pagesMerged===1?"":"s"}): ${safe(importError.message || importError)}`);
+    } else if(!startingFresh){
+      setStatus(`Imported ${fetchedCount.toLocaleString()} observations from API (cap ${maxN.toLocaleString()}) • merged: +${mergedAdded.toLocaleString()} new, ${mergedPatched.toLocaleString()} updated${totalsText}`);
     } else {
-      const nNow = (app.rows && app.rows.length) ? app.rows.length : objs.length;
-      setStatus(`Loaded ${nNow.toLocaleString()} observations from API (cap ${maxN.toLocaleString()})${totalsText}`);
+      setStatus(`Loaded ${app.rows.length.toLocaleString()} observations from API (cap ${maxN.toLocaleString()})${totalsText}`);
     }
-    scheduleWarmUp();
+    if(app.rows.length) scheduleWarmUp();
   }
   // ----------------- file load -----------------
   async function loadCSVFile(file){
@@ -7529,6 +7601,10 @@ $("#q").value = "";
   });
 
   $("#fetchApi").addEventListener("click", async ()=>{
+    if(app.apiFetchActive) return; // an import/top-up is already running
+    const fetchBtn = $("#fetchApi");
+    app.apiFetchActive = true;
+    if(fetchBtn){ fetchBtn.disabled = true; fetchBtn.setAttribute("aria-busy", "true"); }
     try{
       const mode = ($("#apiMode") && $("#apiMode").value) ? $("#apiMode").value : "topup";
       if(mode === "full"){
@@ -7542,6 +7618,9 @@ $("#q").value = "";
       const label = (mode === "full") ? "API import" : "API top-up";
       setStatus(label + " failed: " + safe(err && (err.message || err)));
       alert(label + " failed:\n\n" + safe(err && (err.message || err)));
+    }finally{
+      app.apiFetchActive = false;
+      if(fetchBtn){ fetchBtn.disabled = false; fetchBtn.removeAttribute("aria-busy"); }
     }
   });
 $("#apiUsers").addEventListener("blur", async ()=>{
