@@ -4,10 +4,10 @@ The immediate-actions companion to `ROADMAP.md` (full phase plan) and `../CLAUDE
 (orientation + current chapter). Keep this lean: what to do next, the near-term backlog, and
 the settled decisions a fresh session shouldn't re-litigate.
 
-_Last refreshed 2026-07-06. Phase 2 Step 1 (curated map palette + custom colours) and Step (b)
-(map publication export) are both **shipped**. Next up is Phase 2 (c), **clustering + spiderfy**
-— back-burnered, offline not required. Also just shipped: Field Guide warm-up no longer flashes,
-and the Snapshot tallies are now navigation (see "Recently shipped")._
+_Last refreshed 2026-07-08. Just built (branch `api-incremental-import`, **not yet merged**):
+API ingest fixes — top-up no longer strands a stale date filter, and imports render records as
+pages arrive (see "Recently shipped"). Next up remains Phase 2 (c), **clustering + spiderfy**
+— back-burnered, offline not required._
 
 ---
 
@@ -53,6 +53,24 @@ No further detail has been specced yet — start with a plan.
 
 ## Recently shipped (newest first)
 
+- **API ingest fixes: incremental import + top-up date-filter fix** (branch
+  `api-incremental-import`, commit `60f9e06`, **not yet merged to `main`**). (1) Top-up used to
+  write today into `#dateTo` while `#dateFrom` kept the old CSV minimum → after the merge the
+  stale range read as an active **Date chip** hiding the new records; now both date inputs clear
+  at top-up start and `refreshStaticFilters()` repopulates them with the new full span (no chip,
+  everything visible, other filters untouched). (2) Full import used to freeze until every page
+  arrived (its `onProgress` was never even called); both fetchers now hand each 200-record page
+  to the caller via `onBatch`, pages merge immediately (persistent `byId` dedupe; shared
+  `mergeApiObservations`/`finalizeDataMerge` helpers), and the view renders after the **first
+  page then every third** (~5–7 s; observed_on-desc order means interim renders append below the
+  fold — no flashing; Field Guide warm-up untouched). Also: `csvMaxCreatedAtTms` advances after
+  API merges (fixes top-up-after-pure-API-import), 429 backoff on the full-import fetcher,
+  partial-failure keeps merged pages with an honest "Import stopped after N records" status,
+  in-flight guard on `#fetchApi`. Verified 26/26 via headless-Chrome CDP with a stubbed iNat API
+  (`window.fetch` monkey-patch + DOM assertions — app JS is IIFE-scoped, `app` isn't global).
+  Known/accepted: interim renders close an open map popup mid-import; pre-existing `app.mapBox`
+  isn't cleared by a full import (can hide new records if a region box was drawn — flagged, not
+  fixed).
 - **Snapshot tallies are navigation + Browse-by within an active filter** (on `main`). The four
   Snapshot figures in the sidebar are now buttons (`.statLink`, quiet persistent hairline underline
   that firms up on hover/focus; theme-aware; keyboard-focusable): **Records** → Records view;
