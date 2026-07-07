@@ -118,9 +118,10 @@ CSV handy (`sample-inat.csv`, git-ignored) for local testing — do not commit i
 
 ## Current chapter
 
-**Most recent work — API ingest fixes: incremental import + top-up date-filter fix** (branch
-`api-incremental-import`, commit `60f9e06`, **not yet merged to `main`**). Two behaviour fixes
-Lily requested plus related correctness work, all in the API fetch paths:
+**Most recent work — API ingest fixes: incremental import, top-up date-filter fix, map-box
+clear** (branch `api-incremental-import`, commits `60f9e06` + `78d108c`, **merged to `main`
+and pushed / live**). Behaviour fixes Lily requested plus related correctness work, all in
+the API fetch / data-load paths:
 
 - **Top-up no longer strands a stale date filter.** `topUpFromApi()` used to force `#dateTo`
   to today while leaving `#dateFrom` at the old CSV minimum; after the merge the stale range
@@ -144,12 +145,26 @@ Lily requested plus related correctness work, all in the API fetch paths:
   in-flight guard on `#fetchApi` (disabled + `aria-busy`) blocks double-click interleaving;
   dropped the pre-merge sort of fetched rows (nothing reads `app.rows` order — display order
   comes from `recompute()`'s `filteredIdx` sort).
+- **Map region box no longer survives a dataset replacement** (commit `78d108c`). A drawn
+  region box (`app.mapBox`) used to persist through a full API import and a fresh CSV load,
+  silently hiding new records with **no chip to reveal it** (same trap as the stale date
+  filter). New `clearMapRegionBox()` helper runs in `loadFromApi`'s up-front filter reset and
+  in `loadCSVFile`; top-up deliberately keeps the box (an active box is part of the user's
+  lens, like a taxon filter).
+- **Top-up cutoff semantics confirmed correct — no change needed.** Lily asked to check that
+  top-up grabs records *uploaded* since the CSV cutoff, not just *observed* since. It already
+  does: the delta fetch sends only iNaturalist's `created_d1` (upload/created date, from the
+  CSV's max `created_at`, day-inclusive) — no observed-date params anywhere in that path. Late
+  uploads of old observations were always fetched; the stale date filter (now fixed) was what
+  hid them.
 - Verified via headless-Chrome CDP with a **stubbed iNat API** (the app JS is inside an IIFE,
-  so tests monkey-patch `window.fetch` and assert through the DOM): 26/26 assertions across
-  incremental render, stale-date fix, partial-failure recovery, modal + mid-import filter
-  survival, advanced `created_d1`, double-click guard; console clean. Known/accepted: interim
-  renders close an open map popup (~every 5–7 s during an import); pre-existing `app.mapBox`
-  isn't cleared by a full import and can hide new records if a region box was drawn.
+  so tests monkey-patch `window.fetch` and assert through the DOM; CDP must
+  `Network.setBypassServiceWorker` or `sw.js` serves the *cached* shell to tests): 26/26
+  assertions across incremental render, stale-date fix, partial-failure recovery, modal +
+  mid-import filter survival, advanced `created_d1`, double-click guard, plus 11/11 on the
+  map-box clear (box drawn via synthetic mouse events — the rectangle renders to **canvas**,
+  so assert on Clear-box visibility + record counts, not SVG paths); console clean.
+  Known/accepted: interim renders close an open map popup (~every 5–7 s during an import).
 
 **Earlier — Snapshot navigation + Browse-by within filters, and a Field Guide warm-up
 flash fix** (on `main`, pushed / live). Two related pieces plus a small earlier fix:

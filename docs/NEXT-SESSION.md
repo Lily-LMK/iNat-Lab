@@ -4,10 +4,12 @@ The immediate-actions companion to `ROADMAP.md` (full phase plan) and `../CLAUDE
 (orientation + current chapter). Keep this lean: what to do next, the near-term backlog, and
 the settled decisions a fresh session shouldn't re-litigate.
 
-_Last refreshed 2026-07-08. Just built (branch `api-incremental-import`, **not yet merged**):
-API ingest fixes — top-up no longer strands a stale date filter, and imports render records as
-pages arrive (see "Recently shipped"). Next up remains Phase 2 (c), **clustering + spiderfy**
-— back-burnered, offline not required._
+_Last refreshed 2026-07-08. Just shipped (branch `api-incremental-import`, **merged to `main`
++ pushed / live**): API ingest fixes — top-up no longer strands a stale date filter, imports
+render records as pages arrive, and a drawn map region box no longer survives a full import or
+CSV reload (see "Recently shipped"). Also confirmed (no change needed): top-up already fetches
+by **upload date** (`created_d1`), so late uploads of old observations are covered. Next up
+remains Phase 2 (c), **clustering + spiderfy** — back-burnered, offline not required._
 
 ---
 
@@ -53,8 +55,20 @@ No further detail has been specced yet — start with a plan.
 
 ## Recently shipped (newest first)
 
+- **Map region box cleared on dataset replacement** (commit `78d108c`, merged with the API
+  ingest branch). A drawn region box (`app.mapBox`) used to persist through a full API import
+  and a fresh CSV load, silently hiding new records with **no chip to reveal it** — the same
+  trap as the stale date filter. New `clearMapRegionBox()` runs in `loadFromApi`'s up-front
+  filter reset and in `loadCSVFile`; **top-up deliberately keeps the box** (an active box is
+  part of the user's lens, like a taxon filter). Also confirmed on request: top-up's delta
+  fetch sends only `created_d1` (iNat's *upload* date, cut off at the CSV's max `created_at`)
+  — no observed-date params — so late uploads of old observations were always fetched; the
+  stale date filter was what hid them. Verified 11/11 via CDP (box drawn with synthetic mouse
+  events; the rectangle renders to **canvas**, so assert Clear-box visibility + record counts,
+  not SVG paths) plus a 26/26 regression on the API harness. CDP gotcha for future tests:
+  `Network.setBypassServiceWorker` is required or `sw.js` serves the *cached* app shell.
 - **API ingest fixes: incremental import + top-up date-filter fix** (branch
-  `api-incremental-import`, commit `60f9e06`, **not yet merged to `main`**). (1) Top-up used to
+  `api-incremental-import`, commit `60f9e06`, **merged to `main` + pushed**). (1) Top-up used to
   write today into `#dateTo` while `#dateFrom` kept the old CSV minimum → after the merge the
   stale range read as an active **Date chip** hiding the new records; now both date inputs clear
   at top-up start and `refreshStaticFilters()` repopulates them with the new full span (no chip,
@@ -68,9 +82,8 @@ No further detail has been specced yet — start with a plan.
   partial-failure keeps merged pages with an honest "Import stopped after N records" status,
   in-flight guard on `#fetchApi`. Verified 26/26 via headless-Chrome CDP with a stubbed iNat API
   (`window.fetch` monkey-patch + DOM assertions — app JS is IIFE-scoped, `app` isn't global).
-  Known/accepted: interim renders close an open map popup mid-import; pre-existing `app.mapBox`
-  isn't cleared by a full import (can hide new records if a region box was drawn — flagged, not
-  fixed).
+  Known/accepted: interim renders close an open map popup mid-import. (The flagged `app.mapBox`
+  issue was fixed in the follow-up commit above.)
 - **Snapshot tallies are navigation + Browse-by within an active filter** (on `main`). The four
   Snapshot figures in the sidebar are now buttons (`.statLink`, quiet persistent hairline underline
   that firms up on hover/focus; theme-aware; keyboard-focusable): **Records** → Records view;
