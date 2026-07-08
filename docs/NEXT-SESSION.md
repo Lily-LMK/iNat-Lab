@@ -26,6 +26,19 @@ icons should colour by the dominant category, respecting the "Colour by" control
 `app.mapColorOverrides`. **Offline/`sw.js` precache is not needed for this** (Lily's call — she
 doesn't need the map offline). No further detail has been specced yet — start with a plan.
 
+## Loose ends (low priority)
+
+- **Spot-check the top-up breadcrumb path.** The upper-taxon-ranks fix (`53c775b`) was verified
+  live against a **full import**; the **top-up-into-a-loaded-CSV** path runs the same
+  `obsToRowObj`, so it's near-certain fine, but it wasn't driven against the live API. Confirm a
+  real top-up's new records show a full Kingdom→Species breadcrumb.
+- **Test harness is ephemeral.** This session's headless-Chrome tests (`helpers.test.js`,
+  `cdp.test.mjs`, `live-taxon.mjs`) lived in the session scratchpad and won't persist. The
+  reusable *approach* is captured in `../CLAUDE.md` (Current chapter "Verify note"): the app JS is
+  inside an IIFE, so monkey-patch `window.fetch` (stub iNat pages) and assert via the DOM; over
+  CDP you must `Network.setBypassServiceWorker` **and** `setCacheDisabled` or the stale
+  shell/old file is served. Re-derive test files from that if needed.
+
 ## Visual-polish backlog (independent; do in any order)
 
 - **Field Guide progressive photo fill (targeted DOM patch).** _Ready to pick up — the deferred
