@@ -4,13 +4,13 @@ The immediate-actions companion to `ROADMAP.md` (full phase plan) and `../CLAUDE
 (orientation + current chapter). Keep this lean: what to do next, the near-term backlog, and
 the settled decisions a fresh session shouldn't re-litigate.
 
-_Last refreshed 2026-07-08. Just shipped (branch `scope-aware-topup`, **merged to `main` +
-pushed / live**): **scope-aware API top-up** — top-up/import now reproduce the CSV's original
-iNaturalist filter (paste the Export **Query** or edit the inferred suggestion), with an observed
-date range + an **"Uploaded since"** backfill axis, behind a clean confirm-gate modal (see
-"Recently shipped"). Also fixed same day: **API-imported records were missing Kingdom/Phylum/
-Class/Superfamily** (`obsToRowObj` omitted the upper ranks) — now populated. **Next up: Phase 2
-(c), clustering + spiderfy** — offline not required._
+_Last refreshed 2026-07-09. Just shipped (branch `common-names`, 3 commits `d116f74`→`d794c4b`,
+**merged to `main` + pushed / live**): **rank-appropriate common names** in Records cards, the
+Field Guide, and the Taxa tree — harvested from iNaturalist's `preferred_common_name` (Australian
+English) during the photo warm-up, with a **baked seed** (`TAXON_COMMON_SEED`) for the
+most-loaded datasets so names show on first render offline, and a **climb-up fallback** (unnamed
+taxa borrow the nearest ancestor's name up to Order) that lifts Records coverage to ~100% (see
+"Recently shipped"). **Next up: Phase 2 (c), clustering + spiderfy** — offline not required._
 
 ---
 
@@ -67,6 +67,34 @@ doesn't need the map offline). No further detail has been specced yet — start 
 
 ## Recently shipped (newest first)
 
+- **Rank-appropriate common names** (branch `common-names`, commits `d116f74` + `c11e706` +
+  `d794c4b`, **merged to `main` + pushed / live**). Common (vernacular) names now show in Records
+  cards, the Field Guide (index tiles, focus header, child tiles), and the Taxa tree.
+  - **Source:** iNaturalist `preferred_common_name`, **Australian English** (`locale=en&
+    preferred_place_id=6744`), harvested for a taxon **and its whole ancestry** from the responses
+    the photo warm-up already fetches (`/v1/taxa/{ids}` returns `ancestors` with a name at every
+    rank) — no extra requests, no curated dictionary. Stored in `app.taxonCommon` keyed
+    `"rank|lowername"` (homonym-safe), persisted under a synthetic key inside the existing
+    `TAXON_PHOTO_CACHE` bucket (no `sw.js` change). Helpers: `commonKey`, `commonNameFor`,
+    `harvestCommonNames`, `loadTaxonCommonIndex`/`saveTaxonCommonIndex`.
+  - **Baked seed:** `const TAXON_COMMON_SEED` embedded in `index.html` (~3,300 names, AU locale,
+    ~48 KB gzipped) harvested from Lily's main export so names appear on the **first render**,
+    before/without the live warm-up — merged at boot only where a key is absent (cache + warm-up,
+    both fresher, win). Regenerate with **`tools/build-common-seed.mjs <export.csv> [out.json]`**.
+  - **Climb-up fallback:** when a taxon has no common name of its own, borrow the nearest
+    **ancestor's up to Order** (`climbCommonName`/`climbCommonNameForRow`, ceiling = RANKS idx 3).
+    Lifts first-page Records coverage from ~43% to ~100% (e.g. genus *Tubuca* → tribe
+    "Indo-West Pacific Fiddler Crabs"). Applied to Records cards, Field Guide tiles + focus header;
+    the **Taxa tree deliberately does NOT climb** (it shows the full lineage already — climbing
+    just repeats a parent's name onto children).
+  - **Field Guide focus header** now shows the common name beneath the scientific name
+    (`.guideSubtitle`; a `flex-basis:100%` in the flex-column header had been wrapping it off to
+    the right — fixed to a plain `width:100%` block).
+  - Verified headless-Chrome, **offline (seed only)** on the real export: ~100% Records coverage,
+    115/120 family tiles named, Tubuca card + header show the fiddler-crab name, tree stays clean,
+    light/dark/375px + header screenshot confirmed, console clean. **Note:** the git-ignored
+    `sample-inat.csv` has fabricated taxon_ids (id 43584 = *Homo sapiens*, not "Koala"), so
+    common names only truly verify against real exports.
 - **API records now carry the upper taxonomic ranks** (branch `api-upper-taxon-ranks`, commit
   `53c775b`). `obsToRowObj` (~line 6954) only emitted `taxon_order_name`…`taxon_species_name`, so
   API-imported records (top-up or full import) had a blank Kingdom/Phylum/Class/Superfamily —
@@ -298,3 +326,14 @@ doesn't need the map offline). No further detail has been specced yet — start 
   screenshot mode was added rather than replacing it. Don't re-litigate — see "Recently shipped".
 - Lily's own iNaturalist username may appear as a **placeholder example** — her observations are
   public and meant to be shared. Don't re-flag it.
+- **Common names** come from iNaturalist only (`preferred_common_name`, **Australian English** via
+  `preferred_place_id=6744`), shown **verbatim** — no curated dictionary, no GBIF/ALA/Wikipedia.
+  Rank-appropriate and blank-beats-mislabel, **except** the deliberate climb-up fallback (unnamed
+  taxa borrow the nearest ancestor's name **up to Order** — order names stay meaningful, class/
+  phylum/kingdom "Insects"/"Arthropods"/"Animals" are too generic). The **Taxa tree shows each
+  node's own name only** (no climb) — the hierarchy already shows ancestor names; Records cards,
+  Field Guide tiles, and the focus header DO climb. Ceiling can be raised to Class for the last
+  sliver of coverage if Lily asks (at the cost of generic labels). Confirmed 2026-07-09.
+- The **baked common-name seed** (`TAXON_COMMON_SEED` in `index.html`) is public taxonomy only
+  (no observations) and safe in the public repo; regenerate from any export with
+  `tools/build-common-seed.mjs`, not by hand.

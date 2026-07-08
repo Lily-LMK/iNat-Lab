@@ -11,3 +11,5 @@
 # Editor / tooling
 .vscode/
 node_modules/
+# local Claude Code config (launch.json, settings.local.json)
+.claude/

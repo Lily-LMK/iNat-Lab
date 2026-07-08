@@ -48,6 +48,12 @@ generic CSV export modal.
   taxonomy against iNaturalist; taxon/photo enrichment fills breadcrumb ancestors and modal
   images. *(The old "Lightroom" title/caption/keyword dropdowns and GBIF common-name enrichment
   were removed — do not reintroduce them.)*
+- **Common (vernacular) names:** rank-appropriate iNaturalist `preferred_common_name` (Australian
+  English) in Records cards, the Field Guide (index tiles, focus header, child tiles), and the
+  Taxa tree. Harvested with the photo warm-up (taxon + full ancestry, keyed `"rank|lowername"` in
+  `app.taxonCommon`), with a **baked seed** (`TAXON_COMMON_SEED`) for fast first-render coverage
+  and a **climb-up fallback** (unnamed taxa borrow the nearest ancestor's name up to Order; the
+  Taxa tree shows own-names only). Source: iNat only, verbatim — no curated dictionary.
 - **Map:** Leaflet + esri-leaflet; **Streets (OSM) / Topo (OpenTopoMap) / Satellite (ArcGIS) /
   Esri Topo / GA Surface Geology** basemaps, with click-to-identify on the geology layer. Points
   are coloured **by a chosen taxonomic rank or by user**, with a live legend (see Phase 2).
@@ -118,7 +124,44 @@ CSV handy (`sample-inat.csv`, git-ignored) for local testing — do not commit i
 
 ## Current chapter
 
-**Most recent work — Scope-aware API top-up** (branch `scope-aware-topup`, 5 commits
+**Most recent work — Common (vernacular) names** (branch `common-names`, 3 commits
+`d116f74`→`d794c4b`, **merged to `main` at `d794c4b` and PUSHED / live**). Ports the *idea* of
+QM Explorer's common names into iNat Lab, but not its machinery (no multi-API resolver, no curated
+`_localVern` dictionary — iNaturalist has rank-appropriate common names natively). The reference
+file `qm-explorer.html` was deleted after the port.
+
+- **Harvest is free.** The photo warm-up's batch call `/v1/taxa/{ids}` already returns each taxon
+  **with its full `ancestors` array, each ancestor carrying `preferred_common_name` at its own
+  rank** — so one existing request yields the whole lineage's names, no extra calls. `app.taxonCommon`
+  is a `Map` keyed **`"rank|lowername"`** (homonym-safe; `RANKS[i][0].toLowerCase()` already equals
+  iNat's ancestor rank strings, so harvest and lookup keys line up). Helpers `commonKey`,
+  `commonNameFor(rankIdx, name)`, `harvestCommonNames(results)` (~`index.html:2917`). Persisted under
+  a synthetic key **inside the existing `TAXON_PHOTO_CACHE` bucket** (`loadTaxonCommonIndex`/
+  `saveTaxonCommonIndex`) — **no `sw.js` change** (bucket already in the activate keep-set).
+- **Australian English, verbatim.** Warm-up URLs carry `INAT_LOCALE_PARAMS =
+  "locale=en&preferred_place_id=6744"` (6744 = Australia; e.g. *Apis mellifera* → "European Honey
+  Bee"). Names shown exactly as iNat gives them, in a muted secondary line; **blank when iNat has
+  none** (house rule — a blank beats a mislabel), except the climb-up below.
+- **Baked seed for instant coverage.** `const TAXON_COMMON_SEED` embedded in `index.html`
+  (~3,300 names, ~48 KB gzipped) harvested from Lily's main export, merged into `app.taxonCommon`
+  at boot **only where a key is absent** (durable cache + live warm-up, both fresher, win), so
+  common names show on the **first render, offline, before any warm-up**. Public taxonomy only.
+  Regenerate with committed **`tools/build-common-seed.mjs <export.csv> [out.json]`**.
+- **Climb-up fallback (→ ~100% coverage).** When a taxon has no common name of its own, borrow the
+  nearest **ancestor's up to Order** (`climbCommonName`/`climbCommonNameForRow`, ceiling = RANKS
+  idx 3 — order names like "Decapods"/"Beetles" stay meaningful; class/phylum/kingdom too generic).
+  Applied to Records cards, Field Guide index tiles, focus **header** (the `.guideSubtitle` — now
+  fixed to render + climb, so a tribe/genus header shows scientific **and** common name), and focus
+  child tiles. Genus *Tubuca* (unnamed) → tribe "Indo-West Pacific Fiddler Crabs". The **Taxa tree
+  deliberately does NOT climb** (each node shows its own name; the tree already displays the full
+  lineage, so climbing would repeat a parent's name onto children). Lily confirmed this call.
+- Verified headless-Chrome **offline (seed only)** on the real export: ~100% first-page Records
+  coverage, 115/120 family tiles named, Tubuca card + header show the fiddler-crab name, tree stays
+  clean, light/dark/375px + header screenshot confirmed, console clean. **Gotcha:** the git-ignored
+  `sample-inat.csv` has **fabricated taxon_ids** (id 43584 = *Homo sapiens*, not "Koala"), so common
+  names only truly verify against real exports with valid ids.
+
+**Earlier — Scope-aware API top-up** (branch `scope-aware-topup`, 5 commits
 `0f8f542`→`15b3687`, **merged to `main` at `9a4d289` and PUSHED / live**). Fixes top-up grabbing
 records the CSV's filter would have excluded. A CSV export is only the *rows that passed a filter*; the filter (place, "no plants",
 grade, observed-date window) isn't in the file, so a username+date top-up pulled out-of-scope
@@ -369,4 +412,6 @@ refactor, and the Taxa tree redesign — are all shipped. See git history and
 offline/`sw.js` precache not needed. Standing decisions: tab label stays **"Field Guide"**; tile
 images use own records only with an honest placeholder; publication export has **two modes** — a
 real-basemap screenshot (CORS-safe basemaps only) and a clean vector plot (no basemap tiles,
-always light-palette) — see "Current chapter" above.
+always light-palette); **common names** are iNat-only, verbatim, Australian English, with a
+climb-up fallback everywhere **except the Taxa tree** (own-names only) — see "Current chapter"
+above and `docs/NEXT-SESSION.md` → "Settled decisions".
