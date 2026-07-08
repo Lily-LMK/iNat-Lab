@@ -118,7 +118,48 @@ CSV handy (`sample-inat.csv`, git-ignored) for local testing — do not commit i
 
 ## Current chapter
 
-**Most recent work — API ingest fixes: incremental import, top-up date-filter fix, map-box
+**Most recent work — Scope-aware API top-up** (branch `scope-aware-topup`, **committed on the
+branch; NOT merged / NOT pushed**). Fixes top-up grabbing records the CSV's filter would have
+excluded. A CSV export is only the *rows that passed a filter*; the filter (place, "no plants",
+grade, observed-date window) isn't in the file, so a username+date top-up pulled out-of-scope
+records (a tracked observer's overseas trip). The fix captures that filter once and replays it as
+real iNaturalist API params on every fetch.
+
+- **`app.apiQuery` constraint set + a confirm gate.** The first API fetch on a dataset opens a
+  **"Top-up scope"** modal (`#scopeModal`) instead of fetching — nothing is applied silently.
+  Confirm writes `app.apiQuery`; later fetches reuse it (edit via **Set / edit scope…**
+  `#apiScopeBtn`). `loadCSVFile` resets `app.apiQuery=null` per dataset and seeds an editable
+  suggestion (`app.apiQuerySuggested`).
+- **Inference is a suggestion, not silent truth.** `inferApiConstraints()` scans `app.rows` for
+  present iconic taxa (pre-ticked, ✓-marked), a homogeneous grade, and a padded bbox — but the
+  **bbox is opt-in / unticked by default** (a rectangle round current points would silently drop
+  a legitimate new record just outside; a real `place_id` is offered as the accurate path). All
+  13 iconic groups are shown so an in-scope-but-unseen group (a first fungus under "no plants")
+  stays tickable.
+- **Paste the Export *Query* (not a URL).** iNat's Export page shows a raw **Query** string, so
+  `parseInatQuery()` handles bare query strings, PHP-array keys (`iconic_taxa[]`, `projects[]`,
+  `has[]`), comma `user_id=a, b`, a leading "Query" label + trailing "Columns …" block; it also
+  fills the panel Usernames/Project. `applyApiQueryParams()` forwards
+  iconic_taxa/place_id/without_taxon_id/taxon_id/quality_grade/bbox (**place wins over bbox**)
+  /d1/d2/extra (captive, geoprivacy, taxon_geoprivacy, verifiable, photos). `describeApiQuery()`
+  echoes the applied scope on the status line.
+- **Two date axes (Lily's choice).** Observed range `d1`/`d2` (from the query; To-blank = up to
+  now) is forwarded as a filter. **"Uploaded since"** owns the top-up cutoff (`created_d1`):
+  `undefined` = automatic/advancing CSV cutoff (default); a date = fixed floor; **`""` = backfill**
+  (no upload cutoff — pulls older in-scope records already on iNat, for the "I added plants
+  later" case). `fetchObservationsDelta`'s `created_d1` is now optional. **Confirmed for Lily:**
+  top-up already keys off *upload* date, so a year-old observation uploaded since the CSV is
+  already fetched; backfill only adds records uploaded *before* the CSV that are newly in scope.
+- Verified: **42/42** pure-helper unit tests (incl. all three of Lily's real example queries) +
+  **30/30** headless-Chrome CDP flow (gate-vs-fetch, query paste fills every field incl.
+  dates+users, delta URL carries every scope param, opt-in bbox, backfill drops `created_d1`,
+  empty scope = back-compat no params), console clean; light+dark modal screenshots good. Same
+  CDP gotchas as before (IIFE → monkey-patch `window.fetch` + assert via DOM;
+  `Network.setBypassServiceWorker` **and** `setCacheDisabled` or the stale shell/old file is
+  served). Plan: `~/.claude/plans/we-re-working-in-inat-effervescent-crown.md`. **Next:** Lily's
+  call on merge/push; Phase 2 (c) clustering + spiderfy still back-burnered.
+
+**Earlier — API ingest fixes: incremental import, top-up date-filter fix, map-box
 clear** (branch `api-incremental-import`, commits `60f9e06` + `78d108c`, **merged to `main`
 and pushed / live**). Behaviour fixes Lily requested plus related correctness work, all in
 the API fetch / data-load paths:
