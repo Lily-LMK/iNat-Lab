@@ -4,28 +4,57 @@ The immediate-actions companion to `ROADMAP.md` (full phase plan) and `../CLAUDE
 (orientation + current chapter). Keep this lean: what to do next, the near-term backlog, and
 the settled decisions a fresh session shouldn't re-litigate.
 
-_Last refreshed 2026-07-08. Just shipped (branch `api-incremental-import`, **merged to `main`
-+ pushed / live**): API ingest fixes — top-up no longer strands a stale date filter, imports
-render records as pages arrive, and a drawn map region box no longer survives a full import or
-CSV reload (see "Recently shipped"). Also confirmed (no change needed): top-up already fetches
-by **upload date** (`created_d1`), so late uploads of old observations are covered. Next up
-remains Phase 2 (c), **clustering + spiderfy** — back-burnered, offline not required._
+_Last refreshed 2026-07-08. Just shipped (branch `scope-aware-topup`, **merged to `main` +
+pushed / live**): **scope-aware API top-up** — top-up/import now reproduce the CSV's original
+iNaturalist filter (paste the Export **Query** or edit the inferred suggestion), with an observed
+date range + an **"Uploaded since"** backfill axis, behind a clean confirm-gate modal (see
+"Recently shipped"). **Next up: a correctness bug — API-imported records are missing every
+taxonomic rank above Order (Kingdom, Phylum, Class, and Superfamily).** Phase 2 (c), **clustering
++ spiderfy**, remains back-burnered after that._
 
 ---
 
-## Start here next — Phase 2 (c): clustering + spiderfy
+## Start here next — API records missing upper taxonomic ranks (Kingdom / Phylum / Class)
+
+**Bug (Lily, 2026-07-08):** records brought in via the API — top-up **or** full import — have
+**no Kingdom, Phylum, or Class** (and no Superfamily); only Order → Species are populated.
+CSV-loaded records are fine (they carry all 10 ranks). Symptoms: the Kingdom/Phylum/Class filter
+dropdowns, the Taxa tree, and Field-Guide **Browse by** at those ranks don't see API records;
+record breadcrumbs start at Order.
+
+**Root cause:** `obsToRowObj(o)` (`index.html`, ~line 6954) — the API-observation → row mapper —
+only emits `taxon_order_name` … `taxon_species_name` (built via `rankFromTaxon` /
+`genusNameFromTaxon` / `speciesNameFromTaxon`, ~lines 6997–7002 and 7027–7032). It **never sets**
+`taxon_kingdom_name`, `taxon_phylum_name`, `taxon_class_name`, or `taxon_superfamily_name`. (By
+contrast the CSV builder `buildRowObj` spreads all 10 `RANKS`, and `fetchTaxonLineage` ~line 6674
+already returns kingdom/phylum/class — the data path exists; the row builder just omits those
+fields.)
+
+**Fix:** add the four missing ranks to `obsToRowObj`'s returned object using the existing
+`rankFromTaxon(taxon, "kingdom" | "phylum" | "class" | "superfamily")` (same pattern already used
+for `order`/`family`/`subfamily`). It reads from `taxon.ancestors`, which
+`enrichTaxaForObservations` (~line 7070) backfills per fetched batch via `fetchTaxonLineage`
+before the merge — so ranks should resolve. **Verify** the ancestors actually carry
+class/phylum/kingdom for a real fetch (they come from the `/taxa/{id}` lineage). Superfamily is
+often absent in iNat's ancestry — a **blank there is correct**, not a bug.
+
+**Verify:** API-import a small set; confirm a record's `taxon_kingdom_name` / `_phylum` / `_class`
+are populated; the Kingdom/Phylum/Class filter dropdowns list them; the Taxa tree and Field-Guide
+Browse-by at those ranks include API records; a full breadcrumb (Kingdom → Species) renders in the
+record modal. Check **both** a fresh full import and a top-up merged into a loaded CSV. Light +
+dark; console clean.
 
 House rules apply: single-file `index.html`, **no build**; branch off `main`; verify in-browser
 **light + dark + mobile (375px)**; console clean; focused commits; **don't push until Lily asks**.
 (Local test data: a git-ignored `sample-inat.csv`.)
 
+## After that — Phase 2 (c): clustering + spiderfy
+
 **Goal:** add `Leaflet.markercluster` (CDN, keyless) so co-located iNat points (identical/near
 coords are common) cluster and spiderfy on click, keeping dense top-ups readable and fast. Cluster
 icons should colour by the dominant category, respecting the "Colour by" control and
 `app.mapColorOverrides`. **Offline/`sw.js` precache is not needed for this** (Lily's call — she
-doesn't need the map offline).
-
-No further detail has been specced yet — start with a plan.
+doesn't need the map offline). No further detail has been specced yet — start with a plan.
 
 ## Visual-polish backlog (independent; do in any order)
 
@@ -55,6 +84,21 @@ No further detail has been specced yet — start with a plan.
 
 ## Recently shipped (newest first)
 
+- **Scope-aware API top-up** (branch `scope-aware-topup`, 5 commits `0f8f542`→`15b3687`, merged at
+  `9a4d289`, **pushed / live**). Top-up/full-import now reproduce the CSV's original iNaturalist
+  filter instead of grabbing any new record by the user. New `app.apiQuery` constraint set +
+  a **"Top-up scope"** confirm gate (`#scopeModal`) that opens on the first fetch of a dataset;
+  seeded by editable inference (`inferApiConstraints` — present iconic taxa pre-ticked, opt-in
+  bbox). Paste the iNat **Export Query** (`parseInatQuery` handles bare strings, `[]`-array keys,
+  comma `user_id`, "Query"/"Columns" labels) to fill it exactly + auto-fill Usernames/Project.
+  `applyApiQueryParams` forwards iconic_taxa/place_id/without_taxon_id/taxon_id/quality_grade/bbox
+  (place wins)/d1/d2/extra to both fetchers. **Two date axes:** observed `d1`/`d2` (filter) +
+  **"Uploaded since"** = the top-up cutoff (`created_d1`), clearable to **backfill** older in-scope
+  records already on iNat (the "added plants later" case; `fetchObservationsDelta`'s created_d1 is
+  now optional). Modal is a flex-column (fixed head, scrolling body, fixed footer) with
+  **Save & start** vs **Save scope only** and a guided backfill hint. Tests in scratchpad
+  (`helpers.test.js` + `cdp.test.mjs`, 36 assertions). _Known follow-up: API records miss
+  Kingdom/Phylum/Class — see "Start here next"._
 - **Map region box cleared on dataset replacement** (commit `78d108c`, merged with the API
   ingest branch). A drawn region box (`app.mapBox`) used to persist through a full API import
   and a fresh CSV load, silently hiding new records with **no chip to reveal it** — the same

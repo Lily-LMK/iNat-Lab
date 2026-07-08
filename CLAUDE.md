@@ -118,9 +118,9 @@ CSV handy (`sample-inat.csv`, git-ignored) for local testing — do not commit i
 
 ## Current chapter
 
-**Most recent work — Scope-aware API top-up** (branch `scope-aware-topup`, **committed on the
-branch; NOT merged / NOT pushed**). Fixes top-up grabbing records the CSV's filter would have
-excluded. A CSV export is only the *rows that passed a filter*; the filter (place, "no plants",
+**Most recent work — Scope-aware API top-up** (branch `scope-aware-topup`, 5 commits
+`0f8f542`→`15b3687`, **merged to `main` at `9a4d289` and PUSHED / live**). Fixes top-up grabbing
+records the CSV's filter would have excluded. A CSV export is only the *rows that passed a filter*; the filter (place, "no plants",
 grade, observed-date window) isn't in the file, so a username+date top-up pulled out-of-scope
 records (a tracked observer's overseas trip). The fix captures that filter once and replays it as
 real iNaturalist API params on every fetch.
@@ -161,8 +161,13 @@ real iNaturalist API params on every fetch.
   empty scope = back-compat no params), console clean; light+dark modal screenshots good. Same
   CDP gotchas as before (IIFE → monkey-patch `window.fetch` + assert via DOM;
   `Network.setBypassServiceWorker` **and** `setCacheDisabled` or the stale shell/old file is
-  served). Plan: `~/.claude/plans/we-re-working-in-inat-effervescent-crown.md`. **Next:** Lily's
-  call on merge/push; Phase 2 (c) clustering + spiderfy still back-burnered.
+  served). Plan: `~/.claude/plans/we-re-working-in-inat-effervescent-crown.md`. **Next (bug, Lily
+  2026-07-08):** API-imported records are missing every taxonomic rank **above Order** —
+  Kingdom, Phylum, Class (and Superfamily) are blank. Root cause: `obsToRowObj` (~line 6954)
+  only emits `taxon_order_name`…`taxon_species_name`; add the upper ranks via
+  `rankFromTaxon(taxon, "kingdom"|"phylum"|"class"|"superfamily")`. Full write-up in
+  `docs/NEXT-SESSION.md` → "Start here next". Phase 2 (c) clustering + spiderfy back-burnered
+  behind it.
 
 **Earlier — API ingest fixes: incremental import, top-up date-filter fix, map-box
 clear** (branch `api-incremental-import`, commits `60f9e06` + `78d108c`, **merged to `main`
