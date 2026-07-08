@@ -722,6 +722,51 @@
       z-index: 9999;
     }
     .modal.open{ display:flex; }
+    /* Top-up scope dialog — single column, flex layout: fixed header, a scrolling body,
+       and a fixed footer that content can never slide under. Selector is
+       .dialog.scopeDialog (specificity 0,2,0) so it beats the base .dialog two-col grid
+       regardless of source order; the dialog itself doesn't scroll (overflow:hidden). */
+    .dialog.scopeDialog{
+      display:flex;
+      flex-direction:column;
+      grid-template-columns:none;
+      width: min(620px, 96vw);
+      max-height: min(90vh, 820px);
+      padding:0;
+      overflow:hidden;
+    }
+    .scopeHead{ flex:0 0 auto; display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:20px 22px 12px; }
+    .scopeTitle{ font-family: var(--heading); font-weight:700; font-size:15px; color:var(--ink); }
+    .scopeBody{ flex:1 1 auto; overflow:auto; display:flex; flex-direction:column; gap:16px; padding:4px 22px 16px; }
+    .scopeSection{ display:flex; flex-direction:column; gap:6px; }
+    .scopeLabel{ font-size:12px; font-weight:600; color:var(--ink-2); }
+    .scopeDialog input[type=text], .scopeDialog select{
+      width:100%; box-sizing:border-box; padding:7px 9px;
+      border:1px solid var(--hair); border-radius:8px;
+      background:var(--field); color:var(--ink); font-family:var(--font); font-size:13px;
+    }
+    .scopeUrlRow{ display:flex; gap:8px; }
+    .scopeUrlRow input{ flex:1 1 auto; min-width:0; }
+    .scopeGrid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .scopeIconicGrid{ display:grid; grid-template-columns:repeat(2,1fr); gap:4px 14px; }
+    .scopeIconicItem{ display:flex; align-items:center; gap:7px; font-size:13px; color:var(--ink); cursor:pointer; padding:2px 0; }
+    .scopeIconicItem input{ margin:0; }
+    .scopeIconicItem .present{ color:var(--user-a); font-weight:700; }
+    .scopeCheck{ display:flex; align-items:center; gap:7px; font-size:13px; color:var(--ink); cursor:pointer; }
+    .scopeHint{
+      font-size:12px; line-height:1.45; color:var(--ink-2);
+      background:var(--accent-soft); border-left:2px solid var(--accent-line);
+      border-radius:0 6px 6px 0; padding:8px 10px; margin-top:6px;
+    }
+    .scopeActions{
+      flex:0 0 auto;
+      display:flex; justify-content:flex-end; gap:10px; align-items:center;
+      padding:14px 22px 18px;
+      background:var(--panel); border-top:1px solid var(--hair);
+    }
+    @media (max-width:520px){
+      .scopeGrid2, .scopeIconicGrid{ grid-template-columns:1fr; }
+    }
     .dialog{
       width: min(980px, 98vw);
       max-height: min(780px, 92vh);
@@ -1736,6 +1781,83 @@
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <!-- Export modal (copy/paste instead of auto-download) -->
+<div class="modal" id="scopeModal" aria-hidden="true">
+  <div class="dialog scopeDialog" role="dialog" aria-modal="true" aria-labelledby="scopeTitle">
+    <div class="scopeHead">
+      <div>
+        <div class="scopeTitle" id="scopeTitle">Top-up scope</div>
+      </div>
+      <button class="close" id="scopeCancel" type="button">Cancel</button>
+    </div>
+
+    <div class="scopeBody">
+      <div class="scopeSection">
+        <div class="scopeLabel">Paste your iNaturalist Export Query <span class="muted small">(optional, most accurate)</span></div>
+        <div class="scopeUrlRow">
+          <input id="scopeUrl" type="text" placeholder="e.g. has[]=photos&amp;quality_grade=research&amp;iconic_taxa[]=Insecta&amp;swlat=…&amp;d1=2024-01-01"/>
+          <button type="button" id="scopeUrlApply" class="smallBtn">Read query</button>
+        </div>
+        <div class="small muted" id="scopeUrlNote">Paste the <strong>Query</strong> field from iNaturalist's Export page. Fills taxa, place, dates and users exactly (e.g. <code>without_taxon_id=47126</code> = no plants).</div>
+      </div>
+
+      <div class="scopeSection">
+        <div class="scopeLabel">Taxa <span class="muted small">— ticked groups are fetched; ✓ marks groups present in your data</span></div>
+        <div class="scopeIconicGrid" id="scopeIconic"></div>
+        <div class="small muted">Untick a whole group to exclude it; tick a group you expect but haven't observed yet (it stays reachable).</div>
+      </div>
+
+      <div class="scopeSection scopeGrid2">
+        <div>
+          <div class="scopeLabel">Place ID <span class="muted small">(iNat)</span></div>
+          <input id="scopePlace" type="text" inputmode="numeric" placeholder="e.g. 7308"/>
+        </div>
+        <div>
+          <div class="scopeLabel">Quality grade</div>
+          <select id="scopeGrade">
+            <option value="">Any</option>
+            <option value="research">Research</option>
+            <option value="needs_id">Needs ID</option>
+            <option value="casual">Casual</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="scopeSection">
+        <div class="scopeLabel">Exclude taxon IDs <span class="muted small">(comma-separated; 47126 = plants)</span></div>
+        <input id="scopeExclude" type="text" inputmode="numeric" placeholder="e.g. 47126"/>
+      </div>
+
+      <div class="scopeSection scopeGrid2">
+        <div>
+          <div class="scopeLabel">Observed from <span class="muted small">(d1)</span></div>
+          <input id="scopeObsFrom" type="date"/>
+        </div>
+        <div>
+          <div class="scopeLabel">Observed to <span class="muted small">(d2 — blank = up to now)</span></div>
+          <input id="scopeObsTo" type="date"/>
+        </div>
+      </div>
+
+      <div class="scopeSection">
+        <div class="scopeLabel">Uploaded since <span class="muted small">— the top-up boundary</span></div>
+        <input id="scopeUploaded" type="date"/>
+        <div class="small muted" id="scopeUploadedNote">Defaults to your CSV export. Records uploaded after this date are fetched (even if observed long ago). <strong>Clear it</strong> to backfill older in-scope records already on iNaturalist — use after widening the scope, e.g. adding plants.</div>
+        <div class="scopeHint" id="scopeBackfillHint" hidden></div>
+      </div>
+
+      <div class="scopeSection">
+        <label class="scopeCheck"><input type="checkbox" id="scopeBboxOn"/> Limit to a bounding box <span class="muted small" id="scopeBboxNote"></span></label>
+        <div class="small muted" id="scopeBboxVal" style="margin-top:2px;"></div>
+      </div>
+    </div>
+
+    <div class="scopeActions">
+      <button type="button" id="scopeSave" class="smallBtn">Save scope only</button>
+      <button type="button" id="scopeConfirm" class="primary">Save &amp; start top-up</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="exportModal" aria-hidden="true">
   <div class="dialog" style="max-width: 760px;">
     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:10px;">
@@ -1981,6 +2103,13 @@
               <label id="apiCapLabel">Cap (new uploads)</label>
               <input id="apiMax" type="text" value="5000"/>
             </div>
+
+            <div class="field">
+              <label>Scope <span class="muted small" style="font-weight:400;">— reproduce your CSV's filter</span></label>
+              <div class="muted small" id="apiScopeSummary">Not set — the first fetch will ask.</div>
+              <button type="button" id="apiScopeBtn" class="linkBtn" style="margin-top:4px;">Set / edit scope…</button>
+            </div>
+
             <div class="bar">
               <button id="fetchApi" class="primary">Top-up</button>
               <button id="apiTest">Test</button>
@@ -2599,6 +2728,12 @@
     filteredIdx: [],
     lastModalIdx: null,
     mapColorOverrides: {}, // "<colorBy>|<categoryKey>" -> hex, set via legend swatch picker
+    // API top-up scope: the constraint set replayed on every fetch so a top-up
+    // reproduces the CSV's original iNat query (place / taxa / grade) instead of
+    // grabbing any new record by that user. null = never confirmed (first fetch
+    // opens the confirm gate); an object = confirmed (even if all-empty = "no limit").
+    apiQuery: null,
+    apiQuerySuggested: null, // editable inference from the loaded data, shown in the gate
   };
 
   // Restore taxon dropdown ordering preference
@@ -2630,6 +2765,18 @@
     "Tribe":"Tribes", "Genus":"Genera", "Species":"Species"
   };
   function pluralRank(singular){ return RANK_PLURAL[singular] || (singular + "s"); }
+
+  // iNaturalist's iconic taxa — the values the API's `iconic_taxa` param accepts and
+  // the values the CSV's `iconic_taxon_name` column (r._iconic) holds. Used by the
+  // top-up scope gate so a "no plants" dataset can keep excluding plants on top-up.
+  const ICONIC_TAXA = [
+    ["Animalia","Animals (other)"], ["Amphibia","Amphibians"], ["Reptilia","Reptiles"],
+    ["Aves","Birds"], ["Mammalia","Mammals"], ["Actinopterygii","Ray-finned fishes"],
+    ["Mollusca","Molluscs"], ["Arachnida","Arachnids"], ["Insecta","Insects"],
+    ["Plantae","Plants"], ["Fungi","Fungi"], ["Protozoa","Protozoans"],
+    ["Chromista","Chromists"]
+  ];
+  const ICONIC_LABEL = Object.fromEntries(ICONIC_TAXA.map(([k,v])=>[k,v]));
 
 
   function hasCol(key){ return app.col[key]!=null; }
@@ -6967,6 +7114,176 @@ $("#openRecord").onclick = () => { if(r._url) window.open(r._url, "_blank"); };
       }
     }
   }
+  // ---- API top-up scope (constraint set replayed on every fetch) ----
+
+  // Infer an editable *suggestion* from the loaded data. This is only ever shown in
+  // the confirm gate — never applied silently — because the rows tell us what passed
+  // the original query, not what the query was (an unseen-but-in-scope taxon or a
+  // record just outside the current spread must stay reachable, so the gate lets the
+  // user re-include them).
+  function inferApiConstraints(){
+    const rows = app.rows || [];
+    const iconic = uniq(rows.map(r=>safe(r._iconic).trim()).filter(Boolean));
+    const grades = uniq(rows.map(r=>safe(r._grade).trim()).filter(Boolean));
+    let minLat=Infinity, maxLat=-Infinity, minLng=Infinity, maxLng=-Infinity, any=false;
+    for(const r of rows){
+      const la=parseFloat(r._lat), ln=parseFloat(r._lng);
+      if(Number.isFinite(la) && Number.isFinite(ln)){
+        any=true;
+        if(la<minLat)minLat=la; if(la>maxLat)maxLat=la;
+        if(ln<minLng)minLng=ln; if(ln>maxLng)maxLng=ln;
+      }
+    }
+    let bbox=null;
+    if(any){
+      const padLat=Math.max((maxLat-minLat)*0.1, 0.05);
+      const padLng=Math.max((maxLng-minLng)*0.1, 0.05);
+      bbox={
+        swlat:+(minLat-padLat).toFixed(4), swlng:+(minLng-padLng).toFixed(4),
+        nelat:+(maxLat+padLat).toFixed(4), nelng:+(maxLng+padLng).toFixed(4)
+      };
+    }
+    return {
+      iconic_taxa: iconic,
+      place_id: "",
+      without_taxon_id: [],
+      taxon_id: [],
+      quality_grade: (grades.length===1 && grades[0]==="research") ? "research" : "",
+      bbox
+    };
+  }
+
+  // Parse an iNaturalist Export **Query** string (or a full search URL) into a partial
+  // scope. iNat's Export tool shows a raw query — e.g.
+  //   has[]=photos&quality_grade=research&iconic_taxa[]=Insecta&swlat=…&d1=2024-01-01&…
+  // — which is the *real* filter that produced the CSV, so this recovers exactly what
+  // inference can't (place, without_taxon_id=47126 = "no plants", observed dates,
+  // captive/geoprivacy/verifiable). Tolerates: a bare query string with no scheme;
+  // PHP-style array keys (iconic_taxa[], projects[], has[]); comma-separated user_id;
+  // a leading "Query" label and a trailing "Columns …" block (pasted verbatim).
+  function parseInatQuery(text){
+    const out = {};
+    try{
+      let s = String(text||"").trim();
+      if(!s) return out;
+      // Drop the trailing "Columns …" block the Export page shows beside the query.
+      const ci = s.search(/(^|\s)Columns\b/i);
+      if(ci >= 0) s = s.slice(0, ci);
+      // Strip a leading "Query" label.
+      s = s.replace(/^\s*Query\b[:\s-]*/i, "").trim();
+      if(!s) return out;
+      // Full URL → take its query + hash; otherwise treat the whole thing as a query.
+      let qs = s;
+      if(/^https?:\/\//i.test(s)){
+        try{ const u = new URL(s); qs = (u.search?u.search.slice(1):"") + (u.hash&&u.hash.length>1 ? "&"+u.hash.slice(1) : ""); }catch(e){}
+      }
+      const p = new URLSearchParams(qs);
+      const first = (...keys)=>{ for(const k of keys){ const v=p.get(k); if(v!=null) return v; } return null; };
+      // Gather a base key and its PHP-array form (base[]), splitting comma lists.
+      const many = (base)=>{ const r=[]; for(const [k,v] of p.entries()){ if(k===base || k===base+"[]") r.push(...String(v).split(",").map(x=>x.trim()).filter(Boolean)); } return r; };
+      const ids = arr => arr.map(x=>parseInt(x,10)).filter(Number.isFinite);
+
+      const ic = many("iconic_taxa"); if(ic.length) out.iconic_taxa = ic;
+      const place = first("place_id"); if(place) out.place_id = safe(place).trim();
+      const wo = many("without_taxon_id"); if(wo.length) out.without_taxon_id = ids(wo);
+      const tx = many("taxon_id"); if(tx.length) out.taxon_id = ids(tx);
+      const g = first("quality_grade"); if(g && g!=="any") out.quality_grade = safe(g).trim();
+      const sw1=first("swlat"), sw2=first("swlng"), ne1=first("nelat"), ne2=first("nelng");
+      if([sw1,sw2,ne1,ne2].every(v=>v!=null && v!=="")){
+        out.bbox = { swlat:parseFloat(sw1), swlng:parseFloat(sw2), nelat:parseFloat(ne1), nelng:parseFloat(ne2) };
+      }
+      // Observed-date window (biological date), distinct from upload/created date.
+      const d1=first("d1"), d2=first("d2");
+      if(d1) out.d1 = safe(d1).trim();
+      if(d2) out.d2 = safe(d2).trim();
+      // Pass-through filters iNat's API accepts verbatim.
+      const extra = {};
+      for(const k of ["captive","geoprivacy","taxon_geoprivacy","verifiable"]){
+        const v = first(k); if(v!=null && v!=="") extra[k] = safe(v).trim();
+      }
+      if(many("has").includes("photos")) extra.photos = true;
+      if(Object.keys(extra).length) out.extra = extra;
+      // Users + project, to fill the panel fields (source of truth from the export).
+      const uid = first("user_id","user_login");
+      if(uid) out.user_id = safe(uid).split(",").map(x=>x.trim()).filter(Boolean);
+      const projs = many("projects"); const proj1 = first("project_id");
+      if(projs.length) out.project = projs[0]; else if(proj1) out.project = safe(proj1).trim();
+    }catch(e){}
+    return out;
+  }
+
+  function apiQueryIsEmpty(q){
+    if(!q) return true;
+    return !( (q.iconic_taxa && q.iconic_taxa.length)
+      || (q.place_id && String(q.place_id).trim())
+      || (q.without_taxon_id && q.without_taxon_id.length)
+      || (q.taxon_id && q.taxon_id.length)
+      || (q.quality_grade && q.quality_grade.trim())
+      || q.bbox
+      || (q.d1 && q.d1.trim()) || (q.d2 && q.d2.trim())
+      || q.uploaded_since === ""            // explicit backfill (no upload cutoff)
+      || (typeof q.uploaded_since === "string" && q.uploaded_since.trim())
+      || (q.extra && Object.keys(q.extra).length) );
+  }
+
+  // Append the scope onto an outgoing observations query. place_id wins over bbox
+  // (a real place polygon beats a rectangle guessed from the data). Note: uploaded_since
+  // is NOT applied here — it maps to created_d1, which the top-up cutoff logic owns.
+  function applyApiQueryParams(params, q){
+    if(!q) return;
+    if(q.iconic_taxa && q.iconic_taxa.length) params.set("iconic_taxa", q.iconic_taxa.join(","));
+    if(q.place_id && String(q.place_id).trim()) params.set("place_id", String(q.place_id).trim());
+    if(q.without_taxon_id && q.without_taxon_id.length) params.set("without_taxon_id", q.without_taxon_id.join(","));
+    if(q.taxon_id && q.taxon_id.length) params.set("taxon_id", q.taxon_id.join(","));
+    if(q.quality_grade && q.quality_grade.trim()) params.set("quality_grade", q.quality_grade.trim());
+    const usePlace = q.place_id && String(q.place_id).trim();
+    if(q.bbox && !usePlace){
+      const b=q.bbox;
+      if([b.swlat,b.swlng,b.nelat,b.nelng].every(Number.isFinite)){
+        params.set("swlat", String(b.swlat)); params.set("swlng", String(b.swlng));
+        params.set("nelat", String(b.nelat)); params.set("nelng", String(b.nelng));
+      }
+    }
+    if(q.d1 && q.d1.trim()) params.set("d1", q.d1.trim());
+    if(q.d2 && q.d2.trim()) params.set("d2", q.d2.trim());
+    if(q.extra){
+      for(const k in q.extra){
+        const v = q.extra[k];
+        if(v === true) params.set(k, "true");
+        else if(v != null && v !== "") params.set(k, String(v));
+      }
+    }
+  }
+
+  // Plain-language one-liner for the panel summary and status reports.
+  function describeApiQuery(q){
+    if(apiQueryIsEmpty(q)) return "no limit (all records for these users)";
+    const parts=[];
+    if(q.iconic_taxa && q.iconic_taxa.length){
+      parts.push(q.iconic_taxa.map(k=>ICONIC_LABEL[k]||k).join(", "));
+    }
+    if(q.place_id && String(q.place_id).trim()) parts.push("place " + String(q.place_id).trim());
+    else if(q.bbox) parts.push("mapped area");
+    if(q.without_taxon_id && q.without_taxon_id.length) parts.push("excl. taxon " + q.without_taxon_id.join(","));
+    if(q.taxon_id && q.taxon_id.length) parts.push("taxon " + q.taxon_id.join(","));
+    if(q.quality_grade && q.quality_grade.trim()) parts.push(q.quality_grade.trim() + "-grade");
+    if((q.d1 && q.d1.trim()) || (q.d2 && q.d2.trim())) parts.push("observed " + (q.d1||"…") + "–" + (q.d2||"now"));
+    if(q.uploaded_since === "") parts.push("backfill (all uploads)");
+    else if(typeof q.uploaded_since === "string" && q.uploaded_since.trim()) parts.push("uploaded ≥ " + q.uploaded_since.trim());
+    if(q.extra && Object.keys(q.extra).length) parts.push("+" + Object.keys(q.extra).join("/"));
+    return parts.join(" · ");
+  }
+
+  function syncScopeSummary(){
+    const el = $("#apiScopeSummary");
+    if(!el) return;
+    if(app.apiQuery == null){
+      el.textContent = "Not set — the first fetch will ask.";
+    } else {
+      el.textContent = describeApiQuery(app.apiQuery);
+    }
+  }
+
 async function fetchObservationsByUsers(userCsv, maxN, onProgress, onBatch){
     const users = parseUserList(userCsv);
     const user_id = users.join(",");
@@ -6988,6 +7305,7 @@ async function fetchObservationsByUsers(userCsv, maxN, onProgress, onBatch){
 
       if(user_id) params.set("user_id", user_id);
       if(project_id) params.set("project_id", project_id);
+      applyApiQueryParams(params, app.apiQuery); // reproduce the CSV's original scope
       const url = `${INAT_API}?${params.toString()}`;
 
       let resp;
@@ -7045,13 +7363,14 @@ async function fetchObservationsByUsers(userCsv, maxN, onProgress, onBatch){
         per_page: String(per_page),
         page: String(page),
         order_by: "created_at",
-        order: "asc",
-        created_d1: created_d1
+        order: "asc"
       });
+      if(created_d1) params.set("created_d1", created_d1); // omitted = backfill (no upload cutoff)
       if(user_id) params.set("user_id", user_id);
       if(project_id){
         params.set("project_id", project_id);
       }
+      applyApiQueryParams(params, app.apiQuery); // reproduce the CSV's original scope
 
       const url = `${INAT_API}?${params.toString()}`;
 
@@ -7225,6 +7544,7 @@ async function fetchObservationsByUsers(userCsv, maxN, onProgress, onBatch){
     });
     if(users.length) params.set("user_id", users.join(","));
     if(project_id) params.set("project_id", project_id);
+    applyApiQueryParams(params, app.apiQuery); // test the scoped query, not a bare one
 
     const url = `${INAT_API}?${params.toString()}`;
 
@@ -7260,9 +7580,17 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     if(Number.isNaN(maxN) || maxN < 1) maxN = 2000;
     maxN = clamp(maxN, 1, 20000); // weekly top-up stays small
 
-    // Cutoff: start at the most recent created_at in the loaded CSV (no buffer).
+    // Cutoff (upload/created date). The scope's "uploaded since" owns this:
+    // undefined = automatic (advancing CSV cutoff, the default); "" = backfill (no
+    // cutoff — also pulls older in-scope records already on iNat, e.g. after you
+    // widen the scope to add plants); a date = a fixed floor.
     const baseTms = Number.isFinite(app.csvMaxCreatedAtTms) ? app.csvMaxCreatedAtTms : (app.csvFileLastModified || Date.now());
-    const created_d1 = isoDate(new Date(baseTms));
+    const us = app.apiQuery ? app.apiQuery.uploaded_since : undefined;
+    let created_d1;
+    if(us === "") created_d1 = null;
+    else if(typeof us === "string" && us.trim()) created_d1 = us.trim();
+    else created_d1 = isoDate(new Date(baseTms));
+    const fetchDesc = created_d1 ? `since ${created_d1}` : "(backfill: all in-scope uploads)";
     // Clear the date filter so topped-up records outside the old span stay visible;
     // refreshStaticFilters() below repopulates the inputs with the new full span.
     app.f.from = "";
@@ -7283,7 +7611,8 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
 
     const capMsg = ` (cap ${maxN.toLocaleString()})`;
     const projMsg = project_id ? ` • project_id=${project_id}` : "";
-    setStatus(`Top-up: fetching uploads since ${created_d1}${capMsg}${projMsg}`);
+    const scopeMsg = (app.apiQuery && !apiQueryIsEmpty(app.apiQuery)) ? ` • scope: ${describeApiQuery(app.apiQuery)}` : "";
+    setStatus(`Top-up: fetching uploads ${fetchDesc}${capMsg}${projMsg}${scopeMsg}`);
 
     // Merge into the loaded baseline as pages arrive (dedupe by observation id).
     const byId = new Map();
@@ -7300,7 +7629,7 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
 
     try{
       await fetchObservationsDelta(userList.join(","), maxN, created_d1, project_id, (n)=>{
-        setStatus(`Top-up: ${n.toLocaleString()} fetched since ${created_d1}${capMsg}${projMsg}`);
+        setStatus(`Top-up: ${n.toLocaleString()} fetched ${fetchDesc}${capMsg}${projMsg}`);
       }, (batch)=>{
         const res = mergeApiObservations(batch, byId);
         added += res.added;
@@ -7331,9 +7660,9 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
       console.error(topUpError);
       setStatus(`Top-up stopped after +${added.toLocaleString()} new, ${patched.toLocaleString()} updated (${pagesMerged} page${pagesMerged===1?"":"s"}): ${safe(topUpError.message || topUpError)}`);
     } else if(added===0 && patched===0){
-      setStatus(`Top-up complete: no changes since ${created_d1}${projMsg}. (This can be normal if nothing new was added to the project since your CSV.)`);
+      setStatus(`Top-up complete: no changes ${fetchDesc}${projMsg}. (This can be normal if nothing new was added to the project since your CSV.)`);
     } else {
-      setStatus(`Top-up complete: +${added.toLocaleString()} new, ${patched.toLocaleString()} updated (since ${created_d1})${projMsg}`);
+      setStatus(`Top-up complete: +${added.toLocaleString()} new, ${patched.toLocaleString()} updated (${fetchDesc})${projMsg}${scopeMsg}`);
     }
     scheduleWarmUp();
   }
@@ -7353,6 +7682,7 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
 
     const projMsg = project_id ? ` • project: ${project_id}` : "";
     const usersMsg = userList.length ? userList.join(", ") : "(project only)";
+    const scopeMsg = (app.apiQuery && !apiQueryIsEmpty(app.apiQuery)) ? ` • scope: ${describeApiQuery(app.apiQuery)}` : "";
 
     let capMsg = ` (cap ${maxN.toLocaleString()})`;
     if(userList.length){
@@ -7368,7 +7698,7 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
       const totalsEl = $("#apiTotals");
       if(totalsEl) totalsEl.textContent = "";
     }
-    setStatus(`Full import: ${usersMsg}${projMsg} — fetching…${capMsg}`);
+    setStatus(`Full import: ${usersMsg}${projMsg}${scopeMsg} — fetching…${capMsg}`);
 
     const startingFresh = !(app.loaded && Array.isArray(app.rows) && app.rows.length);
     if(startingFresh){
@@ -7471,9 +7801,9 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
       console.error(importError);
       setStatus(`Import stopped after ${fetchedCount.toLocaleString()} records (${pagesMerged} page${pagesMerged===1?"":"s"}): ${safe(importError.message || importError)}`);
     } else if(!startingFresh){
-      setStatus(`Imported ${fetchedCount.toLocaleString()} observations from API (cap ${maxN.toLocaleString()}) • merged: +${mergedAdded.toLocaleString()} new, ${mergedPatched.toLocaleString()} updated${totalsText}`);
+      setStatus(`Imported ${fetchedCount.toLocaleString()} observations from API (cap ${maxN.toLocaleString()})${scopeMsg} • merged: +${mergedAdded.toLocaleString()} new, ${mergedPatched.toLocaleString()} updated${totalsText}`);
     } else {
-      setStatus(`Loaded ${app.rows.length.toLocaleString()} observations from API (cap ${maxN.toLocaleString()})${totalsText}`);
+      setStatus(`Loaded ${app.rows.length.toLocaleString()} observations from API (cap ${maxN.toLocaleString()})${scopeMsg}${totalsText}`);
     }
     if(app.rows.length) scheduleWarmUp();
   }
@@ -7539,6 +7869,12 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     app.grades = grades;
     app.dateMin = dateMin;
     app.dateMax = dateMax;
+
+    // New dataset: forget any previous top-up scope and recompute an editable
+    // suggestion. apiQuery stays null so the next top-up re-opens the confirm gate.
+    app.apiQuery = null;
+    app.apiQuerySuggested = inferApiConstraints();
+    syncScopeSummary();
 
     // Default compare users
     app.compare.a = users[0] || "";
@@ -7617,13 +7953,212 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     }
   });
 
-  $("#fetchApi").addEventListener("click", async ()=>{
+  // ---- Top-up scope confirm gate ----
+  let scopePrevFocus = null;
+  let scopeWorking = null; // holds taxon_id + bbox (not simple text/checkbox inputs)
+  let scopePresentSet = new Set(); // iconic taxa present in the loaded data (for the backfill hint)
+
+  function scopeAutoUploadDate(){
+    return Number.isFinite(app.csvMaxCreatedAtTms) ? isoDate(new Date(app.csvMaxCreatedAtTms)) : "";
+  }
+
+  function collectScopeFromModal(){
+    const modal = $("#scopeModal");
+    const iconic = Array.from(modal.querySelectorAll(".scopeIconicItem input:checked")).map(cb=>cb.value);
+    const place_id = safe($("#scopePlace").value).trim();
+    const grade = $("#scopeGrade").value || "";
+    const without = safe($("#scopeExclude").value).split(",").map(x=>parseInt(x,10)).filter(Number.isFinite);
+    const taxon_id = (scopeWorking && scopeWorking.taxon_id) ? scopeWorking.taxon_id.slice() : [];
+    const bbox = ($("#scopeBboxOn").checked && !place_id && scopeWorking && scopeWorking.bbox) ? scopeWorking.bbox : null;
+    const d1 = safe($("#scopeObsFrom").value).trim();
+    const d2 = safe($("#scopeObsTo").value).trim();
+    // uploaded_since: undefined = automatic (advancing CSV cutoff); "" = backfill all;
+    // a date = a fixed floor. The field is pre-filled with the auto date, so leaving it
+    // equal to that means "automatic".
+    const upVal = safe($("#scopeUploaded").value).trim();
+    const autoDate = scopeAutoUploadDate();
+    let uploaded_since;
+    if(upVal === "") uploaded_since = "";
+    else if(upVal === autoDate) uploaded_since = undefined;
+    else uploaded_since = upVal;
+    const extra = (scopeWorking && scopeWorking.extra && Object.keys(scopeWorking.extra).length) ? scopeWorking.extra : undefined;
+    return { iconic_taxa: iconic, place_id, without_taxon_id: without, taxon_id, quality_grade: grade, bbox, d1, d2, uploaded_since, extra };
+  }
+
+  function scopeUpdateSummary(){
+    const q = collectScopeFromModal();
+    const place = safe($("#scopePlace").value).trim();
+    const note = $("#scopeBboxNote");
+    if(note) note.textContent = place ? "(ignored — a place is set)" : "";
+    // Guided backfill: if a taxon group NOT in the current data is now ticked but the
+    // upload cutoff is still set, a normal top-up won't reach existing older records of
+    // that group — point the user at "clear Uploaded since". Hides itself once backfill
+    // is on (upload field cleared).
+    const hint = $("#scopeBackfillHint");
+    if(hint){
+      const absentAdded = (q.iconic_taxa||[]).filter(k => !scopePresentSet.has(k));
+      const uploadSet = safe($("#scopeUploaded").value).trim() !== "";
+      if(absentAdded.length && uploadSet){
+        const names = absentAdded.map(k => ICONIC_LABEL[k] || k).join(", ");
+        hint.hidden = false;
+        hint.innerHTML = `You've added <strong>${escapeHtml(names)}</strong>, not in your current data. A normal top-up only fetches records <em>uploaded since your CSV</em>, so existing ${escapeHtml(names)} already on iNaturalist won't come in — <strong>clear “Uploaded since” above</strong> to backfill them (their photos then warm up automatically).`;
+      } else {
+        hint.hidden = true;
+      }
+    }
+  }
+
+  function fillScopeModal(base, presentSet, availBbox, bboxActive){
+    const grid = $("#scopeIconic");
+    grid.innerHTML = ICONIC_TAXA.map(([key,label])=>{
+      const checked = (base.iconic_taxa && base.iconic_taxa.includes(key)) ? "checked" : "";
+      const present = presentSet.has(key) ? ' <span class="present" title="present in your data">✓</span>' : '';
+      return `<label class="scopeIconicItem"><input type="checkbox" value="${key}" ${checked}/> <span>${escapeHtml(label)}${present}</span></label>`;
+    }).join("");
+    $("#scopePlace").value = base.place_id || "";
+    $("#scopeGrade").value = base.quality_grade || "";
+    $("#scopeExclude").value = (base.without_taxon_id||[]).join(",");
+    $("#scopeObsFrom").value = base.d1 || "";
+    $("#scopeObsTo").value = base.d2 || "";
+    // Uploaded-since: undefined = automatic → show the CSV cutoff; "" = backfill → blank;
+    // a fixed date → show it.
+    const autoDate = scopeAutoUploadDate();
+    $("#scopeUploaded").value = (base.uploaded_since === "") ? ""
+      : (typeof base.uploaded_since === "string" && base.uploaded_since) ? base.uploaded_since
+      : autoDate;
+    // The derived box is offered as an available value but left OFF by default on a
+    // fresh suggestion — a rectangle drawn round the current points would silently
+    // reject a legitimate new record just outside the spread, so geography is opt-in.
+    scopeWorking = { taxon_id: (base.taxon_id||[]).slice(), bbox: availBbox || null, extra: base.extra ? Object.assign({}, base.extra) : {} };
+    const bboxOn = $("#scopeBboxOn");
+    const bv = $("#scopeBboxVal");
+    bboxOn.disabled = !availBbox;
+    bboxOn.checked = !!(availBbox && bboxActive);
+    if(availBbox){
+      bv.textContent = `SW ${availBbox.swlat}, ${availBbox.swlng} · NE ${availBbox.nelat}, ${availBbox.nelng} (padded from your data) — a place ID is more accurate.`;
+    } else {
+      bv.textContent = "No coordinates in the current data to derive a box.";
+    }
+  }
+
+  function openScopeModal(){
+    scopePrevFocus = document.activeElement;
+    const src = app.apiQuery || app.apiQuerySuggested || inferApiConstraints();
+    const base = {
+      iconic_taxa: (src.iconic_taxa||[]).slice(),
+      place_id: src.place_id || "",
+      without_taxon_id: (src.without_taxon_id||[]).slice(),
+      taxon_id: (src.taxon_id||[]).slice(),
+      quality_grade: src.quality_grade || "",
+      bbox: src.bbox ? Object.assign({}, src.bbox) : null,
+      d1: src.d1 || "",
+      d2: src.d2 || "",
+      uploaded_since: src.uploaded_since,
+      extra: src.extra ? Object.assign({}, src.extra) : {}
+    };
+    const derived = inferApiConstraints();
+    const presentSet = new Set(derived.iconic_taxa);
+    scopePresentSet = presentSet;
+    // A box value is available if the saved scope has one or the data can derive one;
+    // it is "active" (ticked) only when a confirmed scope already had it on.
+    const availBbox = base.bbox || derived.bbox || null;
+    const bboxActive = !!(app.apiQuery && app.apiQuery.bbox);
+    $("#scopeUrl").value = "";
+    $("#scopeUrlNote").textContent = "Fills place and taxa exclusions exactly (e.g. without_taxon_id=47126 = no plants).";
+    fillScopeModal(base, presentSet, availBbox, bboxActive);
+    scopeUpdateSummary();
+    const startBtn = $("#scopeConfirm");
+    if(startBtn) startBtn.textContent = (scopeCurrentMode() === "full") ? "Save & start full import" : "Save & start top-up";
+    const modal = $("#scopeModal");
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden", "false");
+    document.addEventListener("keydown", scopeKeydown, true);
+    const first = $("#scopeUrl");
+    if(first) first.focus();
+  }
+
+  function closeScopeModal(){
+    const modal = $("#scopeModal");
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+    document.removeEventListener("keydown", scopeKeydown, true);
+    if(scopePrevFocus && document.contains(scopePrevFocus)){ try{ scopePrevFocus.focus(); }catch(e){} }
+  }
+
+  function scopeKeydown(e){
+    const modal = $("#scopeModal");
+    if(!modal.classList.contains("open")) return;
+    if(e.key === "Escape"){ e.preventDefault(); closeScopeModal(); return; }
+    if(e.key === "Tab"){
+      const f = Array.from(modal.querySelectorAll('button, select, input, [tabindex]:not([tabindex="-1"])'))
+        .filter(el => !el.disabled && el.offsetParent !== null);
+      if(!f.length) return;
+      const first = f[0], last = f[f.length-1];
+      if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+    }
+  }
+
+  function scopeCurrentMode(){ return ($("#apiMode") && $("#apiMode").value === "full") ? "full" : "topup"; }
+
+  // Primary: save the scope AND begin the fetch (this is the "start" button, whether the
+  // dialog opened as the first-fetch gate or via "Set / edit scope…").
+  $("#scopeConfirm").addEventListener("click", ()=>{
+    app.apiQuery = collectScopeFromModal();
+    syncScopeSummary();
+    const mode = scopeCurrentMode();
+    closeScopeModal();
+    runApiFetch(mode);
+  });
+  // Secondary: save the scope without fetching (edit now, run later).
+  $("#scopeSave").addEventListener("click", ()=>{
+    app.apiQuery = collectScopeFromModal();
+    syncScopeSummary();
+    closeScopeModal();
+  });
+  $("#scopeCancel").addEventListener("click", ()=> closeScopeModal());
+  $("#scopeModal").addEventListener("click", (e)=>{ if(e.target.id === "scopeModal") closeScopeModal(); });
+  $("#scopeModal").addEventListener("input", scopeUpdateSummary);
+  $("#scopeModal").addEventListener("change", scopeUpdateSummary);
+
+  $("#scopeUrlApply").addEventListener("click", ()=>{
+    const parsed = parseInatQuery($("#scopeUrl").value);
+    if(!Object.keys(parsed).length){
+      $("#scopeUrlNote").textContent = "No recognisable filters found in that query.";
+      return;
+    }
+    if(parsed.place_id != null) $("#scopePlace").value = parsed.place_id;
+    if(parsed.without_taxon_id) $("#scopeExclude").value = parsed.without_taxon_id.join(",");
+    if(parsed.quality_grade) $("#scopeGrade").value = parsed.quality_grade;
+    if(parsed.iconic_taxa){
+      const set = new Set(parsed.iconic_taxa);
+      $("#scopeModal").querySelectorAll(".scopeIconicItem input").forEach(cb=>{ cb.checked = set.has(cb.value); });
+    }
+    if(parsed.taxon_id) scopeWorking.taxon_id = parsed.taxon_id;
+    if(parsed.d1 != null) $("#scopeObsFrom").value = parsed.d1;
+    if(parsed.d2 != null) $("#scopeObsTo").value = parsed.d2;
+    if(parsed.extra) scopeWorking.extra = Object.assign({}, scopeWorking.extra||{}, parsed.extra);
+    if(parsed.bbox){
+      scopeWorking.bbox = parsed.bbox;
+      const bboxOn = $("#scopeBboxOn");
+      bboxOn.disabled = false;
+      bboxOn.checked = !safe($("#scopePlace").value).trim();
+      $("#scopeBboxVal").textContent = `SW ${parsed.bbox.swlat}, ${parsed.bbox.swlng} · NE ${parsed.bbox.nelat}, ${parsed.bbox.nelng} (from query)`;
+    }
+    // Fill the panel's Usernames / Project from the query (the export's source of truth).
+    const filled = [];
+    if(parsed.user_id && parsed.user_id.length){ const el=$("#apiUsers"); if(el){ el.value = parsed.user_id.join(", "); filled.push("users"); } }
+    if(parsed.project){ const el=$("#apiProject"); if(el){ el.value = parsed.project; filled.push("project"); } }
+    $("#scopeUrlNote").textContent = "Applied filters from the query" + (filled.length ? " (also filled "+filled.join(" + ")+")." : ".");
+    scopeUpdateSummary();
+  });
+
+  async function runApiFetch(mode){
     if(app.apiFetchActive) return; // an import/top-up is already running
     const fetchBtn = $("#fetchApi");
     app.apiFetchActive = true;
     if(fetchBtn){ fetchBtn.disabled = true; fetchBtn.setAttribute("aria-busy", "true"); }
     try{
-      const mode = ($("#apiMode") && $("#apiMode").value) ? $("#apiMode").value : "topup";
       if(mode === "full"){
         await loadFromApi();
       }else{
@@ -7631,7 +8166,6 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
       }
     }catch(err){
       console.error(err);
-      const mode = ($("#apiMode") && $("#apiMode").value) ? $("#apiMode").value : "topup";
       const label = (mode === "full") ? "API import" : "API top-up";
       setStatus(label + " failed: " + safe(err && (err.message || err)));
       alert(label + " failed:\n\n" + safe(err && (err.message || err)));
@@ -7639,7 +8173,21 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
       app.apiFetchActive = false;
       if(fetchBtn){ fetchBtn.disabled = false; fetchBtn.removeAttribute("aria-busy"); }
     }
+  }
+
+  $("#fetchApi").addEventListener("click", ()=>{
+    if(app.apiFetchActive) return;
+    const mode = ($("#apiMode") && $("#apiMode").value) ? $("#apiMode").value : "topup";
+    // First fetch on a dataset opens the scope gate (nothing applied silently); the
+    // gate's "Save & start" button begins the fetch. Once a scope exists, run straight away.
+    if(app.apiQuery == null){
+      openScopeModal();
+    } else {
+      runApiFetch(mode);
+    }
   });
+
+  $("#apiScopeBtn").addEventListener("click", ()=> openScopeModal());
 $("#apiUsers").addEventListener("blur", async ()=>{
     const u = parseUserList($("#apiUsers").value || "");
     if(!u.length){ const el=$("#apiTotals"); if(el) el.textContent=""; return; }

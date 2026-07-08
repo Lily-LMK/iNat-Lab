@@ -20,9 +20,18 @@ python3 -m http.server 8000
 Then either **Load new…** to open an iNaturalist CSV export, or use the **Add records** panel
 to pull records live by username and/or project.
 
+The first API fetch on a dataset opens a **Top-up scope** dialog so the fetch reproduces the
+filter that made your CSV (a CSV export is only the rows that passed a filter — the filter
+itself, e.g. a place or "no plants", isn't in the file). Paste the **Query** string from
+iNaturalist's Export page to fill it exactly, or edit the inferred suggestion. It also carries an
+**observed date range** and an **"Uploaded since"** boundary — clear the latter to *backfill*
+older in-scope records already on iNaturalist (handy after you widen the scope, e.g. adding
+plants). See [Top-up scope](#top-up-scope).
+
 ## What it does
 
-- **Ingest** — iNaturalist CSV export, or live API top-up by username(s) / project.
+- **Ingest** — iNaturalist CSV export, or live API top-up by username(s) / project, constrained
+  by a **Top-up scope** that reproduces the CSV's original iNat query.
 - **Filter** — kingdom → phylum → class → order → superfamily → family → subfamily → tribe →
   genus → species, plus user, quality grade, date range, and free-text search. Active filters
   show as a chip bar you can clear individually or all at once.
@@ -37,6 +46,31 @@ to pull records live by username and/or project.
   photo cache so a loaded set stays explorable offline. Your data is never cached to the repo —
   only the app shell and your own session's fetched media. See
   [Offline & caching](#offline--caching) for what's stored and how to confirm it.
+
+## Top-up scope
+
+A CSV export from iNaturalist is only the **rows that passed a filter** — the filter (a place,
+"no plants", a quality grade, an observed-date window) isn't recorded in the file. So a naive
+top-up, which can only fetch by username + date, would pull records the original export would
+have excluded (a tracked observer's overseas trip, plants you'd deliberately left out).
+
+To prevent that, the first API fetch on a dataset opens a **Top-up scope** dialog. Nothing is
+applied silently — you confirm it, and it's then reused for later fetches (edit it any time via
+**Set / edit scope…**).
+
+- **Paste the Export Query** — the most accurate option. iNaturalist's Export page shows a
+  **Query** field (e.g. `has[]=photos&quality_grade=research&iconic_taxa[]=Insecta&place_id=…&without_taxon_id=47126&d1=2024-01-01&…`).
+  Paste it and press **Read query** to fill taxa, place, exclusions, dates, and the
+  Usernames/Project fields exactly.
+- **Taxa** — every iconic group is a checkbox; groups present in your data are pre-ticked and
+  marked ✓. Tick a group you expect but haven't observed yet so it stays reachable.
+- **Place / bounding box** — a `place_id` is precise; a bounding box derived from your data is
+  offered as a fallback but left **off by default** (a rectangle round your current points would
+  silently reject a legitimate new record just outside them).
+- **Observed date range** (`d1`/`d2`) — leave "To" blank for "up to now".
+- **Uploaded since** — the top-up boundary. Defaults to your CSV export; records uploaded after
+  it are fetched even if observed long ago. **Clear it to backfill** older in-scope records
+  already on iNaturalist — use after widening the scope (e.g. adding plants).
 
 ## Data sources
 
