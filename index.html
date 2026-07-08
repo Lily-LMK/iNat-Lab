@@ -734,7 +734,6 @@
     }
     .scopeHead{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:12px; }
     .scopeTitle{ font-family: var(--heading); font-weight:700; font-size:15px; color:var(--ink); }
-    #scopeIntro{ margin-top:4px; line-height:1.4; }
     .scopeBody{ display:flex; flex-direction:column; gap:16px; }
     .scopeSection{ display:flex; flex-direction:column; gap:6px; }
     .scopeLabel{ font-size:12px; font-weight:600; color:var(--ink-2); }
@@ -751,10 +750,6 @@
     .scopeIconicItem input{ margin:0; }
     .scopeIconicItem .present{ color:var(--user-a); font-weight:700; }
     .scopeCheck{ display:flex; align-items:center; gap:7px; font-size:13px; color:var(--ink); cursor:pointer; }
-    .scopeSummaryLine{
-      font-size:12px; color:var(--muted); line-height:1.4;
-      border-top:1px solid var(--hair); padding-top:10px;
-    }
     .scopeHint{
       font-size:12px; line-height:1.45; color:var(--ink-2);
       background:var(--accent-soft); border-left:2px solid var(--accent-line);
@@ -1788,7 +1783,6 @@
     <div class="scopeHead">
       <div>
         <div class="scopeTitle" id="scopeTitle">Top-up scope</div>
-        <div class="small muted" id="scopeIntro">A CSV export doesn't record the filter that made it. Set the scope once so a top-up fetches only records that match your original iNaturalist query — not every new record by these users.</div>
       </div>
       <button class="close" id="scopeCancel" type="button">Cancel</button>
     </div>
@@ -1852,8 +1846,6 @@
         <label class="scopeCheck"><input type="checkbox" id="scopeBboxOn"/> Limit to a bounding box <span class="muted small" id="scopeBboxNote"></span></label>
         <div class="small muted" id="scopeBboxVal" style="margin-top:2px;"></div>
       </div>
-
-      <div class="scopeSummaryLine" id="scopeSummaryLive"></div>
     </div>
 
     <div class="scopeActions">
@@ -7992,8 +7984,6 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
 
   function scopeUpdateSummary(){
     const q = collectScopeFromModal();
-    const live = $("#scopeSummaryLive");
-    if(live) live.textContent = "Top-up will fetch: " + describeApiQuery(q) + ".";
     const place = safe($("#scopePlace").value).trim();
     const note = $("#scopeBboxNote");
     if(note) note.textContent = place ? "(ignored — a place is set)" : "";
