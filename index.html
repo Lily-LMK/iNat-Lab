@@ -722,19 +722,22 @@
       z-index: 9999;
     }
     .modal.open{ display:flex; }
-    /* Top-up scope dialog — single column. Selector is .dialog.scopeDialog (specificity
-       0,2,0) so it beats the base .dialog two-col grid regardless of source order. */
+    /* Top-up scope dialog — single column, flex layout: fixed header, a scrolling body,
+       and a fixed footer that content can never slide under. Selector is
+       .dialog.scopeDialog (specificity 0,2,0) so it beats the base .dialog two-col grid
+       regardless of source order; the dialog itself doesn't scroll (overflow:hidden). */
     .dialog.scopeDialog{
-      display:block;
+      display:flex;
+      flex-direction:column;
       grid-template-columns:none;
       width: min(620px, 96vw);
       max-height: min(90vh, 820px);
-      padding: 20px 22px 16px;
-      overflow:auto;
+      padding:0;
+      overflow:hidden;
     }
-    .scopeHead{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:12px; }
+    .scopeHead{ flex:0 0 auto; display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:20px 22px 12px; }
     .scopeTitle{ font-family: var(--heading); font-weight:700; font-size:15px; color:var(--ink); }
-    .scopeBody{ display:flex; flex-direction:column; gap:16px; }
+    .scopeBody{ flex:1 1 auto; overflow:auto; display:flex; flex-direction:column; gap:16px; padding:4px 22px 16px; }
     .scopeSection{ display:flex; flex-direction:column; gap:6px; }
     .scopeLabel{ font-size:12px; font-weight:600; color:var(--ink-2); }
     .scopeDialog input[type=text], .scopeDialog select{
@@ -756,9 +759,9 @@
       border-radius:0 6px 6px 0; padding:8px 10px; margin-top:6px;
     }
     .scopeActions{
-      position:sticky; bottom:0;
+      flex:0 0 auto;
       display:flex; justify-content:flex-end; gap:10px; align-items:center;
-      margin:16px -22px -16px; padding:12px 22px 16px;
+      padding:14px 22px 18px;
       background:var(--panel); border-top:1px solid var(--hair);
     }
     @media (max-width:520px){
