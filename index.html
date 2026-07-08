@@ -722,13 +722,14 @@
       z-index: 9999;
     }
     .modal.open{ display:flex; }
-    /* Top-up scope dialog — single column, overrides .dialog's two-col image grid */
-    .scopeDialog{
+    /* Top-up scope dialog — single column. Selector is .dialog.scopeDialog (specificity
+       0,2,0) so it beats the base .dialog two-col grid regardless of source order. */
+    .dialog.scopeDialog{
       display:block;
       grid-template-columns:none;
-      width: min(560px, 96vw);
-      max-height: min(88vh, 760px);
-      padding: 18px 20px 16px;
+      width: min(620px, 96vw);
+      max-height: min(90vh, 820px);
+      padding: 20px 22px 16px;
       overflow:auto;
     }
     .scopeHead{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:12px; }
@@ -754,10 +755,15 @@
       font-size:12px; color:var(--muted); line-height:1.4;
       border-top:1px solid var(--hair); padding-top:10px;
     }
+    .scopeHint{
+      font-size:12px; line-height:1.45; color:var(--ink-2);
+      background:var(--accent-soft); border-left:2px solid var(--accent-line);
+      border-radius:0 6px 6px 0; padding:8px 10px; margin-top:6px;
+    }
     .scopeActions{
       position:sticky; bottom:0;
       display:flex; justify-content:flex-end; gap:10px; align-items:center;
-      margin:16px -20px -16px; padding:12px 20px 16px;
+      margin:16px -22px -16px; padding:12px 22px 16px;
       background:var(--panel); border-top:1px solid var(--hair);
     }
     @media (max-width:520px){
@@ -1839,6 +1845,7 @@
         <div class="scopeLabel">Uploaded since <span class="muted small">— the top-up boundary</span></div>
         <input id="scopeUploaded" type="date"/>
         <div class="small muted" id="scopeUploadedNote">Defaults to your CSV export. Records uploaded after this date are fetched (even if observed long ago). <strong>Clear it</strong> to backfill older in-scope records already on iNaturalist — use after widening the scope, e.g. adding plants.</div>
+        <div class="scopeHint" id="scopeBackfillHint" hidden></div>
       </div>
 
       <div class="scopeSection">
@@ -7954,6 +7961,7 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
   // ---- Top-up scope confirm gate ----
   let scopePrevFocus = null;
   let scopeWorking = null; // holds taxon_id + bbox (not simple text/checkbox inputs)
+  let scopePresentSet = new Set(); // iconic taxa present in the loaded data (for the backfill hint)
 
   function scopeAutoUploadDate(){
     return Number.isFinite(app.csvMaxCreatedAtTms) ? isoDate(new Date(app.csvMaxCreatedAtTms)) : "";
@@ -7989,6 +7997,22 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     const place = safe($("#scopePlace").value).trim();
     const note = $("#scopeBboxNote");
     if(note) note.textContent = place ? "(ignored — a place is set)" : "";
+    // Guided backfill: if a taxon group NOT in the current data is now ticked but the
+    // upload cutoff is still set, a normal top-up won't reach existing older records of
+    // that group — point the user at "clear Uploaded since". Hides itself once backfill
+    // is on (upload field cleared).
+    const hint = $("#scopeBackfillHint");
+    if(hint){
+      const absentAdded = (q.iconic_taxa||[]).filter(k => !scopePresentSet.has(k));
+      const uploadSet = safe($("#scopeUploaded").value).trim() !== "";
+      if(absentAdded.length && uploadSet){
+        const names = absentAdded.map(k => ICONIC_LABEL[k] || k).join(", ");
+        hint.hidden = false;
+        hint.innerHTML = `You've added <strong>${escapeHtml(names)}</strong>, not in your current data. A normal top-up only fetches records <em>uploaded since your CSV</em>, so existing ${escapeHtml(names)} already on iNaturalist won't come in — <strong>clear “Uploaded since” above</strong> to backfill them (their photos then warm up automatically).`;
+      } else {
+        hint.hidden = true;
+      }
+    }
   }
 
   function fillScopeModal(base, presentSet, availBbox, bboxActive){
@@ -8041,6 +8065,7 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     };
     const derived = inferApiConstraints();
     const presentSet = new Set(derived.iconic_taxa);
+    scopePresentSet = presentSet;
     // A box value is available if the saved scope has one or the data can derive one;
     // it is "active" (ticked) only when a confirmed scope already had it on.
     const availBbox = base.bbox || derived.bbox || null;
