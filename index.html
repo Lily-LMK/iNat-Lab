@@ -754,7 +754,12 @@
       font-size:12px; color:var(--muted); line-height:1.4;
       border-top:1px solid var(--hair); padding-top:10px;
     }
-    .scopeActions{ display:flex; justify-content:flex-end; gap:10px; margin-top:16px; }
+    .scopeActions{
+      position:sticky; bottom:0;
+      display:flex; justify-content:flex-end; gap:10px; align-items:center;
+      margin:16px -20px -16px; padding:12px 20px 16px;
+      background:var(--panel); border-top:1px solid var(--hair);
+    }
     @media (max-width:520px){
       .scopeGrid2, .scopeIconicGrid{ grid-template-columns:1fr; }
     }
@@ -1845,7 +1850,8 @@
     </div>
 
     <div class="scopeActions">
-      <button type="button" id="scopeConfirm" class="primary">Confirm scope</button>
+      <button type="button" id="scopeSave" class="smallBtn">Save scope only</button>
+      <button type="button" id="scopeConfirm" class="primary">Save &amp; start top-up</button>
     </div>
   </div>
 </div>
@@ -7946,7 +7952,6 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
   });
 
   // ---- Top-up scope confirm gate ----
-  let scopeOnConfirm = null;
   let scopePrevFocus = null;
   let scopeWorking = null; // holds taxon_id + bbox (not simple text/checkbox inputs)
 
@@ -8019,9 +8024,7 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     }
   }
 
-  function openScopeModal(opts){
-    opts = opts || {};
-    scopeOnConfirm = (typeof opts.onConfirm === "function") ? opts.onConfirm : null;
+  function openScopeModal(){
     scopePrevFocus = document.activeElement;
     const src = app.apiQuery || app.apiQuerySuggested || inferApiConstraints();
     const base = {
@@ -8046,6 +8049,8 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     $("#scopeUrlNote").textContent = "Fills place and taxa exclusions exactly (e.g. without_taxon_id=47126 = no plants).";
     fillScopeModal(base, presentSet, availBbox, bboxActive);
     scopeUpdateSummary();
+    const startBtn = $("#scopeConfirm");
+    if(startBtn) startBtn.textContent = (scopeCurrentMode() === "full") ? "Save & start full import" : "Save & start top-up";
     const modal = $("#scopeModal");
     modal.classList.add("open");
     modal.setAttribute("aria-hidden", "false");
@@ -8059,7 +8064,6 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     modal.classList.remove("open");
     modal.setAttribute("aria-hidden", "true");
     document.removeEventListener("keydown", scopeKeydown, true);
-    scopeOnConfirm = null;
     if(scopePrevFocus && document.contains(scopePrevFocus)){ try{ scopePrevFocus.focus(); }catch(e){} }
   }
 
@@ -8077,12 +8081,22 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     }
   }
 
+  function scopeCurrentMode(){ return ($("#apiMode") && $("#apiMode").value === "full") ? "full" : "topup"; }
+
+  // Primary: save the scope AND begin the fetch (this is the "start" button, whether the
+  // dialog opened as the first-fetch gate or via "Set / edit scope…").
   $("#scopeConfirm").addEventListener("click", ()=>{
     app.apiQuery = collectScopeFromModal();
     syncScopeSummary();
-    const cb = scopeOnConfirm;
+    const mode = scopeCurrentMode();
     closeScopeModal();
-    if(cb) cb();
+    runApiFetch(mode);
+  });
+  // Secondary: save the scope without fetching (edit now, run later).
+  $("#scopeSave").addEventListener("click", ()=>{
+    app.apiQuery = collectScopeFromModal();
+    syncScopeSummary();
+    closeScopeModal();
   });
   $("#scopeCancel").addEventListener("click", ()=> closeScopeModal());
   $("#scopeModal").addEventListener("click", (e)=>{ if(e.target.id === "scopeModal") closeScopeModal(); });
@@ -8146,16 +8160,16 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
   $("#fetchApi").addEventListener("click", ()=>{
     if(app.apiFetchActive) return;
     const mode = ($("#apiMode") && $("#apiMode").value) ? $("#apiMode").value : "topup";
-    // First fetch on a dataset opens the scope gate (nothing applied silently);
-    // once confirmed, app.apiQuery is reused and the fetch runs straight away.
+    // First fetch on a dataset opens the scope gate (nothing applied silently); the
+    // gate's "Save & start" button begins the fetch. Once a scope exists, run straight away.
     if(app.apiQuery == null){
-      openScopeModal({ onConfirm: ()=> runApiFetch(mode) });
+      openScopeModal();
     } else {
       runApiFetch(mode);
     }
   });
 
-  $("#apiScopeBtn").addEventListener("click", ()=> openScopeModal({}));
+  $("#apiScopeBtn").addEventListener("click", ()=> openScopeModal());
 $("#apiUsers").addEventListener("blur", async ()=>{
     const u = parseUserList($("#apiUsers").value || "");
     if(!u.length){ const el=$("#apiTotals"); if(el) el.textContent=""; return; }

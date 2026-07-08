@@ -127,9 +127,14 @@ real iNaturalist API params on every fetch.
 
 - **`app.apiQuery` constraint set + a confirm gate.** The first API fetch on a dataset opens a
   **"Top-up scope"** modal (`#scopeModal`) instead of fetching — nothing is applied silently.
-  Confirm writes `app.apiQuery`; later fetches reuse it (edit via **Set / edit scope…**
-  `#apiScopeBtn`). `loadCSVFile` resets `app.apiQuery=null` per dataset and seeds an editable
-  suggestion (`app.apiQuerySuggested`).
+  The modal has a **sticky footer** with two buttons: **Save & start top-up/import**
+  (`#scopeConfirm` — writes `app.apiQuery` *and* runs `runApiFetch(mode)`; label tracks
+  `#apiMode`) and **Save scope only** (`#scopeSave` — writes scope, no fetch). Later fetches with
+  a scope set run straight from the panel **Top-up** button (edit any time via **Set / edit
+  scope…** `#apiScopeBtn`). `loadCSVFile` resets `app.apiQuery=null` per dataset and seeds an
+  editable suggestion (`app.apiQuerySuggested`). *(The confirm button is the "start" action —
+  Lily flagged that an earlier single "Confirm scope" button below the fold gave no obvious way
+  to begin the fetch; hence the sticky footer + explicit start label.)*
 - **Inference is a suggestion, not silent truth.** `inferApiConstraints()` scans `app.rows` for
   present iconic taxa (pre-ticked, ✓-marked), a homogeneous grade, and a padded bbox — but the
   **bbox is opt-in / unticked by default** (a rectangle round current points would silently drop
