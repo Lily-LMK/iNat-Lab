@@ -161,13 +161,18 @@ real iNaturalist API params on every fetch.
   empty scope = back-compat no params), console clean; light+dark modal screenshots good. Same
   CDP gotchas as before (IIFE → monkey-patch `window.fetch` + assert via DOM;
   `Network.setBypassServiceWorker` **and** `setCacheDisabled` or the stale shell/old file is
-  served). Plan: `~/.claude/plans/we-re-working-in-inat-effervescent-crown.md`. **Next (bug, Lily
-  2026-07-08):** API-imported records are missing every taxonomic rank **above Order** —
-  Kingdom, Phylum, Class (and Superfamily) are blank. Root cause: `obsToRowObj` (~line 6954)
-  only emits `taxon_order_name`…`taxon_species_name`; add the upper ranks via
-  `rankFromTaxon(taxon, "kingdom"|"phylum"|"class"|"superfamily")`. Full write-up in
-  `docs/NEXT-SESSION.md` → "Start here next". Phase 2 (c) clustering + spiderfy back-burnered
-  behind it.
+  served). Plan: `~/.claude/plans/we-re-working-in-inat-effervescent-crown.md`.
+
+**Follow-up fix (same day — branch `api-upper-taxon-ranks`, commit `53c775b`):** API-imported
+records were missing every taxonomic rank **above Order** (Kingdom/Phylum/Class/Superfamily blank,
+so invisible to those filter dropdowns, the Taxa tree, and Field-Guide Browse-by; breadcrumbs
+started at Order). `obsToRowObj` (~line 6954) only emitted `taxon_order_name`…`taxon_species_name`;
+added the four upper ranks via the existing `rankFromTaxon(taxon, "kingdom"|"phylum"|"class"|
+"superfamily")`, reading the ancestry `enrichTaxaForObservations` backfills before merge (CSV
+records were always fine — `buildRowObj` spreads all 10 ranks). Superfamily is often blank in iNat
+ancestry — correct. Verified against the **live iNat API** (real full import populates the
+Kingdom/Phylum/Class filters + a full record breadcrumb; 7/7) plus 42/42 + 36/36 stubbed suites.
+**Next:** Phase 2 (c) clustering + spiderfy (back-burnered).
 
 **Earlier — API ingest fixes: incremental import, top-up date-filter fix, map-box
 clear** (branch `api-incremental-import`, commits `60f9e06` + `78d108c`, **merged to `main`
