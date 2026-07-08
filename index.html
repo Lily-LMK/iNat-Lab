@@ -1138,6 +1138,15 @@
     .treeNodeName em{ font-style:italic; }
     .treeNodeName:focus-visible{ outline:2px solid var(--ink); outline-offset:2px; border-radius:2px; }
 
+    /* Rank-appropriate common name beside the scientific name; muted, single line,
+       ellipsis when long (full text in the title attribute). min-width:0 lets a
+       flex item actually shrink and ellipsis. */
+    .treeNodeCommon{
+      flex:0 1 auto; min-width:0;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      font-size:12px; color:var(--muted); font-weight:400;
+    }
+
     .treeBadge{ font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; }
     .treeRankLabel{
       font-size:9px; font-weight:600; letter-spacing:.1em;
@@ -1264,6 +1273,14 @@
       line-height: 1.1;
       margin: 0;
     }
+    /* Common name under the focus title. flex-basis:100% pushes it onto its own
+       line within the flex-wrap guideHeader (beneath the scientific title). */
+    .guideSubtitle{
+      flex-basis: 100%;
+      font-family: var(--sans);
+      font-size: 13px; color: var(--muted);
+      margin: 2px 0 0;
+    }
     .guideCrumb{
       font-family: var(--sans);
       font-size: 12px;
@@ -1388,6 +1405,15 @@
     .guideCard .gc-body{ padding: 10px; }
     .guideCard .nm{ font-weight: 600; font-family: var(--font); line-height: 1.25; font-size: 13px; }
     .guideCard .sm{ font-size: 11px; color: var(--muted); margin-top: 4px; font-family: var(--sans); }
+    /* Rank-appropriate common name (iNat, verbatim) under the taxon name on Field
+       Guide index tiles and focus child tiles. Muted; higher-rank names can be long,
+       so clamp to two lines. Blank line simply isn't rendered. */
+    .gc-com{
+      font-size: 11px; color: var(--ink-2); font-family: var(--sans);
+      line-height: 1.25; margin-top: 2px;
+      display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+      overflow: hidden;
+    }
 
     .monthBars{
       display:flex;
@@ -2719,6 +2745,7 @@
     compare: { enabled:false, a:"", b:"", mode:"all" },
     warmUp: { active:false, cancel:false, done:0, total:0 },
     taxonPhotos: new Map(), // taxonId -> {url, attribution, license}: iNat default_photo per taxon (Field Guide)
+    taxonCommon: new Map(), // "rank|lowername" -> common name: iNat preferred_common_name, rank-appropriate, harvested during warm-up
     view: "records",
     page: 1,
     pageSize: 500,
@@ -2876,9 +2903,48 @@
   // same cache so photos remain referenceable offline across sessions.
   const TAXON_PHOTO_CACHE = "inatlab-taxon-photos-v1";
   const TAXON_META_KEY    = "/__inatlab_taxon_photo_index__"; // synthetic same-origin cache key; never network-fetched
+  const TAXON_COMMON_KEY  = "/__inatlab_taxon_common_index__"; // synthetic key for the common-name index, same durable bucket
   const TAXON_PHOTO_CAP   = 6000;
 
+  // Locale bias for iNat Taxa fetches: Australian English where iNat has a local
+  // name, else global English. 6744 = Australia. Applied to the warm-up + lineage
+  // URLs so preferred_common_name (taxon AND ancestors) reflects Australian usage.
+  const INAT_LOCALE_PARAMS = "locale=en&preferred_place_id=6744";
+
   let _taxonMetaSaveTimer = null;
+  let _taxonCommonSaveTimer = null;
+
+  // Common-name store keyed by "rank|lowername" so a genus and a family sharing a
+  // stem never cross-label (homonym-safe); every render site knows its own rank
+  // and rebuilds the same key. RANKS[i][0] lowercased ("family","genus"…) already
+  // equals iNat's ancestor rank strings, so harvest and lookup keys line up.
+  function commonKey(rank, name){
+    return `${safe(rank).trim().toLowerCase()}|${safe(name).trim().toLowerCase()}`;
+  }
+  // Look up a rank-appropriate common name for a taxon named `name` at RANKS[rankIdx].
+  // Returns "" when absent (a blank beats a mislabel — house rule).
+  function commonNameFor(rankIdx, name){
+    const rk = RANKS[rankIdx] && RANKS[rankIdx][0];
+    const nm = safe(name).trim();
+    if(!rk || !nm) return "";
+    return safe(app.taxonCommon.get(commonKey(rk, nm))).trim();
+  }
+  // Walk a Taxa-API results array (each result + its ancestors) and record every
+  // rank-appropriate common name. Idempotent; safe to call repeatedly.
+  function harvestCommonNames(results){
+    if(!Array.isArray(results)) return;
+    const put = (t)=>{
+      if(!t || !t.rank || !t.name) return;
+      const cn = safe(t.preferred_common_name).trim();
+      if(!cn) return;
+      app.taxonCommon.set(commonKey(t.rank, t.name), cn);
+    };
+    for(const t of results){
+      if(!t) continue;
+      put(t);
+      if(Array.isArray(t.ancestors)) for(const a of t.ancestors) put(a);
+    }
+  }
 
   // Hydrate app.taxonPhotos from the durable meta-index (once, at startup).
   async function loadTaxonPhotoIndex(){
@@ -2906,6 +2972,40 @@
         for(const [id, meta] of app.taxonPhotos) obj[id] = meta;
         const cache = await caches.open(TAXON_PHOTO_CACHE);
         await cache.put(TAXON_META_KEY, new Response(JSON.stringify(obj), {
+          headers: { "content-type": "application/json" }
+        }));
+      }catch(e){ /* best-effort persistence */ }
+    }, 1500);
+  }
+
+  // Hydrate app.taxonCommon from the durable common-name index (once, at startup).
+  // Stored under a separate synthetic key inside the same TAXON_PHOTO_CACHE bucket,
+  // so it survives SW activation without any sw.js change.
+  async function loadTaxonCommonIndex(){
+    if(!("caches" in window)) return;
+    try{
+      const cache = await caches.open(TAXON_PHOTO_CACHE);
+      const resp = await cache.match(TAXON_COMMON_KEY);
+      if(!resp) return;
+      const obj = await resp.json();
+      if(obj && typeof obj === "object"){
+        for(const [key, name] of Object.entries(obj)){
+          if(key && name) app.taxonCommon.set(key, name);
+        }
+      }
+    }catch(e){ /* cache unavailable or corrupt index — start empty */ }
+  }
+
+  // Persist the whole common-name map as one small JSON blob (debounced).
+  function saveTaxonCommonIndex(){
+    if(!("caches" in window)) return;
+    clearTimeout(_taxonCommonSaveTimer);
+    _taxonCommonSaveTimer = setTimeout(async ()=>{
+      try{
+        const obj = {};
+        for(const [key, name] of app.taxonCommon) obj[key] = name;
+        const cache = await caches.open(TAXON_PHOTO_CACHE);
+        await cache.put(TAXON_COMMON_KEY, new Response(JSON.stringify(obj), {
           headers: { "content-type": "application/json" }
         }));
       }catch(e){ /* best-effort persistence */ }
@@ -2990,6 +3090,8 @@
     /* Ensure the durable photo index is hydrated so we can skip already-warmed
        taxa (resumable across reloads; free for overlapping datasets). */
     if(!app.taxonPhotos.size) await loadTaxonPhotoIndex();
+    /* Same for the common-name index, so harvested names merge onto what's stored. */
+    if(!app.taxonCommon.size) await loadTaxonCommonIndex();
 
     /* Unique taxon ids across the loaded rows, capped. The representative photo
        is iNat's own default_photo per taxon (fetched from the Taxa API), so the
@@ -3035,8 +3137,11 @@
       app.warmUp.active = false;
       updateWarmUpUI();
       saveTaxonPhotoIndex();
-      /* Fill in tiles live if the Field Guide is the current view. */
-      if(app.view === "guide") render();
+      saveTaxonCommonIndex();
+      /* Single end-of-pass render fills tiles/cards with the warmed photos and
+         harvested common names. Photos only matter on the Field Guide, but common
+         names also land on Records cards and the Taxa tree, so render for any view. */
+      render();
     }).catch(()=>{
       app.warmUp.active = false;
       updateWarmUpUI();
@@ -3769,10 +3874,15 @@ function refreshStaticFilters(){
           ? `<div class="thumb"><img loading="lazy" src="${escapeAttr(repImg)}" alt=""/></div>`
           : `<div class="thumb"><div class="thumb-placeholder"><svg class="ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="1.5"/><circle cx="8.5" cy="10" r="1.4"/><path d="M4 16.5l4.5-4 3.5 3 3-2.5 5 4.5"/></svg></div></div>`;
 
+        // Rank-appropriate common name (iNat, verbatim): a family tile shows the
+        // family's name, an order tile the order's, etc. Blank when iNat has none.
+        const gCommon = commonNameFor(rankIdx, g.name);
+        const gComHtml = gCommon ? `<div class="gc-com">${escapeHtml(gCommon)}</div>` : "";
         card.innerHTML = `
           ${thumbHtml}
           <div class="gc-body">
             <div class="nm">${rankIdx >= 8 ? '<em>' + escapeHtml(g.name) + '</em>' : escapeHtml(g.name)}</div>
+            ${gComHtml}
             <div class="sm">${escapeHtml(GUIDE_RANKS[rankIdx][0])} • ${g.count.toLocaleString()} records • ${escapeHtml(span)}</div>
           </div>
         `;
@@ -3827,7 +3937,10 @@ function refreshStaticFilters(){
     const title = (focus.rankIdx===9 && rep) ? formatName(rep) : focus.value;
     const titleHtml = (focus.rankIdx >= 8) ? `<em>${escapeHtml(title)}</em>` : escapeHtml(title);
 
-    header.innerHTML = `<h2 class="guideTitle">${titleHtml}</h2>`;
+    // Rank-appropriate common name for the focus taxon, as a muted subtitle.
+    const focusCommon = commonNameFor(focus.rankIdx, focus.value);
+    const focusComHtml = focusCommon ? `<div class="guideSubtitle">${escapeHtml(focusCommon)}</div>` : "";
+    header.innerHTML = `<h2 class="guideTitle">${titleHtml}</h2>${focusComHtml}`;
     wrap.appendChild(header);
 
     // Compact header: the navigation controls sit at the top of the panel,
@@ -3997,11 +4110,15 @@ function refreshStaticFilters(){
             const isItalic = (g.rankIdx >= 8);
             const nmHtml = isItalic ? `<em>${escapeHtml(g.nm)}</em>` : escapeHtml(g.nm);
             const rankLabel = isMixed ? `<span class="muted" style="font-size:10px;">${escapeHtml(GUIDE_RANKS[g.rankIdx][0])}</span> · ` : "";
+            // Rank-appropriate common name (iNat, verbatim); blank when absent.
+            const cCommon = commonNameFor(g.rankIdx, g.nm);
+            const cComHtml = cCommon ? `<div class="gc-com">${escapeHtml(cCommon)}</div>` : "";
             return `
               <div class="childTile fgChildTile" data-path="${escapeAttr(pk)}" data-rank="${g.rankIdx}" title="Show records for ${escapeAttr(g.nm)}">
                 <div class="thumb">${img}</div>
                 <div class="meta">
                   <div class="name">${nmHtml}</div>
+                  ${cComHtml}
                   <div class="count">${rankLabel}${g.count.toLocaleString()} records</div>
                   ${credit}
                 </div>
@@ -4293,7 +4410,11 @@ function refreshStaticFilters(){
       // Build the richer card layout matching earlier design
       // Italics rule: genus and species names get italic, other taxon ranks do not
       const sciName = safe(r._sci).trim();
-      const commonName = safe(r._common).trim();
+      // Prefer the row's own common name (from CSV/API import); when absent, backfill
+      // from the warm-up store at the record's finest rank (species, else genus).
+      const commonName = safe(r._common).trim()
+        || commonNameFor(9, safe(r.taxon_species_name).trim() || sciName)
+        || commonNameFor(8, safe(r.taxon_genus_name).trim());
       const hasSpeciesOrGenus = safe(r.taxon_species_name).trim() !== "" || safe(r.taxon_genus_name).trim() !== "";
 
       // Format the primary name: italic for genus/species level, normal for higher
@@ -4473,15 +4594,21 @@ function refreshStaticFilters(){
     const LEAF_SPACER = `<span style="flex:none;width:14px;" aria-hidden="true"></span>`;
 
     // Item 1: label order is now Name · Rank · N records
-    function treeRowHTML(nameHtml, pathKey, count, label, expandable){
+    function treeRowHTML(nameHtml, pathKey, count, label, expandable, common){
       const escapedName = escapeAttr(nameHtml.replace(/<[^>]+>/g, ""));
       const countStr = count === 1 ? "1 record" : count.toLocaleString() + " records";
+      // Rank-appropriate common name (iNat, verbatim). Single-line row, so ellipsis
+      // with the full name in the title rather than wrapping; blank when absent.
+      const comHtml = common
+        ? `<span class="treeNodeCommon" title="${escapeAttr(common)}">${escapeHtml(common)}</span>`
+        : "";
       const actions = `<div class="treeActions">
         <button class="treeGuideBtn" data-path="${escapeAttr(pathKey)}" title="Open Field Guide">Guide</button>
       </div>`;
       return `
         ${expandable ? CHEVRON_SVG : LEAF_SPACER}
         <button class="treeNodeName" data-path="${escapeAttr(pathKey)}" title="Filter records to ${escapedName}">${nameHtml}</button>
+        ${comHtml}
         <span class="treeRankLabel">${escapeHtml(label)}</span>
         <span class="treeBadge">${countStr}</span>
         ${actions}`;
@@ -4568,10 +4695,11 @@ function refreshStaticFilters(){
         const label = GUIDE_RANKS[node.rankIdx] ? GUIDE_RANKS[node.rankIdx][0] : "";
         const isItalic = node.rankIdx >= 8; // genus=8, species=9
         const nameHtml = isItalic ? `<em>${escapeHtml(node.name)}</em>` : escapeHtml(node.name);
+        const common = commonNameFor(node.rankIdx, node.name);
 
         const summary = document.createElement("summary");
         summary.className = "treeRow";
-        summary.innerHTML = treeRowHTML(nameHtml, pathKey, node.count, label, true);
+        summary.innerHTML = treeRowHTML(nameHtml, pathKey, node.count, label, true, common);
         summary.addEventListener("click", e => onRowClick(e, pathKey));
         details.appendChild(summary);
 
@@ -4598,10 +4726,11 @@ function refreshStaticFilters(){
         const label = GUIDE_RANKS[node.rankIdx] ? GUIDE_RANKS[node.rankIdx][0] : "";
         const isItalic = node.rankIdx >= 8; // genus=8, species=9
         const nameHtml = isItalic ? `<em>${escapeHtml(node.name)}</em>` : escapeHtml(node.name);
+        const common = commonNameFor(node.rankIdx, node.name);
         const row = document.createElement("div");
         row.className = "treeRow";
         row.style.cursor = "default";
-        row.innerHTML = treeRowHTML(nameHtml, pathKey, node.count, label, false);
+        row.innerHTML = treeRowHTML(nameHtml, pathKey, node.count, label, false, common);
         row.addEventListener("click", e => onRowClick(e, pathKey));
         return row;
       }
@@ -6640,10 +6769,15 @@ $("#openRecord").onclick = () => { if(r._url) window.open(r._url, "_blank"); };
   
   // ----------------- Taxon sync (iNaturalist v1 taxa) -----------------
   async function fetchTaxonLineage(taxonId){
-    const url = `https://api.inaturalist.org/v1/taxa/${encodeURIComponent(taxonId)}`;
+    const url = `https://api.inaturalist.org/v1/taxa/${encodeURIComponent(taxonId)}?${INAT_LOCALE_PARAMS}`;
     const data = await fetchJson(url);
     const t = (data && Array.isArray(data.results) && data.results[0]) ? data.results[0] : null;
     if(!t) return null;
+
+    // Harvest rank-appropriate common names for this taxon + its ancestors (used by
+    // the "Update taxa" path, so common names refresh alongside the lineage).
+    harvestCommonNames([t]);
+    saveTaxonCommonIndex();
 
     const rankToName = new Map();
     const put = (rank, name)=>{
@@ -6693,9 +6827,14 @@ $("#openRecord").onclick = () => { if(r._url) window.open(r._url, "_blank"); };
   async function fetchTaxonPhotosBatch(ids){
     const out = new Map();
     if(!ids || !ids.length) return out;
-    const url = `https://api.inaturalist.org/v1/taxa/${ids.join(",")}?per_page=${ids.length}`;
+    const url = `https://api.inaturalist.org/v1/taxa/${ids.join(",")}?per_page=${ids.length}&${INAT_LOCALE_PARAMS}`;
     const data = await fetchJson(url);
     const results = (data && Array.isArray(data.results)) ? data.results : [];
+    // Harvest rank-appropriate common names for each taxon AND its ancestors (the
+    // response already carries them — no extra request), then persist. Done for all
+    // results, including taxa without a photo.
+    harvestCommonNames(results);
+    saveTaxonCommonIndex();
     for(const t of results){
       const dp = t && t.default_photo;
       if(t && t.id != null && dp && dp.url){
@@ -8560,6 +8699,10 @@ $$(".bar button").forEach(btn=>{
   // cache immediately (incl. offline). Re-render if the guide is already showing.
   loadTaxonPhotoIndex().then(()=>{
     if(app.taxonPhotos.size && app.view === "guide") render();
+  });
+  loadTaxonCommonIndex().then(()=>{
+    // Re-render if any common names hydrated so the current view shows them.
+    if(app.taxonCommon.size) render();
   });
 
   // Boot
