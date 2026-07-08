@@ -6994,7 +6994,14 @@ $("#openRecord").onclick = () => { if(r._url) window.open(r._url, "_blank"); };
     }
     const acc = Number.parseFloat(o.positional_accuracy);
 
+    // Full 10-rank ladder from the (enriched) taxon ancestry, so API-imported records
+    // carry the same taxonomy fields as CSV records — the upper ranks (kingdom → order)
+    // were previously omitted here, leaving API records with a blank Kingdom/Phylum/Class.
+    const king = rankFromTaxon(taxon, "kingdom");
+    const phyl = rankFromTaxon(taxon, "phylum");
+    const cls = rankFromTaxon(taxon, "class");
     const ord = rankFromTaxon(taxon, "order");
+    const superfam = rankFromTaxon(taxon, "superfamily");
     const fam = rankFromTaxon(taxon, "family");
     const subfam = rankFromTaxon(taxon, "subfamily");
     const tribe = rankFromTaxon(taxon, "tribe");
@@ -7024,7 +7031,11 @@ $("#openRecord").onclick = () => { if(r._url) window.open(r._url, "_blank"); };
       _tags: tags,
       _iconic: iconic,
       _taxonId: taxonId,
+      taxon_kingdom_name: king,
+      taxon_phylum_name: phyl,
+      taxon_class_name: cls,
       taxon_order_name: ord,
+      taxon_superfamily_name: superfam,
       taxon_family_name: fam,
       taxon_subfamily_name: subfam,
       taxon_tribe_name: tribe,
