@@ -2746,7 +2746,8 @@
     },
     compare: { enabled:false, a:"", b:"", mode:"all" },
     warmUp: { active:false, cancel:false, done:0, total:0 },
-    taxonPhotos: new Map(), // taxonId -> {url, attribution, license}: iNat default_photo per taxon (Field Guide)
+    taxonPhotos: new Map(), // taxonId -> {url, attribution, license}: iNat default_photo per taxon (Field Guide, species-level warm-up)
+    taxonRankPhoto: new Map(), // "rank|lowername" -> {url, attribution, license}: iNat default_photo for THAT taxon at its own rank (self + ancestors), so a Field Guide tile shows its own image (stable), not a descendant's
     taxonCommon: new Map(), // "rank|lowername" -> common name: iNat preferred_common_name, rank-appropriate, harvested during warm-up
     view: "records",
     page: 1,
@@ -2906,7 +2907,13 @@
   const TAXON_PHOTO_CACHE = "inatlab-taxon-photos-v1";
   const TAXON_META_KEY    = "/__inatlab_taxon_photo_index__"; // synthetic same-origin cache key; never network-fetched
   const TAXON_COMMON_KEY  = "/__inatlab_taxon_common_index__"; // synthetic key for the common-name index, same durable bucket
+  const TAXON_RANK_PHOTO_KEY = "/__inatlab_taxon_rank_photo_index__"; // synthetic key for the per-rank photo index, same durable bucket
   const TAXON_PHOTO_CAP   = 6000;
+
+  // The 10 taxonomic ranks this app renders, lowercased to match iNat's rank
+  // strings on taxa/ancestors. Used to keep the per-rank photo harvest to ranks
+  // the Field Guide can actually show (skip subphylum/subclass/etc.).
+  const RANK_NAME_SET = new Set(RANKS.map(r => safe(r[0]).toLowerCase()));
 
   // Locale bias for iNat Taxa fetches: Australian English where iNat has a local
   // name, else global English. 6744 = Australia. Applied to the warm-up + lineage
@@ -2915,6 +2922,7 @@
 
   let _taxonMetaSaveTimer = null;
   let _taxonCommonSaveTimer = null;
+  let _taxonRankPhotoSaveTimer = null;
 
   // Common-name store keyed by "rank|lowername" so a genus and a family sharing a
   // stem never cross-label (homonym-safe); every render site knows its own rank
@@ -3045,6 +3053,104 @@
     }, 1500);
   }
 
+  // Hydrate app.taxonRankPhoto from the durable per-rank photo index (once, at
+  // startup). Same durable bucket + synthetic-key trick as the common-name index.
+  async function loadTaxonRankPhotoIndex(){
+    if(!("caches" in window)) return;
+    try{
+      const cache = await caches.open(TAXON_PHOTO_CACHE);
+      const resp = await cache.match(TAXON_RANK_PHOTO_KEY);
+      if(!resp) return;
+      const obj = await resp.json();
+      if(obj && typeof obj === "object"){
+        for(const [key, meta] of Object.entries(obj)){
+          if(key && meta && meta.url) app.taxonRankPhoto.set(key, meta);
+        }
+      }
+    }catch(e){ /* cache unavailable or corrupt index — start empty */ }
+  }
+
+  // Persist the whole per-rank photo map as one small JSON blob (debounced).
+  function saveTaxonRankPhotoIndex(){
+    if(!("caches" in window)) return;
+    clearTimeout(_taxonRankPhotoSaveTimer);
+    _taxonRankPhotoSaveTimer = setTimeout(async ()=>{
+      try{
+        const obj = {};
+        for(const [key, meta] of app.taxonRankPhoto) obj[key] = meta;
+        const cache = await caches.open(TAXON_PHOTO_CACHE);
+        await cache.put(TAXON_RANK_PHOTO_KEY, new Response(JSON.stringify(obj), {
+          headers: { "content-type": "application/json" }
+        }));
+      }catch(e){ /* best-effort persistence */ }
+    }, 1500);
+  }
+
+  // Harvest each taxon's + ancestors' OWN default_photo, keyed "rank|lowername",
+  // so a Field Guide tile at ANY rank can show that taxon's own iNaturalist photo
+  // — stable, not borrowed from the most-recent descendant, and offline-durable.
+  // The /v1/taxa batch response already carries default_photo on every ancestor
+  // (like preferred_common_name), so this is free — no extra requests. First
+  // write wins and is idempotent, which also dedups the image-byte warms. Limited
+  // to the 10 ranks the guide renders. Returns true if anything new was recorded.
+  function harvestRankPhotos(results){
+    if(!Array.isArray(results)) return false;
+    let added = false;
+    const put = (t)=>{
+      if(!t || !t.rank || !t.name) return;
+      if(!RANK_NAME_SET.has(safe(t.rank).toLowerCase())) return;
+      const dp = t.default_photo;
+      if(!dp || !dp.url) return;
+      const key = commonKey(t.rank, t.name);
+      if(app.taxonRankPhoto.has(key)) return; // first wins; idempotent; dedups image warms
+      const meta = { url: toMediumImage(dp.url), attribution: dp.attribution || "", license: dp.license_code || "" };
+      app.taxonRankPhoto.set(key, meta);
+      _imgWarmQueue.push(meta.url); // durable-cache the bytes so the tile works offline
+      added = true;
+    };
+    for(const t of results){
+      if(!t) continue;
+      put(t);
+      if(Array.isArray(t.ancestors)) for(const a of t.ancestors) put(a);
+    }
+    if(added) pumpTaxonPhotoImages();
+    return added;
+  }
+
+  // True when row a's observation id sorts before row b's — numeric when both
+  // parse, else lexicographic. Used to pick a stable group representative that
+  // doesn't change as newer (larger-id) records arrive.
+  function obsIdLess(a, b){
+    if(!b) return true;
+    if(!a) return false;
+    const ai = Number(safe(a._id)), bi = Number(safe(b._id));
+    if(Number.isFinite(ai) && Number.isFinite(bi)) return ai < bi;
+    return safe(a._id) < safe(b._id);
+  }
+
+  // Stable representative photo for a Field Guide tile: iNaturalist's OWN
+  // default_photo for the taxon AT THIS rank (harvested per rank|name above). A
+  // higher-rank tile therefore shows its own image, not the most-recent
+  // descendant's, and the URL stays put (offline-cached, no re-fetch) when new
+  // records arrive. Falls back to the representative record's own photo only
+  // until the taxon's own photo is warmed; `own` marks an iNat-curated photo so
+  // callers know whether to show the photographer credit. Returns {url, attribution, own}.
+  function guideTilePhoto(row, rankIdx){
+    if(!row) return { url:"", attribution:"", own:false };
+    const rk = RANKS[rankIdx] && RANKS[rankIdx][0];
+    const nm = (rankIdx === 9)
+      ? (safe(row[RANKS[9][1]]).trim() || safe(row._sci).trim())
+      : safe(RANKS[rankIdx] ? row[RANKS[rankIdx][1]] : "").trim();
+    let meta = (rk && nm) ? app.taxonRankPhoto.get(commonKey(rk, nm)) : null;
+    // Species: also accept the id-keyed store (exact; covers infraspecies rows).
+    if((!meta || !meta.url) && rankIdx === 9){
+      const byId = app.taxonPhotos.get(safe(row._taxonId).trim());
+      if(byId && byId.url) meta = byId;
+    }
+    if(meta && meta.url) return { url: safe(meta.url).trim(), attribution: meta.attribution || "", own:true };
+    return { url: safe(row._img).trim(), attribution:"", own:false };
+  }
+
   // Fetch the image bytes into the durable bucket (opaque no-cors response is fine
   // for <img> display and cache.put). FIFO-trim to the cap, excluding the meta key.
   async function cacheTaxonPhotoImage(url){
@@ -3125,6 +3231,9 @@
     if(!app.taxonPhotos.size) await loadTaxonPhotoIndex();
     /* Same for the common-name index, so harvested names merge onto what's stored. */
     if(!app.taxonCommon.size) await loadTaxonCommonIndex();
+    /* And the per-rank photo index, so higher-rank tiles resolve their own stable
+       photo from cache immediately (incl. offline), before any new fetch. */
+    if(!app.taxonRankPhoto.size) await loadTaxonRankPhotoIndex();
 
     /* Unique taxon ids across the loaded rows, capped. The representative photo
        is iNat's own default_photo per taxon (fetched from the Taxa API), so the
@@ -3171,6 +3280,7 @@
       updateWarmUpUI();
       saveTaxonPhotoIndex();
       saveTaxonCommonIndex();
+      saveTaxonRankPhotoIndex();
       /* Single end-of-pass render fills tiles/cards with the warmed photos and
          harvested common names. Photos only matter on the Field Guide, but common
          names also land on Records cards and the Taxa tree, so render for any view. */
@@ -3866,6 +3976,10 @@ function refreshStaticFilters(){
         }
         const g = groups.get(name);
         g.count += 1;
+        // Stable representative: the smallest observation id in the group. New
+        // records (larger ids) never displace it, so a higher-rank tile's fallback
+        // image and drill lineage don't change to track the most-recent descendant.
+        if(obsIdLess(r, app.rows[g.repIdx])) g.repIdx = i;
         const d = safe(r._date).trim();
         if(d){
           if(!g.first || d < g.first) g.first = d;
@@ -3897,12 +4011,11 @@ function refreshStaticFilters(){
         card.className = "guideCard";
         const span = (g.first && g.last) ? `${g.first} → ${g.last}` : (g.last || g.first || "—");
 
-        // Image first (web-optimised). Prefer iNaturalist's curated representative
-        // photo for this taxon (keyed by _taxonId); until warm-up resolves it, fall
-        // back to the record's own photo so the tile is never blank, then to the
-        // honest placeholder when neither exists.
-        const tp = app.taxonPhotos.get(safe(r._taxonId).trim());
-        const repImg = (tp && tp.url) ? safe(tp.url).trim() : safe(r._img).trim();
+        // Image first (web-optimised). Use iNaturalist's curated default_photo for
+        // THIS taxon at its own rank (stable — a phylum tile shows the phylum's own
+        // photo, not the most-recent descendant's); until warm-up resolves it, fall
+        // back to the representative record's own photo, then an honest placeholder.
+        const repImg = guideTilePhoto(r, rankIdx).url;
         const thumbHtml = repImg
           ? `<div class="thumb"><img loading="lazy" src="${escapeAttr(repImg)}" alt=""/></div>`
           : `<div class="thumb"><div class="thumb-placeholder"><svg class="ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="1.5"/><circle cx="8.5" cy="10" r="1.4"/><path d="M4 16.5l4.5-4 3.5 3 3-2.5 5 4.5"/></svg></div></div>`;
@@ -4141,14 +4254,15 @@ function refreshStaticFilters(){
           ${shown.map(g=>{
             const r = app.rows[g.repIdx];
             const pk = pathKeyFromRowAtRank(r, g.rankIdx);
-            // Prefer iNat's curated photo for this taxon (keyed by _taxonId); fall
-            // back to the record's own photo until warm-up resolves it.
-            const tp = app.taxonPhotos.get(safe(r._taxonId).trim());
-            const src = (tp && tp.url) ? safe(tp.url).trim() : safe(r._img).trim();
+            // iNat's curated default_photo for THIS child taxon at its own rank
+            // (stable, own image — not a descendant's); fall back to the rep
+            // record's own photo until warm-up resolves it.
+            const ph = guideTilePhoto(r, g.rankIdx);
+            const src = ph.url;
             const img = src ? `<img loading="lazy" src="${escapeAttr(src)}" alt=""/>` : `<div class="noimg">no image</div>`;
             // Credit only when the shown image is iNat's (not the user's own record).
-            const credit = (tp && tp.url && tp.attribution)
-              ? `<div class="fgCredit muted small">${escapeHtml(tp.attribution)}</div>`
+            const credit = (ph.own && ph.attribution)
+              ? `<div class="fgCredit muted small">${escapeHtml(ph.attribution)}</div>`
               : "";
             const isItalic = (g.rankIdx >= 8);
             const nmHtml = isItalic ? `<em>${escapeHtml(g.nm)}</em>` : escapeHtml(g.nm);
@@ -6877,6 +6991,9 @@ $("#openRecord").onclick = () => { if(r._url) window.open(r._url, "_blank"); };
     // the "Update taxa" path, so common names refresh alongside the lineage).
     harvestCommonNames([t]);
     saveTaxonCommonIndex();
+    // Likewise harvest own-rank photos (self + ancestors) so higher Field Guide
+    // tiles gain their stable image from this path too.
+    if(harvestRankPhotos([t])) saveTaxonRankPhotoIndex();
 
     const rankToName = new Map();
     const put = (rank, name)=>{
@@ -6934,6 +7051,10 @@ $("#openRecord").onclick = () => { if(r._url) window.open(r._url, "_blank"); };
     // results, including taxa without a photo.
     harvestCommonNames(results);
     saveTaxonCommonIndex();
+    // Harvest each taxon's + ancestors' OWN default_photo (rank|name), so higher
+    // Field Guide tiles show their own stable image, not a descendant's. Free —
+    // the same response already carries ancestor default_photos.
+    if(harvestRankPhotos(results)) saveTaxonRankPhotoIndex();
     for(const t of results){
       const dp = t && t.default_photo;
       if(t && t.id != null && dp && dp.url){
@@ -8802,6 +8923,11 @@ $$(".bar button").forEach(btn=>{
   loadTaxonCommonIndex().then(()=>{
     // Re-render if any common names hydrated so the current view shows them.
     if(app.taxonCommon.size) render();
+  });
+  loadTaxonRankPhotoIndex().then(()=>{
+    // Per-rank photos let higher Field Guide tiles show their own stable image
+    // straight from cache. Re-render the guide if any hydrated.
+    if(app.taxonRankPhoto.size && app.view === "guide") render();
   });
 
   /* Baked common-name seed — iNaturalist preferred_common_name (Australian English)
