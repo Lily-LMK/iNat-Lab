@@ -2,7 +2,7 @@
 
 The phased plan for iNat Lab: a publicly shareable, single-file iNaturalist explorer with a
 distinctive visual identity and three capabilities ported from the sibling project QM Explorer.
-This file is the **sequencing**; `../CLAUDE.md` holds the orientation + current chapter, and
+This file is the **sequencing**; `../CLAUDE.md` holds the orientation + recent work, and
 `NEXT-SESSION.md` the immediate next actions + backlog.
 
 Guiding decisions (agreed with Lily):
@@ -21,8 +21,9 @@ Field Guide, Dates, Map) and the ingest/metadata engine keep working throughout.
 > **Status:** Phases **0, 1 complete** and live on GitHub Pages
 > (https://lily-lmk.github.io/iNat-Lab/). **Phase 2 (a) and (b) are shipped** (curated/custom
 > palette; publication export — screenshot + vector modes); **(c) clustering + spiderfy**
-> remains, back-burnered. The app has since had a sidebar/header cleanup and a full 10-rank
-> taxonomy backbone — see `../CLAUDE.md` "Current chapter".
+> remains, back-burnered. Since then: a full 10-rank taxonomy backbone, the "Gallery" redesign,
+> rank-appropriate common names, Field Guide iNat photos (stable per taxon), and an accessibility
+> + offline integrity pass that advances part of Phase 5 — see `../CLAUDE.md` "Recent work".
 
 ---
 
@@ -94,8 +95,10 @@ Goal: "where does this record sit" context on the map.
 ## Phase 5 — Public-app polish, a11y, mobile, publish
 
 - [ ] **Shareable URL state** — encode active view + filters so a link reproduces a lens.
-- [ ] **Accessibility pass** — WCAG 2.1 AA across all UI (contrast, keyboard, focus, labels,
-      modal traps, reduced-motion).
+- [~] **Accessibility pass** — WCAG 2.1 AA across all UI (contrast, keyboard, focus, labels,
+      modal traps, reduced-motion). _Partly done: interactive tiles are keyboard-operable, the
+      record modal traps + restores focus, visible focus rings throughout. Remaining: a full
+      contrast/label audit and the other modals (e.g. taxon-update)._
 - [ ] **Mobile pass** — real-device check: layout, map, modals, filter drawer, no overflow.
 - [ ] **Performance** — lazy-load, throttle, virtualise large lists/ranks if needed.
 - [ ] **License + attribution** finalised in README and in-UI.
@@ -107,4 +110,4 @@ Goal: "where does this record sit" context on the map.
 
 - Phases 3–4 are independent enough to reorder.
 - Keep each phase on its own branch; deploy to `main` per verified slice.
-- After each phase, update `../CLAUDE.md`'s "Current chapter" so a fresh session re-enters cleanly.
+- After each phase, update `../CLAUDE.md`'s "Recent work" so a fresh session re-enters cleanly.

@@ -107,11 +107,13 @@ not the browser's ordinary HTTP cache. Three named caches hold different things:
   and a copy is kept here so the app still opens when you're **offline** — reloading with no network
   serves the last-seen shell.
 - **`inatlab-taxon-photos-*`** — the **Field Guide's** representative photos: iNaturalist's own
-  curated `default_photo` per taxon, keyed by taxon ID. Warmed in the background on import (fetched
-  ~30 taxa per API request), stored in a **dedicated durable bucket** so heavy map use can't evict
-  them. A small JSON index (photo URL + attribution + licence per taxon) lives in the same cache so
-  photos stay referenceable offline across sessions. Field Guide tiles fall back to your own record
-  photo until each taxon's iNat photo is warmed, so the guide is never blank.
+  curated `default_photo` for each taxon **at its own rank**, so a phylum tile shows the phylum's
+  photo (not a descendant's) and it stays put as new records arrive. Warmed in the background on
+  import (fetched ~30 taxa per API request; ancestor photos come free in the same responses),
+  stored in a **dedicated durable bucket** so heavy map use can't evict them. Small JSON indexes
+  (photo URL + attribution + licence, keyed by taxon and by rank-name) live in the same cache so
+  photos stay referenceable offline across sessions. Tiles fall back to your own record photo
+  until each taxon's iNat photo is warmed, so the guide is never blank.
 - **`inatlab-img-*`** — map tiles and record photos (Records / Map / detail views), cache-first with
   a 24-hour TTL and size-capped eviction.
 

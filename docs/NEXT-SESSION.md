@@ -1,16 +1,16 @@
 # iNat Lab — Next session
 
 The immediate-actions companion to `ROADMAP.md` (full phase plan) and `../CLAUDE.md`
-(orientation + current chapter). Keep this lean: what to do next, the near-term backlog, and
-the settled decisions a fresh session shouldn't re-litigate.
+(orientation). Keep this lean: what to do next, the near-term backlog, the planning queue, and
+the settled decisions a fresh session shouldn't re-litigate. **Detailed history lives in git** —
+don't turn this into a changelog.
 
-_Last refreshed 2026-07-09. Just shipped (branch `common-names`, 3 commits `d116f74`→`d794c4b`,
-**merged to `main` + pushed / live**): **rank-appropriate common names** in Records cards, the
-Field Guide, and the Taxa tree — harvested from iNaturalist's `preferred_common_name` (Australian
-English) during the photo warm-up, with a **baked seed** (`TAXON_COMMON_SEED`) for the
-most-loaded datasets so names show on first render offline, and a **climb-up fallback** (unnamed
-taxa borrow the nearest ancestor's name up to Order) that lifts Records coverage to ~100% (see
-"Recently shipped"). **Next up: Phase 2 (c), clustering + spiderfy** — offline not required._
+_Last refreshed 2026-07-10. Recently shipped (on `main`, live): **Field Guide stable per-taxon
+photos** (higher-rank tiles show iNaturalist's own `default_photo` for that taxon, harvested per
+`"rank|lowername"` and offline-cached, instead of borrowing the most-recent descendant's photo);
+an **integrity pass** (keyboard operability for cards/tiles, record-modal focus management,
+network-first offline shell, removed a blocking clipboard prompt). Next up: Phase 2(c) clustering
++ spiderfy._
 
 ---
 
@@ -18,322 +18,113 @@ taxa borrow the nearest ancestor's name up to Order) that lifts Records coverage
 
 House rules apply: single-file `index.html`, **no build**; branch off `main`; verify in-browser
 **light + dark + mobile (375px)**; console clean; focused commits; **don't push until Lily asks**.
-(Local test data: a git-ignored `sample-inat.csv`.)
+(Local test data: a git-ignored `sample-inat.csv`; the real export `observations-755169.csv` is
+also git-ignored and has valid taxon ids for photo/common-name checks.)
 
 **Goal:** add `Leaflet.markercluster` (CDN, keyless) so co-located iNat points (identical/near
-coords are common) cluster and spiderfy on click, keeping dense top-ups readable and fast. Cluster
-icons should colour by the dominant category, respecting the "Colour by" control and
+coordinates are common) cluster and spiderfy on click, keeping dense top-ups readable and fast.
+Cluster icons should colour by the dominant category, respecting the "Colour by" control and
 `app.mapColorOverrides`. **Offline/`sw.js` precache is not needed for this** (Lily's call — she
-doesn't need the map offline). No further detail has been specced yet — start with a plan.
+doesn't need the map offline). No detail specced yet — start with a plan.
+
+## Planning queue (needs a design session before building)
+
+- **Top-up interface simplification.** The "Top-up scope" flow (scope modal, inferred
+  constraints, paste-the-Export-Query, the two date axes with "Uploaded since" / backfill) is
+  powerful but heavy — too many concepts for a routine "get my new records" action. Worth a
+  dedicated planning session to find the minimal interface that still reproduces the CSV's
+  original iNat filter. Likely directions: lead with the common case (top-up by username/project,
+  scope inferred silently and shown as a quiet, editable summary) and tuck the full scope editor
+  behind an "advanced" affordance; reconsider whether the confirm gate needs to be a modal.
+  Don't start building until the simpler model is agreed.
 
 ## Loose ends (low priority)
 
 - **Spot-check the top-up breadcrumb path.** The upper-taxon-ranks fix (`53c775b`) was verified
-  live against a **full import**; the **top-up-into-a-loaded-CSV** path runs the same
-  `obsToRowObj`, so it's near-certain fine, but it wasn't driven against the live API. Confirm a
-  real top-up's new records show a full Kingdom→Species breadcrumb.
-- **Test harness is ephemeral.** This session's headless-Chrome tests (`helpers.test.js`,
-  `cdp.test.mjs`, `live-taxon.mjs`) lived in the session scratchpad and won't persist. The
-  reusable *approach* is captured in `../CLAUDE.md` (Current chapter "Verify note"): the app JS is
-  inside an IIFE, so monkey-patch `window.fetch` (stub iNat pages) and assert via the DOM; over
-  CDP you must `Network.setBypassServiceWorker` **and** `setCacheDisabled` or the stale
-  shell/old file is served. Re-derive test files from that if needed.
+  live against a **full import**; the top-up-into-a-loaded-CSV path runs the same `obsToRowObj`,
+  so it's near-certain fine but wasn't driven live. Confirm a real top-up's new records show a
+  full Kingdom→Species breadcrumb.
+- **Test harness is ephemeral.** Headless-Chrome tests live in the session scratchpad and don't
+  persist. Reusable approach (also in `../CLAUDE.md`): Node 24 has a global `WebSocket`, so a
+  tiny dependency-free CDP driver works; feed the real CSV via `DOM.setFileInputFiles`; the app
+  JS is inside an IIFE so `app`/functions aren't global — drive real UI and assert via the DOM.
+  For **data-flow** tests set `Network.setBypassServiceWorker` **and** `setCacheDisabled` (or the
+  cached shell is served); for the **offline** test do the opposite (let the SW serve the shell)
+  and toggle `Network.emulateNetworkConditions`. Auto-dismiss `Page.javascriptDialogOpening`.
 
 ## Visual-polish backlog (independent; do in any order)
 
-- **Field Guide progressive photo fill (targeted DOM patch).** _Ready to pick up — the deferred
-  half of the warm-up-flash fix._ Right now `scheduleWarmUp()` (`index.html`, ~line 2848) does a
-  **single** `render()` when the whole photo pass finishes (no live update during the loop), which
-  killed the once-a-second flash but means tiles stay on their `r._img` fallback until the pass
-  ends (~3–4 min on a big set). To get progressive fill **without** the flash, replace the
-  end-of-pass `render()` with a surgical patch that only touches the tiles whose photo just
-  resolved: tag each Field Guide thumb with `data-tp-id` (the taxon id used for the lookup) in
-  both the index tiles (`renderGuide`, ~line 3580) and the focus tiles (~line 3804), then after
-  each batch call a small `patchGuidePhotos(batchIds)` that finds only the matching thumbs still
-  on the fallback, swaps the `src` (and, for focus tiles, adds the `.fgCredit` line). Leaving every
-  other node untouched is what avoids the teardown/repaint flash. Keep a final `render()` in the
-  `.then()` as a safety sweep. Low risk, self-contained; Lily chose the simple "render once at the
-  end" version first and asked to keep this option easy to reach for.
-- **Research-grade underline.** The `.rg` card bottom-border — revisit weight/colour/placement
-  so it reads as an intentional "research grade" cue in both themes.
-- **Name / date typography hierarchy.** Scientific name vs common name vs date — size, weight,
-  italics, spacing. Make the scientific name the clear anchor.
-- **Tile spacing.** Grid gaps, card padding, thumb-to-text rhythm; consistency between Records
-  and Field Guide tiles.
-- **Image framing.** How photos sit in the thumb (`object-fit`, aspect-ratio, radius, inset) and
-  how the placeholder matches.
-- **Resize-transition flash** (optional). Dragging the window across 680px briefly animates the
-  drawer transform; only transition `transform` on open/close, not on the mode flip.
+- **Field Guide progressive photo fill (targeted DOM patch).** `scheduleWarmUp()` does a single
+  `render()` when the whole photo pass finishes (no live update during the loop) — this killed a
+  once-a-second flash but tiles stay on their fallback until the pass ends (~3–4 min on a big
+  set). For progressive fill **without** the flash: tag each guide thumb with its lookup key,
+  then after each batch run a small `patchGuidePhotos()` that swaps only the `src` of the tiles
+  whose photo just resolved, leaving other nodes untouched. Keep a final `render()` as a safety
+  sweep. Low risk, self-contained; the simple "render once at the end" version shipped first.
+- **Research-grade underline.** Revisit the `.rg` card bottom-border weight/colour/placement so
+  it reads as an intentional cue in both themes.
+- **Name / date typography hierarchy.** Scientific vs common name vs date — make the scientific
+  name the clear anchor.
+- **Tile spacing & image framing.** Grid gaps, card padding, thumb-to-text rhythm; `object-fit` /
+  aspect-ratio / radius on thumbs, and a matching placeholder — consistent across Records and
+  Field Guide.
+- **Map legend for high-cardinality ranks.** Colour-by-Family renders ~690 legend rows and the
+  palette necessarily cycles. Consider a "top-N + Other" grouping so the legend stays legible.
+- **Resize-transition flash** (optional). Dragging the window across the drawer breakpoint briefly
+  animates the transform; transition only on open/close, not on the mode flip.
 
-## Recently shipped (newest first)
+## Recently shipped (newest first — one line each; git has the detail)
 
-- **Rank-appropriate common names** (branch `common-names`, commits `d116f74` + `c11e706` +
-  `d794c4b`, **merged to `main` + pushed / live**). Common (vernacular) names now show in Records
-  cards, the Field Guide (index tiles, focus header, child tiles), and the Taxa tree.
-  - **Source:** iNaturalist `preferred_common_name`, **Australian English** (`locale=en&
-    preferred_place_id=6744`), harvested for a taxon **and its whole ancestry** from the responses
-    the photo warm-up already fetches (`/v1/taxa/{ids}` returns `ancestors` with a name at every
-    rank) — no extra requests, no curated dictionary. Stored in `app.taxonCommon` keyed
-    `"rank|lowername"` (homonym-safe), persisted under a synthetic key inside the existing
-    `TAXON_PHOTO_CACHE` bucket (no `sw.js` change). Helpers: `commonKey`, `commonNameFor`,
-    `harvestCommonNames`, `loadTaxonCommonIndex`/`saveTaxonCommonIndex`.
-  - **Baked seed:** `const TAXON_COMMON_SEED` embedded in `index.html` (~3,300 names, AU locale,
-    ~48 KB gzipped) harvested from Lily's main export so names appear on the **first render**,
-    before/without the live warm-up — merged at boot only where a key is absent (cache + warm-up,
-    both fresher, win). Regenerate with **`tools/build-common-seed.mjs <export.csv> [out.json]`**.
-  - **Climb-up fallback:** when a taxon has no common name of its own, borrow the nearest
-    **ancestor's up to Order** (`climbCommonName`/`climbCommonNameForRow`, ceiling = RANKS idx 3).
-    Lifts first-page Records coverage from ~43% to ~100% (e.g. genus *Tubuca* → tribe
-    "Indo-West Pacific Fiddler Crabs"). Applied to Records cards, Field Guide tiles + focus header;
-    the **Taxa tree deliberately does NOT climb** (it shows the full lineage already — climbing
-    just repeats a parent's name onto children).
-  - **Field Guide focus header** now shows the common name beneath the scientific name
-    (`.guideSubtitle`; a `flex-basis:100%` in the flex-column header had been wrapping it off to
-    the right — fixed to a plain `width:100%` block).
-  - Verified headless-Chrome, **offline (seed only)** on the real export: ~100% Records coverage,
-    115/120 family tiles named, Tubuca card + header show the fiddler-crab name, tree stays clean,
-    light/dark/375px + header screenshot confirmed, console clean. **Note:** the git-ignored
-    `sample-inat.csv` has fabricated taxon_ids (id 43584 = *Homo sapiens*, not "Koala"), so
-    common names only truly verify against real exports.
-- **API records now carry the upper taxonomic ranks** (branch `api-upper-taxon-ranks`, commit
-  `53c775b`). `obsToRowObj` (~line 6954) only emitted `taxon_order_name`…`taxon_species_name`, so
-  API-imported records (top-up or full import) had a blank Kingdom/Phylum/Class/Superfamily —
-  invisible to those filter dropdowns, the Taxa tree and Field-Guide Browse-by, breadcrumbs
-  starting at Order. Added the four upper ranks via the existing
-  `rankFromTaxon(taxon, "kingdom"|"phylum"|"class"|"superfamily")`, reading the ancestry
-  `enrichTaxaForObservations` backfills before merge. Verified against the **live iNat API** (real
-  full import populates the Kingdom/Phylum/Class filters + full breadcrumb; 7/7) plus 42/42 + 36/36
-  stubbed suites.
-- **Scope-aware API top-up** (branch `scope-aware-topup`, 5 commits `0f8f542`→`15b3687`, merged at
-  `9a4d289`, **pushed / live**). Top-up/full-import now reproduce the CSV's original iNaturalist
-  filter instead of grabbing any new record by the user. New `app.apiQuery` constraint set +
-  a **"Top-up scope"** confirm gate (`#scopeModal`) that opens on the first fetch of a dataset;
-  seeded by editable inference (`inferApiConstraints` — present iconic taxa pre-ticked, opt-in
-  bbox). Paste the iNat **Export Query** (`parseInatQuery` handles bare strings, `[]`-array keys,
-  comma `user_id`, "Query"/"Columns" labels) to fill it exactly + auto-fill Usernames/Project.
-  `applyApiQueryParams` forwards iconic_taxa/place_id/without_taxon_id/taxon_id/quality_grade/bbox
-  (place wins)/d1/d2/extra to both fetchers. **Two date axes:** observed `d1`/`d2` (filter) +
-  **"Uploaded since"** = the top-up cutoff (`created_d1`), clearable to **backfill** older in-scope
-  records already on iNat (the "added plants later" case; `fetchObservationsDelta`'s created_d1 is
-  now optional). Modal is a flex-column (fixed head, scrolling body, fixed footer) with
-  **Save & start** vs **Save scope only** and a guided backfill hint. Tests in scratchpad
-  (`helpers.test.js` + `cdp.test.mjs`, 36 assertions). _Known follow-up: API records miss
-  Kingdom/Phylum/Class — see "Start here next"._
-- **Map region box cleared on dataset replacement** (commit `78d108c`, merged with the API
-  ingest branch). A drawn region box (`app.mapBox`) used to persist through a full API import
-  and a fresh CSV load, silently hiding new records with **no chip to reveal it** — the same
-  trap as the stale date filter. New `clearMapRegionBox()` runs in `loadFromApi`'s up-front
-  filter reset and in `loadCSVFile`; **top-up deliberately keeps the box** (an active box is
-  part of the user's lens, like a taxon filter). Also confirmed on request: top-up's delta
-  fetch sends only `created_d1` (iNat's *upload* date, cut off at the CSV's max `created_at`)
-  — no observed-date params — so late uploads of old observations were always fetched; the
-  stale date filter was what hid them. Verified 11/11 via CDP (box drawn with synthetic mouse
-  events; the rectangle renders to **canvas**, so assert Clear-box visibility + record counts,
-  not SVG paths) plus a 26/26 regression on the API harness. CDP gotcha for future tests:
-  `Network.setBypassServiceWorker` is required or `sw.js` serves the *cached* app shell.
-- **API ingest fixes: incremental import + top-up date-filter fix** (branch
-  `api-incremental-import`, commit `60f9e06`, **merged to `main` + pushed**). (1) Top-up used to
-  write today into `#dateTo` while `#dateFrom` kept the old CSV minimum → after the merge the
-  stale range read as an active **Date chip** hiding the new records; now both date inputs clear
-  at top-up start and `refreshStaticFilters()` repopulates them with the new full span (no chip,
-  everything visible, other filters untouched). (2) Full import used to freeze until every page
-  arrived (its `onProgress` was never even called); both fetchers now hand each 200-record page
-  to the caller via `onBatch`, pages merge immediately (persistent `byId` dedupe; shared
-  `mergeApiObservations`/`finalizeDataMerge` helpers), and the view renders after the **first
-  page then every third** (~5–7 s; observed_on-desc order means interim renders append below the
-  fold — no flashing; Field Guide warm-up untouched). Also: `csvMaxCreatedAtTms` advances after
-  API merges (fixes top-up-after-pure-API-import), 429 backoff on the full-import fetcher,
-  partial-failure keeps merged pages with an honest "Import stopped after N records" status,
-  in-flight guard on `#fetchApi`. Verified 26/26 via headless-Chrome CDP with a stubbed iNat API
-  (`window.fetch` monkey-patch + DOM assertions — app JS is IIFE-scoped, `app` isn't global).
-  Known/accepted: interim renders close an open map popup mid-import. (The flagged `app.mapBox`
-  issue was fixed in the follow-up commit above.)
-- **Snapshot tallies are navigation + Browse-by within an active filter** (on `main`). The four
-  Snapshot figures in the sidebar are now buttons (`.statLink`, quiet persistent hairline underline
-  that firms up on hover/focus; theme-aware; keyboard-focusable): **Records** → Records view;
-  **Orders / Families / Species** → the Field Guide **"Browse by" index** at that rank (3 / 5 / 9),
-  scoped to the **current filter lens** (`openGuideIndex(rankIdx)` sets a new `app.guideForceIndex`
-  flag + `guideRank`, clears `guideScopeOrder`, then `setTab("guide")`). Species lands on browse-by
-  **Species** = one photo card per species in the set (the "one of each species" result, and the
-  only variant that works from any filter state — the focus-page species plate needs a single focus
-  taxon). **Fixes the "Browse-by vanishes under any taxon filter" problem:** `renderGuide` now
-  shows the index when `!focus || app.guideForceIndex`, so you can browse the *filtered* set by rank
-  without dropping the filter; when a focus exists the crumb offers a **"Back to {focus}"** link
-  (`#guideExitForceIndex`) so it's not a trap. The flag resets on a taxon drill (`applyLineageKey`)
-  and on a **direct** Field Guide tab click (fresh entry → normal focus behaviour), so it never
-  lingers. Verified end-to-end on `sample-inat.csv` (headless): all four links; browse-by inside an
-  `Insecta` filter; Back-to-focus; tab-reset; tile-drill → focus page; light + dark; console clean.
-- **Field Guide warm-up no longer flashes** (commit `c83ab8e`, **on `main` + pushed / live**).
-  `scheduleWarmUp()` used to call `render()` after **every** photo batch (~1.1s), and `render()`
-  rebuilds the whole Field Guide (`view.innerHTML = ""`), tearing down + recreating every `<img>`
-  — so the guide flashed roughly once a second while photos fetched. Dropped the per-batch render
-  (and its `scrollY` save/restore); tiles keep their `r._img` fallback and fill in with iNat's
-  taxon photos in a **single** render when the pass completes. Progress bar (`#warmBar`) unaffected.
-  Trade-off: no progressive fill mid-pass — see the **targeted-patch** backlog item above for the
-  progressive-fill-without-flash follow-up Lily wants kept easy to reach for. (Note: an **API
-  top-up already re-triggers warm-up** — `scheduleWarmUp()` runs after both top-up paths and only
-  fetches taxa not already in `app.taxonPhotos`, so **new species from a top-up are picked up
-  incrementally**, no extra wiring needed.)
-- **Map publication export** (commit `3e7297a`, **merged to `main` + pushed / live**). An
-  **"Export map"** button + popover on the map toolbar, with two export modes (the original
-  written brief specced a single no-basemap vector figure; Lily saw the bare-dots result and
-  asked for the real map, so this shipped as two modes instead):
-  - **Map screenshot (PNG)** — captures the *actual* rendered Leaflet map (basemap tiles +
-    coloured points + legend + caption) via canvas. Restricted to CORS-friendly basemaps
-    (`CORS_SAFE_BASEMAPS`: Satellite/Esri Topo/Geology — all Esri/GA ArcGIS REST services, now
-    given `crossOrigin: true`); OSM/OpenTopoMap tiles don't send CORS headers, so instead of a
-    silent failure the popover shows an honest inline message telling Lily to switch basemap
-    first. Marker colours use the **live theme** (screenshot = "what you see is what you get"),
-    unlike the vector mode below.
-  - **Clean vector plot (SVG + high-DPI PNG)** — the original brief's figure: points + legend +
-    caption, **no basemap tiles**, always white-ground/light-palette regardless of the app's
-    theme (`withLightTheme()` temporarily swaps `data-theme` so `markerColor`/`taxonPaletteHex`
-    return light-palette hex verbatim, restored before the next paint — no visible flash). Kept
-    as a second option since it's still a legitimate theme-independent "journal figure" format.
-  - Both share **Extent** (data bounds / current view) and **include-legend** controls, and pull
-    colours from `markerColor`/`categoryKeyFor`/`_catRank` — the same functions the live map
-    uses — so custom legend overrides and per-user colours always match the on-screen map
-    exactly. Popover is keyboard-trapped (Tab cycles within it), Escape closes and returns focus
-    to the button, closes itself if orphaned by a tab switch or map re-render.
-  - Verified via headless-Chrome CDP against `sample-inat.csv`: custom colour override carries
-    through to both circles and legend swatch; honest omitted-no-coordinate caption; zero-point
-    and single-point extents don't NaN/crash; screenshot mode visually confirmed against real
-    Esri satellite tiles of Mount Nebo; light/dark/375px all clean, no console errors.
-- **Persistent storage + README cache section** (commits `42fe03c` + docs, **merged to `main` +
-  pushed / live**). Call `navigator.storage.persist()` once on boot (after checking `persisted()`)
-  so the warmed offline photo cache resists eviction under disk pressure — origin-wide, guarded,
-  console-logged, no UI chrome (Chrome grants silently via engagement heuristics; Firefox may
-  prompt). Added a README **"Offline & caching"** section documenting the three Cache Storage
-  buckets, the never-cached data, and how to confirm via DevTools → Application → Storage /
-  Cache Storage and `navigator.storage.persisted()/estimate()`.
-- **Field Guide → iNaturalist representative photos** (commit `4f9ec71`, **merged to `main` +
-  pushed / live**). Field Guide tiles now show
-  iNaturalist's curated `default_photo` per taxon (Taxa API, keyed by `_taxonId`), **falling back
-  to the record's own photo (`r._img`) until warm-up resolves each tile** so the guide is never
-  blank — a strict upgrade over the old record-photo-only tiles. Records / Map / record-detail
-  modal are untouched (`r._img` as before).
-  - **Durable, separate storage:** a dedicated `CACHE_TAXON_PHOTOS` service-worker bucket, checked
-    **before** the shared `CACHE_IMG` in the SW fetch handler, so warmed taxon photos survive
-    map-tile eviction. A small JSON meta-index (url + attribution + license per taxon) persisted in
-    the same cache re-hydrates `app.taxonPhotos` on boot (`loadTaxonPhotoIndex`) so photos stay
-    referenceable offline across sessions.
-  - **`fetchTaxonLineage`** now also returns `default_photo` (url via `toMediumImage` + attribution
-    + license); **`checkTaxonUpdates`** fills photos opportunistically while it already crawls.
-  - **Batched, resumable warm-up:** `scheduleWarmUp` rewritten to fetch **up to 30 taxa per Taxa-API
-    request** (the endpoint accepts comma-separated IDs) at ~1.1s pacing — ~30× fewer calls, so a
-    ~5,800-taxon set warms in **~3–4 min instead of ~100 min**. Skips already-warmed taxa (resumable
-    across reloads, free for overlapping datasets); image bytes warm in a **separate bounded (6-way)
-    background queue** so slow downloads never stall the metadata pass. Progress via the existing
-    `#warmBar` + cancel; runs automatically on load.
-  - **Attribution:** muted photographer/licence credit on the **focus-page** child tiles only (dense
-    index grid stays clean); shown only when the tile is actually iNat's photo.
-  - Verified end-to-end via headless Chrome + real iNat API on the sample CSV (warm-up runs,
-    dedicated cache fills with images + meta key, tiles show iNat photos, meta-index re-hydrates on
-    reload, console clean). **Still worth a real-dataset visual pass** — the sample's placeholder
-    image URLs 404, so the `r._img` fallback couldn't be seen there; on real data tiles fill
-    instantly and upgrade as warm-up runs.
-- **Map toolbar flattened + dismissable status message** (commit `f2e6b8e`, **merged to `main`
-  + pushed / live**): the map's Color-by/Draw-box/Clear-box/Full-screen/search controls dropped
-  the last boxed `.pill` styling in the app — Color by now uses `.field`, the buttons and search
-  use `.bar`/`.smallBtn`/`.mapSearchInput`, matching the sidebar/header convention exactly.
-  `.pill` CSS (confirmed dead everywhere else) removed outright rather than left orphaned.
-  Separately, `setStatus()` (`index.html:2593`) now builds a text + "×" structure (mirroring
-  `.warmCancel`) instead of a bare text node, so persistent messages like the top-up-complete
-  banner can be dismissed instead of sitting until overwritten. Verified via headless-Chrome CDP:
-  real CSV load + Map tab in light/dark/375px-mobile, console clean, Draw box/Full screen/search
-  still functional (only lost their wrapper box, not their listeners).
-- **Phase 2, Step 1 — curated map palette + custom colours** (commit `82a454f`, **merged to
-  `main` + pushed / live**): replaced the hash→HSL marker-colour generator with a designed,
-  colour-blind-safe 8-hue categorical palette (light + dark, validated against the dataviz
-  skill's checks), assigned stably by frequency (commonest category → slot 1, cycling past 8).
-  Added `app.mapColorOverrides` (keyed `colorBy|category`); `markerColor` checks it before the
-  ranked palette slot. Legend swatches are editable — click/Enter a dot opens a native colour
-  picker, live-recolours markers + legend, with a "Reset" affordance per colour-by mode.
-  Source-reviewed + parse-checked; **live testing surfaced three items** (map toolbar styling,
-  offline image coverage, dismissable top-up message) — the first and third are now shipped
-  above; offline image coverage (Field Guide photo source) is the remaining "Start here next."
-- **Three decided UI changes** (commit `1c5f583`, **merged to `main` + pushed / live**):
-  - **Field Guide lands on Kingdom.** `rankIdx` fallback `3 → 0` (`index.html:3297`); a fresh
-    Field-Guide visit (no prior drill, `app.guideRank` null) now opens at Kingdom.
-  - **"Load new…" moved into Add Records on mobile.** `syncHeaderLayout()` now moves `.headerMeta`
-    to the top of the Add Records body (`#addRecordsBody`) instead of `#drawerActions`, so Snapshot
-    leads the drawer; node moved (listener kept); desktop path unchanged; empty `.drawer-actions`
-    hidden via `:empty` so no gap remains.
-  - **Viridis Dates heatmap.** `heatColor()` (`index.html:5057`) swapped from the stale monochrome
-    warm-grey ramp to a truncated viridis scale (empty `#EAEDF0`/`#1F2329`; 1–20 `#2A788E`; 21–50
-    `#22A884`; 51–74 `#44BF70`; 75–99 `#7AD151`; ≥100 `#FDE725`). Out-of-year fill + ≥100 border in
-    `renderDates` made faint cool-neutral + theme-aware. No brown left.
-  - Served/loaded clean (HTTP 200); source-reviewed. **Real-browser pass still recommended** —
-    Field Guide → Kingdom tiles; phone (375px) drawer Snapshot-first + "Load new…" in Add Records
-    opening the picker; Dates grid teal→green→gold in both themes with day-click filter intact.
-- **Sidebar reorg → cool-neutral redesign → serif wordmark** (branch `sidebar-reorg-ui-polish`,
-  plan `wild-churning-globe.md`; **merged to `main` + pushed / live**). Three passes:
-  - **Reorg + three requested fixes.** Compare users pulled into its own panel (teal/terracotta
-    A/B swatches + a "Clear comparison" link via `#cmpClear`/`syncCmpClear()`); removed the
-    chip-bar "Clear all" (+ orphaned `clearAllFilters()` / `.chip-clear`); Field Guide focus-
-    header buttons made uniform (`.smallBtn` ink/`border-box`/no-underline; `↩`→SVG chevron);
-    breadcrumb clicks now filter Records in the record modal **and** map popup.
-  - **Cool-neutral "gallery" redesign.** Neutral ramp shifted off warm cream to cool near-neutral
-    (light + dark). **Snapshot** is now a **persistent typographic header** (no accordion/boxes;
-    lighter `--ink-2` figures) — order **Snapshot · Filters · Dates · Compare users · Add
-    records**. The A/B/Shared bar became a stacked **species lens** in the Compare panel
-    (`#cmpLens` / `renderCompareLens()`), replacing the pill-in-pill `cmpBar`. Tighter collapsed
-    rhythm, refined carets, "Date"→"Dates".
-  - **Serif wordmark.** Masthead lockup + onboarding `.mark` use `--wordmark` = **Literata**
-    (`font-optical-sizing:auto`; Fraunces tried first but fragile small). Reserved exception to
-    the one-typeface rule; UI stays Inter. `sw.js` precaches Literata (`CACHE_STATIC` → `v2`).
-  - Verified light + dark, desktop + phone (375px) + panels; console clean. Map-popup breadcrumb
-    is source-verified (canvas renderer → markers not DOM-clickable headless; 2-line mirror of
-    the tested modal path).
-- **Sidebar / header cleanup** (plan `we-are-going-to-declarative-hearth.md`, Parts 1–4):
-  removed the Lightroom metadata engine; slimmed the header (Update-taxa → sidebar, Reset
-  removed); **fixed the mobile drawer scroll** (explicit `100dvh`/`border-box` + JS body
-  scroll-lock; real-iPhone sign-off received); **flattened the sidebar** into hairline sections
-  (FILTERS · COMPARE USERS · DATE · SNAPSHOT · ADD RECORDS).
-- **Full 10-rank taxonomy backbone** + seven navigation improvements (`lineageArrayFromRow`
-  returns 10 ranks; positional tree keys; `backfillAncestors`; full Field Guide drill-down).
-- **Service worker / offline** (`sw.js`, three caches) with per-taxon warm-up on import.
-- **GBIF removed** everywhere (−1,372 lines; zero references).
-- Phase 1 "Gallery" identity; Taxa tree redesign; Records card redesign; single-scroll-container
-  refactor; active-filters chip bar; search relocation; Records ⇄ Field Guide hop.
+- **Field Guide stable per-taxon photos** — own `default_photo` per rank (`app.taxonRankPhoto`,
+  `"rank|lowername"`, offline-cached), stable representative row (smallest obs id).
+- **Integrity pass** — keyboard-operable cards/tiles, record-modal dialog semantics + focus trap
+  + focus return, network-first offline app-shell, removed blocking `window.prompt`.
+- **Common (vernacular) names** — iNat `preferred_common_name` (AU English) in Records / Field
+  Guide / Taxa tree; baked `TAXON_COMMON_SEED`; climb-up to Order (not the Taxa tree).
+- **Scope-aware API top-up** — replays the CSV's iNat filter (`app.apiQuery`) via a scope gate;
+  paste the Export Query; "Uploaded since" cutoff + backfill.
+- **API ingest fixes** — incremental import (render as pages arrive), stale date-filter + map-box
+  clears on dataset replace, upper-taxon-rank population, 429 backoff.
+- **Snapshot navigation** — Snapshot tallies jump to Records / the Field Guide Browse-by index;
+  Browse-by works under an active taxon filter.
+- **Map publication export** — two modes: real-basemap screenshot (CORS-safe basemaps) + clean
+  vector plot (no tiles, light palette).
+- **Field Guide → iNat representative photos** — the first switch to curated `default_photo` +
+  the durable taxon-photo cache (`CACHE_TAXON_PHOTOS`).
+- **Gallery identity + sidebar** — cool-neutral palette (light/dark), Literata serif wordmark,
+  sidebar reorg, mobile drawer fix, Lightroom-engine removal.
+- **Taxonomy backbone** — full 10-rank cascade + Taxa tree, chip bar, Records ⇄ Field Guide hop.
 
 ## Settled decisions (don't re-litigate)
 
 - Interface palette is a **cool near-neutral "gallery" ramp** (light + dark) — **not** warm cream.
   Photographs are the only colour; chrome stays quiet.
 - **Wordmark is a serif (Literata)**, scoped to the masthead lockup + onboarding `.mark` via the
-  `--wordmark` token — the **one reserved exception** to the single-typeface (Inter) system. Use
-  `font-optical-sizing:auto` (no forced display `opsz`) so it stays legible small on phones.
-  (Fraunces was rejected — its display cut went fragile at phone sizes.)
-- Tab label stays **"Field Guide"** (Lily's call).
-- **Records / Map / record-detail modal** use **each record's own photo only** (no multi-source
-  cascade); honest placeholder when a taxon has no photographed record.
-- **Field Guide tiles prefer iNaturalist's own `default_photo` per taxon** (Taxa API, keyed by
-  `_taxonId`), **falling back to the record's own `r._img`** until warm-up resolves each tile (so the
-  guide is never blank), then to the honest placeholder — **shipped 2026-07-05**, commit `4f9ec71`.
-  Chosen because iNat's curated photos are better representative images and solve offline coverage +
-  cross-dataset reuse (stable per `_taxonId`); the `r._img` fallback keeps tiles instant on large
-  datasets. Muted photographer/licence credit shown on **focus-page tiles only**, and only when the
-  shown image is iNat's. Warm-up is **batched (30 IDs/request) + resumable**. Records / Map /
-  record-detail modal keep using `r._img` only, as before.
-- Observer palette is the **12-hue theme-aware calm set** (`USER_PALETTE_LIGHT`/`_DARK`), all
-  ≥5:1 on their own surface; observer marker is an **inline SVG crosshair** (⌖).
-- **No GBIF** anywhere — not the UI, not the SW, not future phases, unless explicitly reintroduced.
-- Publication map export = **two modes** (shipped 2026-07-06, commit `3e7297a`): a **map
-  screenshot** (real basemap tiles, PNG, CORS-safe basemaps only) and a **clean vector plot**
-  (SVG + high-DPI PNG, no basemap tiles, always light-palette). The original brief specced only
-  the vector mode; Lily asked for the real map after seeing the bare-dots result, so the
-  screenshot mode was added rather than replacing it. Don't re-litigate — see "Recently shipped".
-- Lily's own iNaturalist username may appear as a **placeholder example** — her observations are
-  public and meant to be shared. Don't re-flag it.
+  `--wordmark` token — the one reserved exception to the single-typeface (Inter) system. Use
+  `font-optical-sizing:auto` so it stays legible small. (Fraunces was rejected — fragile small.)
+- Tab label stays **"Field Guide"**.
+- **Field Guide tiles show iNaturalist's own `default_photo` for the taxon at its own rank** —
+  rank-appropriate (a phylum tile shows the phylum's photo, not a descendant's), stable across new
+  records, offline-cached (`app.taxonRankPhoto`, `"rank|lowername"`, persisted in the durable
+  photo bucket). Falls back to the representative record's own photo until warm-up resolves, then
+  an honest placeholder. Muted photographer/licence credit on **focus-page tiles only**, and only
+  for iNat's own photo. Warm-up is batched (30 IDs/request) + resumable.
+- **Records / Map / record-detail modal** use **each record's own photo only** (no cascade);
+  honest placeholder when a taxon has no photographed record.
 - **Common names** come from iNaturalist only (`preferred_common_name`, **Australian English** via
   `preferred_place_id=6744`), shown **verbatim** — no curated dictionary, no GBIF/ALA/Wikipedia.
-  Rank-appropriate and blank-beats-mislabel, **except** the deliberate climb-up fallback (unnamed
-  taxa borrow the nearest ancestor's name **up to Order** — order names stay meaningful, class/
-  phylum/kingdom "Insects"/"Arthropods"/"Animals" are too generic). The **Taxa tree shows each
-  node's own name only** (no climb) — the hierarchy already shows ancestor names; Records cards,
-  Field Guide tiles, and the focus header DO climb. Ceiling can be raised to Class for the last
-  sliver of coverage if Lily asks (at the cost of generic labels). Confirmed 2026-07-09.
-- The **baked common-name seed** (`TAXON_COMMON_SEED` in `index.html`) is public taxonomy only
-  (no observations) and safe in the public repo; regenerate from any export with
-  `tools/build-common-seed.mjs`, not by hand.
+  Rank-appropriate and blank-beats-mislabel, **except** the climb-up fallback (unnamed taxa borrow
+  the nearest ancestor's name **up to Order**; class/phylum/kingdom are too generic). The **Taxa
+  tree shows each node's own name only** (no climb); Records cards, Field Guide tiles, and the
+  focus header do climb. The baked seed (`TAXON_COMMON_SEED`) is public taxonomy only — regenerate
+  with `tools/build-common-seed.mjs`, not by hand.
+- Observer palette is the **12-hue theme-aware calm set** (`USER_PALETTE_LIGHT`/`_DARK`); observer
+  marker is an inline SVG crosshair (⌖).
+- Publication map export = **two modes**: a real-basemap **screenshot** (CORS-safe basemaps only)
+  and a **clean vector plot** (no tiles, always light palette).
+- **Accessibility is AA-baseline:** interactive tiles are keyboard-operable, the record modal
+  traps focus and restores it, visible focus rings throughout. Don't regress to click-only `<div>`s.
+- **No GBIF** anywhere unless explicitly reintroduced. Removed features stay removed (chip-bar
+  "Clear all" / `clearAllFilters()`, the Lightroom title/caption/keyword dropdowns).
+- Lily's own iNaturalist username may appear as a **placeholder example** — public data, meant to
+  be shared. Don't re-flag it.
