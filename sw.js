@@ -103,6 +103,18 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(request.url);
 
+  /* App shell (the HTML document): network-first. Online visitors always get the
+     freshest index.html (no stale-shell trap); when offline, the last-seen shell
+     is served from cache so the app still opens. This is what makes "loads offline
+     once visited" true — the page itself was previously never cached. */
+  if (request.mode === 'navigate' ||
+      (url.origin === self.location.origin &&
+       (request.destination === 'document' ||
+        (request.headers.get('accept') || '').includes('text/html')))) {
+    event.respondWith(networkFirst(request, CACHE_STATIC));
+    return;
+  }
+
   /* Static CDN: cache-first, indefinite */
   if (STATIC_HOSTS.some(h => url.hostname === h || url.hostname.endsWith('.' + h))) {
     event.respondWith(cacheFirst(request, CACHE_STATIC));
@@ -144,6 +156,25 @@ async function taxonPhotoThenImg(request) {
   const hit = await durable.match(request);
   if (hit) return hit;
   return cacheFirstTTL(request, CACHE_IMG, IMG_MAX_AGE, IMG_MAX_ENTRIES);
+}
+
+/* Network-first: fetch fresh, cache a copy, fall back to cache when offline.
+   Used for the HTML document so online users are never served stale app code,
+   but the shell still opens without a network (offline-durable once visited). */
+async function networkFirst(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  try {
+    const response = await fetch(request);
+    if (response.ok) cache.put(request, response.clone());
+    return response;
+  } catch (err) {
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    /* Fall back to any cached shell (handles "/" vs "/index.html" key drift). */
+    const alt = (await cache.match('./index.html')) || (await cache.match('index.html'));
+    if (alt) return alt;
+    throw err;
+  }
 }
 
 /* Cache-first: serve from cache if present, otherwise fetch and cache. */

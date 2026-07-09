@@ -2185,7 +2185,7 @@
 <div class="toast-notify" id="toastNotify"></div>
 
 <div class="modal" id="modal">
-  <div class="dialog">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="modalTitle" tabindex="-1">
     <div class="img">
       <img id="modalImg" alt=""/>
       <button class="imgNav prev" id="modalPrev" aria-label="Previous photo">‹</button>
@@ -3922,7 +3922,14 @@ function refreshStaticFilters(){
         `;
         const gimg = card.querySelector(".thumb img");
         if(gimg) attachImgFallback(gimg, safe(r._iconic));
+        // Keyboard operability (WCAG 2.1.1): the tile drills into the taxon.
+        card.setAttribute("role", "button");
+        card.setAttribute("tabindex", "0");
+        card.setAttribute("aria-label", `Browse ${GUIDE_RANKS[rankIdx][0]}: ${g.name}${gCommon ? " (" + gCommon + ")" : ""}`);
         card.addEventListener("click", ()=> applyLineageKey(pk, "guide"));
+        card.addEventListener("keydown", (e)=>{
+          if(e.key === "Enter" || e.key === " "){ e.preventDefault(); applyLineageKey(pk, "guide"); }
+        });
         list.appendChild(card);
       }
 
@@ -4151,7 +4158,7 @@ function refreshStaticFilters(){
             const cCommon = climbCommonNameForRow(r, g.rankIdx);
             const cComHtml = cCommon ? `<div class="gc-com">${escapeHtml(cCommon)}</div>` : "";
             return `
-              <div class="childTile fgChildTile" data-path="${escapeAttr(pk)}" data-rank="${g.rankIdx}" title="Show records for ${escapeAttr(g.nm)}">
+              <div class="childTile fgChildTile" role="button" tabindex="0" data-path="${escapeAttr(pk)}" data-rank="${g.rankIdx}" title="Show records for ${escapeAttr(g.nm)}" aria-label="Show records for ${escapeAttr(g.nm)}${cCommon ? " (" + escapeAttr(cCommon) + ")" : ""}">
                 <div class="thumb">${img}</div>
                 <div class="meta">
                   <div class="name">${nmHtml}</div>
@@ -4185,11 +4192,13 @@ function refreshStaticFilters(){
     });
 
     right.querySelectorAll(".fgChildTile").forEach(el=>{
-      el.addEventListener("click", ()=>{
+      const go = ()=>{
         const pk = el.getAttribute("data-path") || "";
         const rank = parseInt(el.getAttribute("data-rank"),10);
         applyLineageKey(pk, rank === 9 ? "records" : "guide");
-      });
+      };
+      el.addEventListener("click", go);
+      el.addEventListener("keydown", (e)=>{ if(e.key === "Enter" || e.key === " "){ e.preventDefault(); go(); } });
     });
 
     right.querySelectorAll(".segmented .seg").forEach(b=>{
@@ -4501,7 +4510,21 @@ function refreshStaticFilters(){
       // Attach image fallback for broken loads
       const cardImg = card.querySelector(".thumb img");
       if(cardImg) attachImgFallback(cardImg, r._iconic);
+      // Keyboard operability: the card opens the record detail. Make it a real
+      // focusable control (WCAG 2.1.1) rather than a click-only <div>.
+      card.setAttribute("role", "button");
+      card.setAttribute("tabindex", "0");
+      const cardLabel = [sciName, commonName].filter(Boolean).join(" — ") || "record";
+      card.setAttribute("aria-label", `Open record: ${cardLabel}`);
       card.addEventListener("click", ()=> openModal(i));
+      card.addEventListener("keydown", (e)=>{
+        // Enter/Space open the record, but only when the card itself has focus —
+        // let inner breadcrumb links handle their own keys.
+        if((e.key === "Enter" || e.key === " ") && e.target === card){
+          e.preventDefault();
+          openModal(i);
+        }
+      });
       card.querySelectorAll(".fgLink").forEach(a=>{
         a.addEventListener("click", (e)=>{
           e.preventDefault();
@@ -6541,8 +6564,11 @@ async function writeClipboard(text){
       if(ok) return true;
     }catch(e){}
 
-    // Last resort: prompt so the text is not lost.
-    try{ window.prompt("Copy this text:", t); }catch(e){}
+    // Both automated paths failed (e.g. clipboard permission denied and no
+    // gesture for execCommand). Return false so the caller can surface the text
+    // inline for manual copy — every caller does. We deliberately avoid a
+    // window.prompt() last resort: it blocks the whole page on a modal dialog
+    // and is redundant with the inline copy affordance.
     return false;
   }
 
@@ -6667,6 +6693,8 @@ async function writeClipboard(text){
     const r = app.rows[idx];
     app.lastModalIdx = idx;
 
+    // Remember what to return focus to when the modal closes (WCAG 2.4.3).
+    app._modalReturnFocus = (document.activeElement instanceof HTMLElement) ? document.activeElement : null;
     $("#modal").classList.add("open");
         modalGallery.obsId = safe(r._id).trim();
     const basePhotos = Array.isArray(r._photos) && r._photos.length ? r._photos : uniqueUrls([r._imgL || r._img].filter(Boolean));
@@ -6750,9 +6778,13 @@ $("#openRecord").onclick = () => { if(r._url) window.open(r._url, "_blank"); };
         : `<span class="muted">Clipboard blocked — copy manually:</span><div class="copyBlock">${escapeHtml(txt)}</div>`;
     };
     $("#modalHint").innerHTML = "";
+
+    // Move focus into the dialog so keyboard users land inside it, not behind it.
+    try{ $("#closeModal").focus(); }catch(e){}
   }
 
   function closeModal(){
+    const wasOpen = $("#modal").classList.contains("open");
     $("#modal").classList.remove("open");
     modalGallery.obsId = "";
     modalGallery.photos = [];
@@ -6760,6 +6792,11 @@ $("#openRecord").onclick = () => { if(r._url) window.open(r._url, "_blank"); };
     $("#modalImg").src = "";
     $("#modalHint").textContent = "";
     try{ $("#modalImgCount").style.display="none"; $("#modalPrev").style.display="none"; $("#modalNext").style.display="none"; }catch(e){}
+    // Return focus to whatever opened the modal (WCAG 2.4.3).
+    if(wasOpen && app._modalReturnFocus && document.contains(app._modalReturnFocus)){
+      try{ app._modalReturnFocus.focus(); }catch(e){}
+    }
+    app._modalReturnFocus = null;
   }
 
   $("#closeModal").addEventListener("click", closeModal);
@@ -6774,6 +6811,23 @@ $("#openRecord").onclick = () => { if(r._url) window.open(r._url, "_blank"); };
     if($("#modal").classList.contains("open")){
       if(e.key==="ArrowLeft") stepModalPhoto(-1);
       if(e.key==="ArrowRight") stepModalPhoto(1);
+      // Trap Tab within the dialog so keyboard focus can't wander behind it.
+      if(e.key==="Tab"){
+        const dlg = $("#modal .dialog");
+        if(!dlg) return;
+        const focusables = Array.from(dlg.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )).filter(el => el.offsetParent !== null || el === document.activeElement);
+        if(!focusables.length) return;
+        const first = focusables[0], last = focusables[focusables.length-1];
+        if(e.shiftKey && document.activeElement === first){
+          e.preventDefault(); last.focus();
+        } else if(!e.shiftKey && document.activeElement === last){
+          e.preventDefault(); first.focus();
+        } else if(!dlg.contains(document.activeElement)){
+          e.preventDefault(); first.focus();
+        }
+      }
     }
   });
 
