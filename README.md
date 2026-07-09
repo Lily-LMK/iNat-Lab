@@ -46,6 +46,9 @@ plants). See [Top-up scope](#top-up-scope).
   photo cache so a loaded set stays explorable offline. Your data is never cached to the repo —
   only the app shell and your own session's fetched media. See
   [Offline & caching](#offline--caching) for what's stored and how to confirm it.
+- **Accessible** — keyboard-operable throughout (record cards and Field Guide tiles are focusable
+  and open with Enter/Space; the record dialog traps focus and restores it on close), visible focus
+  rings, honoured `prefers-reduced-motion`, and a mobile off-canvas drawer. Targets WCAG 2.1 AA.
 
 ## Top-up scope
 
@@ -98,8 +101,11 @@ iNat Lab uses **explicit offline storage** (the [Cache Storage
 API](https://developer.mozilla.org/docs/Web/API/CacheStorage), driven by the service worker) —
 not the browser's ordinary HTTP cache. Three named caches hold different things:
 
-- **`inatlab-static-*`** — the app shell + CDN assets (Leaflet, esri-leaflet, fonts). Cached
-  indefinitely (versioned URLs).
+- **`inatlab-static-*`** — the app shell + CDN assets (Leaflet, esri-leaflet, fonts, site icons).
+  CDN assets are cached indefinitely (versioned URLs). The **HTML document is network-first**: an
+  online visit always fetches the freshest `index.html` (so you're never stuck on stale app code),
+  and a copy is kept here so the app still opens when you're **offline** — reloading with no network
+  serves the last-seen shell.
 - **`inatlab-taxon-photos-*`** — the **Field Guide's** representative photos: iNaturalist's own
   curated `default_photo` per taxon, keyed by taxon ID. Warmed in the background on import (fetched
   ~30 taxa per API request), stored in a **dedicated durable bucket** so heavy map use can't evict

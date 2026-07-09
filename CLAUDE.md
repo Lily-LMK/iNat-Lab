@@ -124,7 +124,49 @@ CSV handy (`sample-inat.csv`, git-ignored) for local testing — do not commit i
 
 ## Current chapter
 
-**Most recent work — Common (vernacular) names** (branch `common-names`, 3 commits
+**Most recent work — Integrity pass: keyboard access, modal focus, offline shell** (branch
+`integrity-a11y-offline`, commit `9a3b74d`, **merged to `main` at `7319cfb` and PUSHED / live**).
+A full integrity check driven headless-Chrome CDP against the real 26 MB export. The core was
+healthy — all five views render, filter cascade / chip removal / guide drill / record modal all
+work, escaping is disciplined, empty/onboarding/error states present, **zero console errors** — so
+this chapter is the fixes for the accessibility and offline gaps found.
+
+- **Blocking-prompt freeze removed.** `writeClipboard`'s last-resort `window.prompt()` froze the
+  whole page on a modal dialog (reproducible headless) and was redundant — every caller
+  (Copy title / Copy keywords / Copy export text) already surfaces the text inline for manual copy
+  when the write returns `false`. Deleted the prompt; the function just returns `false`.
+- **Record detail `#modal` accessibility.** Added dialog semantics (`role="dialog"`,
+  `aria-modal="true"`, `aria-labelledby="modalTitle"`) and real focus management: focus moves to
+  `#closeModal` on open, **Tab is trapped** inside the dialog (in the modal keydown handler), and
+  focus **returns to the opener** (`app._modalReturnFocus`) on close. Mirrors the focus-trap the
+  scope modal and map-export popover already use.
+- **Keyboard operability (WCAG 2.1.1).** Record cards (`.card`), Field Guide index cards
+  (`.guideCard`), and focus-page child tiles (`.fgChildTile`) were **click-only `<div>`s** —
+  keyboard users could not open a record or drill a taxon at all. Each is now `role="button"` +
+  `tabindex="0"` + `aria-label` with **Enter/Space** activation. The `:focus-visible` CSS already
+  existed (`.card`/`[tabindex]`/`.guideCard`/`.childTile`); the elements just never became
+  focusable. (`statLink`/`lensRow`/`treeNodeName` are real `<button>`s and `legendDot` already had
+  tabindex+keydown — left as-is.)
+- **Offline app-shell now real (`sw.js`).** The shell was **never actually cached** — HTML
+  navigations fell through to network-only and `index.html` wasn't in `PRECACHE`, so
+  "loads offline once visited" (README/CLAUDE.md) was false. Added a **network-first** route for the
+  HTML document (new `networkFirst(request, CACHE_STATIC)` helper): an online visit always fetches
+  fresh `index.html` (no stale-shell trap), a copy is kept in `inatlab-static-*`, and an offline
+  reload serves the last-seen shell. No `CACHE_STATIC` version bump needed (a byte-different `sw.js`
+  self-updates; the activate keep-set is unchanged).
+- **Flagged, not changed (a decision, not a bug):** Map colour-by-Family renders ~691 legend
+  categories, so the palette necessarily cycles — a usability limit of colouring by a
+  high-cardinality rank, not a defect. A future "top-N + Other" grouping would address it.
+- Verified end-to-end via headless-Chrome CDP on the real export: modal open by **mouse and
+  keyboard**, focus-in and focus-return, filter cascade + chip removal, **guide drill by keyboard**
+  (index tile → focus page → child tile → Records), mobile 375/390 px drawer, light + dark, and a
+  full **offline reload** (`Network.emulateNetworkConditions` offline → app boots with header, tabs,
+  Leaflet from precache). Console clean throughout. **Test gotchas** (scratchpad harness, Node 24
+  global-WebSocket CDP, no deps): auto-dismiss `Page.javascriptDialogOpening` or the old prompt
+  hangs the run; the offline test must **not** bypass the SW (data-flow tests still must
+  `setBypassServiceWorker` + `setCacheDisabled`).
+
+**Earlier — Common (vernacular) names** (branch `common-names`, 3 commits
 `d116f74`→`d794c4b`, **merged to `main` at `d794c4b` and PUSHED / live**). Ports the *idea* of
 QM Explorer's common names into iNat Lab, but not its machinery (no multi-API resolver, no curated
 `_localVern` dictionary — iNaturalist has rank-appropriate common names natively). The reference
