@@ -1999,14 +1999,6 @@
               </div>
               <div class="muted small" id="scopeUrlNote">Paste the <strong>Query</strong> field from iNaturalist's Export page. Fills taxa, place, dates, and observers exactly (e.g. <code>without_taxon_id=47126</code> = no plants).</div>
             </div>
-
-            <div class="addField">
-              <label>Full re-import <span class="muted small" style="font-weight:400;">— fetch all records, not just new uploads</span></label>
-              <div class="bar">
-                <button type="button" id="fullImportBtn">Full re-import (all records)</button>
-              </div>
-              <div class="muted small">Rebuilds the set from iNaturalist using the observers and scope above. Replaces the current records.</div>
-            </div>
           </div>
         </details>
 
@@ -7755,7 +7747,9 @@ $("#openRecord").onclick = () => { if(r._url) window.open(r._url, "_blank"); };
     if((q.d1 && q.d1.trim()) || (q.d2 && q.d2.trim())) parts.push("observed " + (q.d1||"…") + "–" + (q.d2||"now"));
     const proj = safe($("#apiProject") && $("#apiProject").value).trim();
     if(proj) parts.push("project " + proj);
-    if(q.extra && Object.keys(q.extra).length) parts.push("+" + Object.keys(q.extra).join("/"));
+    // q.extra (has_photos/verifiable/captive/geoprivacy) is export boilerplate, not a
+    // user-meaningful restriction — kept in the query for fidelity, but left out of the
+    // human sentence so it doesn't read as a claim about the data.
     return parts.join(" · ");
   }
 
@@ -7767,11 +7761,15 @@ $("#openRecord").onclick = () => { if(r._url) window.open(r._url, "_blank"); };
     if(!el) return;
     const q = (typeof collectScopeFromModal === "function") ? collectScopeFromModal() : (app.apiQuery || {});
 
-    const typed = parseUserList(($("#apiUsers") && $("#apiUsers").value) || "");
+    // Name the observers actually in play: whatever's typed, else the observers in the
+    // loaded data (that's the default the fetch uses). Vague "your data's observers" hid
+    // this; showing the names is what the sentence is for.
+    let names = parseUserList(($("#apiUsers") && $("#apiUsers").value) || "");
+    if(!names.length) names = (app.users || []).filter(Boolean);
     let who;
-    if(typed.length > 3) who = typed.length + " observers";
-    else if(typed.length) who = typed.join(", ");
-    else who = "your data’s observers";
+    if(!names.length) who = "your observers";
+    else if(names.length > 3) who = names.slice(0,2).join(", ") + " + " + (names.length - 2) + " more";
+    else who = names.join(", ");
 
     const mode = areaMode();
     let where;
@@ -8441,8 +8439,12 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     }
 
     finalizeDataMerge();
-    // Widen the scope suggestion to the combined data (e.g. a new iconic group), and keep
-    // any confirmed scope; refresh the inline scope controls so the box/area reflect the merge.
+    // The data changed, so re-derive the scope from the combined set — same as a replace
+    // load. Keeping a previously-captured apiQuery here made the scope sentence describe a
+    // stale, narrower filter (e.g. an old insects/research export) that no longer matched
+    // the merged data. A fresh suggestion reflects what's actually loaded; re-paste an
+    // Export Query if you need to replay a filter inference can't see (e.g. "no plants").
+    app.apiQuery = null;
     app.apiQuerySuggested = inferApiConstraints();
     refreshAddScopeFromData();
     syncScopeSummary();
@@ -8730,18 +8732,18 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     }
   }
 
-  // Scope is now the inline controls — read them at fetch time, no separate gate.
+  // One smart button. Scope is the inline controls, read at fetch time. The mode is
+  // decided by honest state, not a toggle: a from-scratch pull (no baseline) or a
+  // cleared-boundary backfill both go through the big-cap full-import path — which merges
+  // and dedupes exactly like a top-up, it doesn't discard anything — while the everyday
+  // case (a baseline plus an upload boundary) fetches just the new uploads.
   $("#fetchApi").addEventListener("click", ()=>{
     if(app.apiFetchActive) return;
     app.apiQuery = collectScopeFromModal();
     syncScopeSummary();
-    runApiFetch("topup");
-  });
-  $("#fullImportBtn")?.addEventListener("click", ()=>{
-    if(app.apiFetchActive) return;
-    app.apiQuery = collectScopeFromModal();
-    syncScopeSummary();
-    runApiFetch("full");
+    const backfill = app.apiQuery && app.apiQuery.uploaded_since === "";
+    const mode = (!app.loaded || backfill) ? "full" : "topup";
+    runApiFetch(mode);
   });
 $("#apiUsers").addEventListener("blur", async ()=>{
     const u = parseUserList($("#apiUsers").value || "");
