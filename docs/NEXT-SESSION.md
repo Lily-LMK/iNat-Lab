@@ -8,9 +8,10 @@ don't turn this into a changelog.
 _Last refreshed 2026-07-10. Just built (branch `add-records-redesign`, pending Lily's review →
 merge): the **Add records redesign** — scope inlined (the `#scopeModal` modal-over-modal retired),
 **geography on by default** (padded box round the data; place-id / Anywhere escapes), **CSV
-append** (Replace vs Add-to-current), an **Uploaded-since Clear** button, and a reserved **Fern
-brand green** on primary buttons only. See `../CLAUDE.md` → "Recent work". **Next up:** review +
-merge, then Phase 2(c) clustering or Phase 3 species deep-dive._
+append** (Replace vs Add-to-current), and an **Uploaded-since Clear** button. (A Fern-green
+primary was trialled and **rejected** — the chrome stays ink/white/grey, no accent colour; radios
+tick ink via `accent-color`.) See `../CLAUDE.md` → "Recent work". **Next up:** review + merge,
+then Phase 2(c) clustering or Phase 3 species deep-dive._
 
 ---
 
@@ -121,10 +122,11 @@ Then, back-burnered: Phase 2(c) **clustering + spiderfy** and Phase 3 **species 
   "Uploaded since" owns it, **Clear = backfill**.
 - **CSV append** merges deduped by observation id (`loadCSVFileAppend`, same path as an API
   top-up); `app._csvMode` routes the shared `#csvA` handler. Drag-drop + onboarding = Replace.
-- **Reserved brand colour: Fern green** (`--brand` #3F6F53 / dark #4C8163, `--on-brand` white) on
-  **primary buttons only** — the one colour in otherwise ink chrome. Links/focus/active stay ink.
+- **No accent colour** — chrome stays ink/white/grey. Primary = the filled-ink `.btn-primary`;
+  radios/checkboxes use `accent-color: var(--ink)` (ink tick, not browser-blue). A Fern-green
+  primary was trialled 2026-07-10 and **rejected** by Lily — no green, no blue; don't reintroduce.
 - Interface palette is a **cool near-neutral "gallery" ramp** (light + dark) — **not** warm cream.
-  Photographs are the only colour; chrome stays quiet (**except** the reserved Fern primary).
+  Photographs are the only colour; chrome stays quiet.
 - **Wordmark is a serif (Literata)**, scoped to the masthead lockup + onboarding `.mark` via the
   `--wordmark` token — the one reserved exception to the single-typeface (Inter) system. Use
   `font-optical-sizing:auto` so it stays legible small. (Fraunces was rejected — fragile small.)

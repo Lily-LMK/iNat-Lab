@@ -144,11 +144,12 @@ section is orientation, not a changelog. Everything below is on `main` and live 
   bbox decision (the fix for travelling observers dragging in out-of-area records). (3) **CSV
   append** — two doors, "Replace with a file…" and "Add a file to current…" (`loadCSVFileAppend`,
   deduped by observation id, same merge path as an API top-up; `app._csvMode` routes the shared
-  `#csvA` handler). (4) **Uploaded since gets a Clear button** (blank = backfill). (5) A reserved
-  **Fern brand green** (`--brand` #3F6F53 light / #4C8163 dark, `--on-brand` white) now fills
-  **primary buttons only** (`button.primary`, `.btn-primary`); links/focus/active stay ink.
-  (6) UI wording is **"iNaturalist"**, not "iNat". Verified light + dark + mobile 375px, console
-  clean; append add/dedupe and area/clear preview driven live.
+  `#csvA` handler). (4) **Uploaded since gets a Clear button** (blank = backfill). (5) UI wording
+  is **"iNaturalist"**, not "iNat". (6) **No accent colour** — a Fern-green primary was trialled
+  and **rejected** by Lily; the chrome stays ink/white/grey (content + type are the design). Form
+  controls now use `accent-color: var(--ink)` so radios/checkboxes tick ink, not the browser's
+  blue. Verified light + dark + mobile 375px, console clean; append add/dedupe and area/clear
+  preview driven live.
 - **Add records modal + collapse fix** (2026-07-10). The header **"Add records…"** button now
   opens a single dialog (`#addModal`) with three doors — **From a file** (Load CSV), **From
   iNaturalist** (the top-up/import controls, moved from the sidebar with their ids intact so
@@ -210,10 +211,11 @@ section is orientation, not a changelog. Everything below is on `main` and live 
 - **The top-up boundary is upload date** (`created_d1`), never observed date, so a months-late
   upload of an old in-scope observation still comes in. "Uploaded since" owns it; **Clear** =
   backfill. Don't default an observed-date window that would suppress late uploads.
-- **Reserved brand colour: Fern green** (`--brand`), used on **primary buttons only**
-  (`button.primary` / `.btn-primary`) — the one colour in an otherwise ink/monochrome chrome, so
-  photographs stay the colour. Links, focus rings, and active-filter states stay ink. Don't spread
-  the green to other chrome without a deliberate decision.
+- **No accent colour in the chrome** — the interface stays **ink / white / grey** (the Gallery
+  system); content and type are the design, photographs are the only colour. Primary action is the
+  established filled-ink `.btn-primary`; form controls use `accent-color: var(--ink)` so radios and
+  checkboxes tick **ink, not browser-blue**. *(A Fern-green primary was trialled 2026-07-10 and
+  **rejected** by Lily — no green, no blue. Don't reintroduce a brand accent colour.)*
 - **Publication export** has two modes: a real-basemap screenshot (CORS-safe basemaps only) and a
   clean vector plot (no basemap tiles, always light palette).
 - The removed features stay removed: the chip-bar "Clear all" / `clearAllFilters()`, the

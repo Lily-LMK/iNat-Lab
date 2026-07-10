@@ -52,9 +52,6 @@
       --warn:#9A3B2E;
       --user-a:#327379;      /* compare A — teal (USER_PALETTE_LIGHT[0]) */
       --user-b:#A05838;      /* compare B — terracotta (USER_PALETTE_LIGHT[1]) */
-      --brand:#3F6F53;       /* Fern — the ONE reserved colour, primary action only */
-      --brand-strong:#35634A;/* pressed/hover */
-      --on-brand:#FFFFFF;    /* paper text on the brand fill (AA ≥4.5:1 both themes) */
       --sans:'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       --heading: var(--sans);
       --wordmark: 'Literata', Georgia, 'Times New Roman', serif; /* masthead lockup only */
@@ -92,9 +89,6 @@
       --warn:#E07A5F;
       --user-a:#61AAB0;
       --user-b:#C6947E;
-      --brand:#4C8163;       /* Fern, lifted for the dark ground */
-      --brand-strong:#3E7458;
-      --on-brand:#FFFFFF;
       --rg-color:#5FB07F;
     }
     html{ color-scheme: light; }
@@ -102,6 +96,8 @@
     html, body{ margin:0; background:var(--bg); color:var(--ink); }
     body{ min-height:100dvh; transition: background var(--dur) var(--ease), color var(--dur) var(--ease); }
     ::selection{ background:var(--accent-soft); color:var(--ink); }
+    /* Form controls tick in ink, not the browser's blue — keep the chrome monochrome. */
+    input[type=radio], input[type=checkbox]{ accent-color: var(--ink); }
     body{ font-family: var(--font); line-height:1.45; overflow-x: hidden; }
 
     /* Barlow for headings & bold labels only */
@@ -1703,16 +1699,14 @@
       border-radius: 3px;
     }
 
-    /* Primary action — a filled Fern-green button (paper text). The ONE reserved
-       colour: it marks "this is the action" and appears nowhere else. Chrome
-       (links, focus rings, active filters) stays ink. */
-    .btn-primary, .pill button.primary, button.primary{
-      background: var(--brand) !important;
-      color: var(--on-brand) !important;
-      border: 1px solid var(--brand) !important;
+    /* Primary action — a filled ink button (paper text). The one strong move. */
+    .btn-primary, .pill button.primary{
+      background: var(--ink) !important;
+      color: var(--bg) !important;
+      border: 1px solid var(--ink) !important;
       font-weight: 600;
     }
-    .btn-primary:hover, .pill button.primary:hover, button.primary:hover{ background: var(--brand-strong) !important; border-color: var(--brand-strong) !important; filter:none; }
+    .btn-primary:hover, .pill button.primary:hover{ background: var(--ink-2) !important; border-color: var(--ink-2) !important; filter:none; }
 
     /* Cards: quiet definition by hairline; a whisper of lift on hover. */
     .card:hover{ box-shadow: var(--shadow); border-color: var(--hair-strong); }
