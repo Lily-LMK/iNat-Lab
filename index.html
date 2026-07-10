@@ -798,6 +798,28 @@
     .scopeUrlRow{ display:flex; gap:8px; }
     .scopeUrlRow input{ flex:1 1 auto; min-width:0; }
 
+    /* Source tabs — File / iNaturalist, so the two ingest models stop competing. */
+    .addTabs{ display:flex; gap:4px; padding:3px; background:var(--raised); border:1px solid var(--hair); border-radius:9px; }
+    .addTab{
+      flex:1 1 0; text-align:center; font-family:var(--font); font-size:13px;
+      padding:7px 0; border:1px solid transparent; border-radius:6px;
+      background:transparent; color:var(--muted); cursor:pointer;
+    }
+    .addTab.addTabActive{ background:var(--field); border-color:var(--hair); color:var(--ink); font-weight:600; }
+    .addTab:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
+    .addPane{ display:flex; flex-direction:column; gap:15px; }
+    .addPane[hidden]{ display:none; }
+
+    /* Plain-language scope sentence — summarises the collapsed disclosures so the
+       routine top-up needs no opening. Dotted underlines mark the editable parts. */
+    .scopeSentence{ font-size:13.5px; line-height:1.6; color:var(--ink); margin:0; }
+    .scopeVar{ border-bottom:1px dotted var(--muted); }
+    .scopeAlso{ display:block; margin-top:6px; font-size:12px; color:var(--muted); }
+    .previewRow{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+
+    /* Maintenance — demoted to a quiet footer. */
+    .addMaint{ display:flex; align-items:center; gap:9px; flex-wrap:wrap; border-top:1px solid var(--hair); padding-top:13px; margin-top:2px; }
+
     .dialog{
       width: min(980px, 98vw);
       max-height: min(780px, 92vh);
@@ -1853,67 +1875,76 @@
     </div>
 
     <div class="addBody">
+      <!-- Source: two doors as tabs, so file-loading and API sync stop competing -->
+      <div class="addTabs" role="tablist" aria-label="Where to add records from">
+        <button class="addTab" id="addTabFile" role="tab" type="button" aria-selected="false" aria-controls="addPaneFile">From a file</button>
+        <button class="addTab addTabActive" id="addTabApi" role="tab" type="button" aria-selected="true" aria-controls="addPaneApi">From iNaturalist</button>
+      </div>
+
       <!-- ① a CSV file — replace or add to current -->
-      <div class="addSection">
-        <div class="addSectionLabel">Load a CSV file</div>
+      <div class="addPane" id="addPaneFile" role="tabpanel" aria-labelledby="addTabFile" hidden>
         <div class="bar">
-          <button id="addLoadCsvReplace" class="primary" type="button">Replace with a file…</button>
+          <button id="addLoadCsvReplace" class="primary btn-primary" type="button">Replace with a file…</button>
           <button id="addLoadCsvAppend" type="button">Add a file to current…</button>
         </div>
         <div class="muted small">A CSV export from iNaturalist. <strong>Replace</strong> starts fresh; <strong>Add</strong> merges into your current records, deduped by observation ID.</div>
       </div>
 
-      <hr class="addRule"/>
+      <!-- ② a live iNaturalist sync — the routine top-up. A plain-English scope
+           sentence up top; the controls behind two disclosures keyed to frequency. -->
+      <div class="addPane" id="addPaneApi" role="tabpanel" aria-labelledby="addTabApi">
+        <p class="scopeSentence" id="scopeSentence"></p>
 
-      <!-- ② a live iNaturalist sync — the routine top-up, scope inline -->
-      <div class="addSection">
-        <div class="addSectionLabel">Sync from iNaturalist</div>
-
-        <div class="addField">
-          <label for="apiUsers">Observers</label>
-          <input id="apiUsers" type="text" placeholder="iNaturalist username(s), e.g. lily_kumpe, friend"/>
-          <div class="muted small">Defaults to the observers in your data.</div>
+        <div class="previewRow">
+          <button type="button" id="apiTest" class="smallBtn">Preview count</button>
+          <span class="muted small" id="apiPreviewOut"></span>
         </div>
 
-        <div class="addField">
-          <label>Area</label>
-          <div class="areaBox" id="areaBox">
-            <label class="areaOpt">
-              <input type="radio" name="areaMode" id="areaModeBox" value="box" checked/>
-              <span>Around my records</span>
-              <span class="areaVal" id="areaBboxVal">—</span>
-            </label>
-            <label class="areaOpt">
-              <input type="radio" name="areaMode" id="areaModePlace" value="place"/>
-              <span>A place</span>
-              <input id="scopePlace" type="text" inputmode="numeric" class="areaInline" placeholder="iNaturalist place ID, e.g. 7308"/>
-            </label>
-            <label class="areaOpt">
-              <input type="radio" name="areaMode" id="areaModeAny" value="any"/>
-              <span>Anywhere</span>
-              <span class="muted small">no geographic limit</span>
-            </label>
+        <!-- Tier 2 — the routine adjustments -->
+        <details class="addMore" id="addScope">
+          <summary>Adjust scope</summary>
+          <div class="addMoreBody">
+            <div class="addField">
+              <label for="apiUsers">Observers</label>
+              <input id="apiUsers" type="text" placeholder="iNaturalist username(s), e.g. lily_kumpe, friend"/>
+              <div class="muted small">Defaults to the observers in your data.</div>
+              <div class="muted small" id="apiTotals"></div>
+            </div>
+
+            <div class="addField">
+              <label>Area</label>
+              <div class="areaBox" id="areaBox">
+                <label class="areaOpt">
+                  <input type="radio" name="areaMode" id="areaModeBox" value="box" checked/>
+                  <span>Around my records</span>
+                  <span class="areaVal" id="areaBboxVal">—</span>
+                </label>
+                <label class="areaOpt">
+                  <input type="radio" name="areaMode" id="areaModePlace" value="place"/>
+                  <span>A place</span>
+                  <input id="scopePlace" type="text" inputmode="numeric" class="areaInline" placeholder="iNaturalist place ID, e.g. 7308"/>
+                </label>
+                <label class="areaOpt">
+                  <input type="radio" name="areaMode" id="areaModeAny" value="any"/>
+                  <span>Anywhere</span>
+                  <span class="muted small">no geographic limit</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="addField">
+              <label for="scopeUploaded">Uploaded since <span class="muted small" style="font-weight:400;">— the top-up boundary</span></label>
+              <div class="uploadRow">
+                <input id="scopeUploaded" type="date"/>
+                <button type="button" id="scopeUploadedClear" class="smallBtn">Clear</button>
+              </div>
+              <div class="muted small">Fetches records uploaded after this date, even if observed long ago. <strong>Clear</strong> to also pull older records newly in scope (e.g. after adding a taxon group).</div>
+              <div class="scopeHint" id="scopeBackfillHint" hidden></div>
+            </div>
           </div>
-        </div>
+        </details>
 
-        <div class="addField">
-          <label for="scopeUploaded">Uploaded since <span class="muted small" style="font-weight:400;">— the top-up boundary</span></label>
-          <div class="uploadRow">
-            <input id="scopeUploaded" type="date"/>
-            <button type="button" id="scopeUploadedClear" class="smallBtn">Clear</button>
-          </div>
-          <div class="muted small">Fetches records uploaded after this date, even if observed long ago. <strong>Clear</strong> to also pull older records newly in scope (e.g. after adding a taxon group).</div>
-          <div class="scopeHint" id="scopeBackfillHint" hidden></div>
-        </div>
-
-        <div class="bar">
-          <button id="fetchApi" class="primary">Top up</button>
-          <button id="apiTest">Test</button>
-        </div>
-        <div class="muted small" id="apiTotals"></div>
-        <div class="muted small" id="apiScopeSummary"></div>
-
-        <!-- Advanced — inline disclosure (no more modal-over-modal) -->
+        <!-- Tier 3 — advanced, rarely touched -->
         <details class="addMore" id="addMore">
           <summary>More options</summary>
           <div class="addMoreBody">
@@ -1978,17 +2009,17 @@
             </div>
           </div>
         </details>
+
+        <div class="bar">
+          <button id="fetchApi" class="primary btn-primary">Sync records</button>
+        </div>
       </div>
 
-      <hr class="addRule"/>
-
-      <!-- Maintenance · reconciles existing records (not an "add" action, kept separate) -->
-      <div class="addSection">
-        <div class="addSectionLabel">Maintenance</div>
-        <div class="bar">
-          <button id="taxonSyncBtn" title="Check iNaturalist for updated taxonomy fields">Update taxa</button>
-        </div>
-        <div class="muted small">Reconciles the taxonomy of records you already have — it doesn't add any.</div>
+      <!-- Maintenance · reconciles existing records; not an "add" action, so demoted
+           to a quiet footer rather than a co-equal section. -->
+      <div class="addMaint">
+        <button id="taxonSyncBtn" class="smallBtn" title="Check iNaturalist for updated taxonomy fields">Update taxa</button>
+        <span class="muted small">Reconciles the taxonomy of records you already have — it doesn't add any.</span>
       </div>
     </div>
   </div>
@@ -7701,16 +7732,63 @@ $("#openRecord").onclick = () => { if(r._url) window.open(r._url, "_blank"); };
     return parts.join(" · ");
   }
 
+  function prettyDate(iso){
+    if(!iso) return iso;
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+    if(!m) return iso;
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return parseInt(m[3],10) + " " + months[parseInt(m[2],10)-1] + " " + m[1];
+  }
+
+  // The genuinely-advanced restrictions (the "More options" tier) as a short phrase —
+  // taxa groups appear only when the selection deviates from what's in the data, so a
+  // default "all my groups" top-up doesn't read as if it were filtered.
+  function describeAdvancedScope(q){
+    const parts = [];
+    const sel = new Set(q.iconic_taxa || []);
+    const present = scopePresentSet || new Set();
+    const sameAsData = sel.size === present.size && [...sel].every(k => present.has(k));
+    if(sel.size && !sameAsData) parts.push(q.iconic_taxa.map(k => ICONIC_LABEL[k] || k).join(", "));
+    if(q.quality_grade && q.quality_grade.trim()) parts.push(q.quality_grade.trim() + "-grade");
+    if(q.taxon_id && q.taxon_id.length) parts.push("taxon " + q.taxon_id.join(","));
+    if(q.without_taxon_id && q.without_taxon_id.length) parts.push("excl. taxon " + q.without_taxon_id.join(","));
+    if((q.d1 && q.d1.trim()) || (q.d2 && q.d2.trim())) parts.push("observed " + (q.d1||"…") + "–" + (q.d2||"now"));
+    const proj = safe($("#apiProject") && $("#apiProject").value).trim();
+    if(proj) parts.push("project " + proj);
+    if(q.extra && Object.keys(q.extra).length) parts.push("+" + Object.keys(q.extra).join("/"));
+    return parts.join(" · ");
+  }
+
+  // The scope, in a plain-English sentence that mirrors the two disclosures below it:
+  // observers · area · uploaded-since (Adjust scope), then an "also limited to" tail for
+  // any advanced restriction (More options). Kept live by onAddScopeChange.
   function syncScopeSummary(){
-    const el = $("#apiScopeSummary");
+    const el = $("#scopeSentence");
     if(!el) return;
-    // Live preview of what a top-up will fetch, read from the inline scope controls.
-    // (There's no separate confirm step any more — the controls are the scope.)
-    if(!app.loaded){ el.textContent = ""; return; }
-    const q = (typeof collectScopeFromModal === "function") ? collectScopeFromModal() : app.apiQuery;
-    el.textContent = (q && !apiQueryIsEmpty(q))
-      ? "Top-up fetches: " + describeApiQuery(q)
-      : "Top-up fetches: everything for these observers.";
+    const q = (typeof collectScopeFromModal === "function") ? collectScopeFromModal() : (app.apiQuery || {});
+
+    const typed = parseUserList(($("#apiUsers") && $("#apiUsers").value) || "");
+    let who;
+    if(typed.length > 3) who = typed.length + " observers";
+    else if(typed.length) who = typed.join(", ");
+    else who = "your data’s observers";
+
+    const mode = areaMode();
+    let where;
+    if(mode === "place"){ const p = safe($("#scopePlace").value).trim(); where = p ? ("in place " + p) : "in a place you pick"; }
+    else if(mode === "any") where = "anywhere";
+    else where = "around your records";
+
+    const up = safe($("#scopeUploaded") && $("#scopeUploaded").value).trim();
+    const when = (up === "") ? "all uploads (backfill)" : ("uploaded since " + prettyDate(up));
+
+    el.innerHTML =
+      `Fetch records from iNaturalist for <span class="scopeVar">${escapeHtml(who)}</span>, ` +
+      `<span class="scopeVar">${escapeHtml(where)}</span>, ` +
+      `<span class="scopeVar">${escapeHtml(when)}</span>.`;
+
+    const adv = describeAdvancedScope(q);
+    if(adv) el.innerHTML += `<span class="scopeAlso">Also limited to ${escapeHtml(adv)}.</span>`;
   }
 
 async function fetchObservationsByUsers(userCsv, maxN, onProgress, onBatch){
@@ -7950,39 +8028,6 @@ async function fetchObservationsByUsers(userCsv, maxN, onProgress, onBatch){
       mapState.box.rect = null;
       mapState.box.bounds = null;
     }
-  }
-
-  async function testApi(){
-    const usersRaw = safe($("#apiUsers") && $("#apiUsers").value).trim();
-    const project_id = safe($("#apiProject") && $("#apiProject").value).trim();
-    let users = parseUserList(usersRaw);
-    if(!users.length) users = (app.users || []).filter(Boolean);
-
-
-    const baseTms = Number.isFinite(app.csvMaxCreatedAtTms) ? app.csvMaxCreatedAtTms : Date.now();
-    const created_d1 = isoDate(new Date(baseTms));
-
-    const params = new URLSearchParams({
-      per_page: "1",
-      page: "1",
-      order_by: "created_at",
-      order: "desc",
-      created_d1: created_d1,
-      photos: "true",
-      ttl: "-1"
-    });
-    if(users.length) params.set("user_id", users.join(","));
-    if(project_id) params.set("project_id", project_id);
-    applyApiQueryParams(params, app.apiQuery); // test the scoped query, not a bare one
-
-    const url = `${INAT_API}?${params.toString()}`;
-
-    setStatus("Testing API…");
-    const data = await fetchJson(url);
-    const total = (typeof data.total_results === "number") ? data.total_results : null;
-    const got = Array.isArray(data.results) ? data.results.length : 0;
-    setStatus(`API test ok: ${got} result(s) on page 1` + (total!=null ? ` • total_results=${total}` : ""));
-    alert(`API test succeeded.\n\nRequest:\n${url}\n\nPage results: ${got}\nTotal results (for this filter): ${total}`);
   }
 
 async function topUpFromApi(){
@@ -8438,6 +8483,21 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
 
   // ---- Add records modal (the single front door: a CSV file or a live iNat pull) ----
   let addPrevFocus = null;
+  // File vs iNaturalist doors as tabs.
+  function setAddTab(which){
+    const isApi = which === "api";
+    const paneApi = $("#addPaneApi"), paneFile = $("#addPaneFile");
+    const tabApi = $("#addTabApi"), tabFile = $("#addTabFile");
+    if(!paneApi || !paneFile) return;
+    paneApi.hidden = !isApi; paneFile.hidden = isApi;
+    tabApi.classList.toggle("addTabActive", isApi);
+    tabFile.classList.toggle("addTabActive", !isApi);
+    tabApi.setAttribute("aria-selected", isApi ? "true" : "false");
+    tabFile.setAttribute("aria-selected", isApi ? "false" : "true");
+  }
+  $("#addTabApi")?.addEventListener("click", ()=> setAddTab("api"));
+  $("#addTabFile")?.addEventListener("click", ()=> setAddTab("file"));
+
   function openAddModal(focusSel){
     const modal = $("#addModal");
     if(!modal) return;
@@ -8449,7 +8509,18 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     // once a dataset is loaded, loadCSVFile has already filled it, so don't clobber edits.
     const grid = $("#scopeIconic");
     if(grid && !grid.children.length) refreshAddScopeFromData();
-    const first = (focusSel && modal.querySelector(focusSel)) || modal.querySelector("#addLoadCsvReplace");
+    else syncScopeSummary();
+    // Default door: File when there's nothing to top up yet, else the iNaturalist sync.
+    let want = app.loaded ? "api" : "file";
+    const target = focusSel && modal.querySelector(focusSel);
+    if(target){
+      const pane = target.closest(".addPane");
+      if(pane === $("#addPaneApi")) want = "api";
+      else if(pane === $("#addPaneFile")) want = "file";
+      const d = target.closest("details"); if(d) d.open = true;
+    }
+    setAddTab(want);
+    const first = target || modal.querySelector(want === "api" ? "#apiTest" : "#addLoadCsvReplace");
     if(first){ try{ first.focus(); }catch(e){} }
   }
   function closeAddModal(){
@@ -8690,14 +8761,47 @@ $("#apiUsers").addEventListener("blur", async ()=>{
     }
   });
 
-  $("#apiTest").addEventListener("click", async ()=>{
-    try{ await testApi(); }
-    catch(err){
+  // Preview count — an inline estimate of what Sync will pull, read from the live scope
+  // and the upload boundary. Replaces the old "Test" alert; no dialog, no page reveal.
+  async function previewCount(){
+    const out = $("#apiPreviewOut"), btn = $("#apiTest");
+    if(out) out.textContent = "Checking…";
+    if(btn){ btn.disabled = true; btn.setAttribute("aria-busy", "true"); }
+    try{
+      const q = collectScopeFromModal();
+      let users = parseUserList(safe($("#apiUsers") && $("#apiUsers").value).trim());
+      if(!users.length) users = (app.users || []).filter(Boolean);
+      const project_id = safe($("#apiProject") && $("#apiProject").value).trim();
+      if(!users.length && !project_id){ if(out) out.textContent = "add an observer or project first"; return; }
+
+      const params = new URLSearchParams({ per_page:"1", order_by:"created_at", order:"desc", ttl:"-1" });
+      if(users.length) params.set("user_id", users.join(","));
+      if(project_id) params.set("project_id", project_id);
+      applyApiQueryParams(params, q); // the live scope, not app.apiQuery
+
+      // Honour the upload boundary: a cleared field = backfill (no floor); else the field's
+      // date, or the CSV's latest upload when it's on "automatic".
+      let boundary = null;
+      if(q.uploaded_since === "") boundary = null;
+      else if(typeof q.uploaded_since === "string" && q.uploaded_since) boundary = q.uploaded_since;
+      else if(Number.isFinite(app.csvMaxCreatedAtTms)) boundary = isoDate(new Date(app.csvMaxCreatedAtTms));
+      if(boundary) params.set("created_d1", boundary);
+
+      const data = await fetchJson(`${INAT_API}?${params.toString()}`);
+      const total = (typeof data.total_results === "number") ? data.total_results : null;
+      if(out){
+        out.textContent = (total == null) ? "couldn’t estimate"
+          : boundary ? `~${total.toLocaleString()} new to fetch`
+          : `~${total.toLocaleString()} records in scope`;
+      }
+    }catch(err){
       console.error(err);
-      setStatus("API test failed: " + safe(err && (err.message || err)));
-      alert("API test failed:\n\n" + safe(err && (err.message || err)) + "\n\nTip: if this is a CORS error, the fix is to run the app from a real web URL (not file://) or configure a proxy.");
+      if(out) out.textContent = "preview failed — see console";
+    }finally{
+      if(btn){ btn.disabled = false; btn.removeAttribute("aria-busy"); }
     }
-  });
+  }
+  $("#apiTest").addEventListener("click", previewCount);
 
   // ----------------- filter events -----------------
   $("#q").addEventListener("input", ()=>{
