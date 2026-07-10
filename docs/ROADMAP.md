@@ -27,6 +27,33 @@ Field Guide, Dates, Map) and the ingest/metadata engine keep working throughout.
 
 ---
 
+## Improvement ideas (queued 2026-07-10)
+
+Captured from a planning session so they aren't lost; each is tagged with the phase it touches.
+These are **not** a new phase — fold them into the relevant phase when picked up. (Items marked
+"also in NEXT-SESSION backlog" already have a fuller note there; this list is the roadmap-level
+pointer, not a duplicate spec.)
+
+1. **Bake a higher-taxon photo seed** *(new — extends Field Guide photos / Phase 5 offline).*
+   A `TAXON_RANK_PHOTO_SEED` mirroring the existing `TAXON_COMMON_SEED` (only a few hundred
+   `default_photo` URLs for upper ranks) so a brand-new dataset shows representative tiles
+   immediately, with no placeholder window before warm-up runs. Regenerate via a small tool like
+   `tools/build-common-seed.mjs`.
+2. **Field Guide progressive photo fill** *(Phase 3-adjacent; also in NEXT-SESSION backlog).*
+   Targeted `patchGuidePhotos()` DOM patch so tiles fill in *during* the warm-up pass — swap only
+   the `src` of tiles whose photo just resolved — instead of one `render()` at the end, without
+   the old once-a-second flash.
+3. **Map legend for high-cardinality ranks** *(Phase 2 map; also in NEXT-SESSION backlog).*
+   Colour-by-Family renders ~690 legend rows and the palette necessarily repeats. Add a
+   "top-N + Other" grouping so the legend stays legible.
+4. **Finish the accessibility pass** *(Phase 5 a11y — currently `[~]`).* A contrast/label audit
+   across the UI, plus focus handling (trap + return) for the remaining **"Update taxa"** modal,
+   which was not covered by the record-modal integrity pass.
+5. **Shareable URL state** *(Phase 5).* Encode the active view + filters into the URL so a link
+   reproduces a lens. (Already listed under Phase 5 below; promoted here as a near-term intent.)
+
+---
+
 ## Phase 0 — Foundation & safety net ✅ DONE
 
 - [x] `git init` + baseline commit; `.gitignore`, `CLAUDE.md`, `README.md`.
