@@ -250,7 +250,14 @@
        drawer re-adds a surface (background + border-right + shadow) in its own block. */
     aside{
       background: none;
-      padding: 4px 0 0;
+      /* Bottom breathing room matters here: the sidebar is an internal-scroll
+         container (sticky + max-height + overflow). Without it, the last panel
+         ("Add records") sits flush against the scroll-clip edge — its collapsed
+         summary then hit-tests as the <aside> and won't toggle on click. The
+         padding gives manual trackpad-scroll clearance; scroll-padding-bottom
+         keeps keyboard/programmatic scroll-into-view off the edge too. */
+      padding: 4px 0 40px;
+      scroll-padding-bottom: 40px;
       overflow:auto;
       position: sticky;
       top: var(--header-h, 64px);
@@ -767,6 +774,33 @@
     @media (max-width:520px){
       .scopeGrid2, .scopeIconicGrid{ grid-template-columns:1fr; }
     }
+
+    /* Add-records dialog — single-column flex (fixed header, scrolling body), like the
+       scope dialog. Two "doors" (file / iNaturalist) plus a maintenance block, separated
+       by hairline rules. .dialog.addDialog beats the base .dialog two-col grid. */
+    .dialog.addDialog{
+      display:flex; flex-direction:column; grid-template-columns:none;
+      width:min(560px,96vw); max-height:min(90vh,780px); padding:0; overflow:hidden;
+    }
+    .addHead{ flex:0 0 auto; display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:20px 22px 12px; }
+    .addTitle{ font-family:var(--heading); font-weight:700; font-size:15px; color:var(--ink); }
+    .addBody{ flex:1 1 auto; overflow:auto; display:flex; flex-direction:column; gap:15px; padding:6px 22px 20px; }
+    .addSection{ display:flex; flex-direction:column; gap:9px; }
+    .addSectionLabel{
+      font-family:var(--heading); font-size:11px; font-weight:600;
+      letter-spacing:.1em; text-transform:uppercase; color:var(--muted);
+    }
+    .addField{ display:flex; flex-direction:column; gap:4px; }
+    .addField > label{ font-size:12px; font-weight:600; color:var(--ink-2); }
+    .addDialog input[type=text], .addDialog select{
+      width:100%; box-sizing:border-box; padding:7px 9px;
+      border:1px solid var(--hair); border-radius:8px;
+      background:var(--field); color:var(--ink); font-family:var(--font); font-size:13px;
+    }
+    .addRow{ display:flex; gap:12px; }
+    .addRow > *{ flex:1 1 0; min-width:0; }
+    .addRule{ height:1px; background:var(--hair); border:0; margin:1px 0; }
+
     .dialog{
       width: min(980px, 98vw);
       max-height: min(780px, 92vh);
@@ -1809,6 +1843,80 @@
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <!-- Export modal (copy/paste instead of auto-download) -->
+<!-- Add records — the single front door to bringing data in: a CSV file or a live
+     iNaturalist pull. Opened from the header "Add records…" button and the onboarding
+     "Pull from iNaturalist" CTA. Placed BEFORE #scopeModal in the DOM so the scope editor
+     (which opens from inside here) paints on top of it. The iNaturalist controls keep the
+     same ids they had in the old sidebar panel, so their event handlers bind unchanged. -->
+<div class="modal" id="addModal" aria-hidden="true">
+  <div class="dialog addDialog" role="dialog" aria-modal="true" aria-labelledby="addTitle">
+    <div class="addHead">
+      <div class="addTitle" id="addTitle">Add records</div>
+      <button class="close" id="addClose" type="button">Close</button>
+    </div>
+
+    <div class="addBody">
+      <!-- Door 1 · a CSV export -->
+      <div class="addSection">
+        <div class="addSectionLabel">From a file</div>
+        <div class="bar">
+          <button id="addLoadCsv" class="primary" type="button">Load CSV file…</button>
+        </div>
+        <div class="muted small">A CSV export from iNaturalist. Replaces the current record set.</div>
+      </div>
+
+      <hr class="addRule"/>
+
+      <!-- Door 2 · a live iNaturalist pull (top-up or full import) -->
+      <div class="addSection">
+        <div class="addSectionLabel">From iNaturalist</div>
+        <div class="addField">
+          <label for="apiUsers">Usernames</label>
+          <input id="apiUsers" type="text" placeholder="iNat username(s): e.g. lily_kumpe, friend"/>
+        </div>
+        <div class="addField">
+          <label for="apiProject">Project</label>
+          <input id="apiProject" type="text" placeholder="project_id or slug (optional)"/>
+        </div>
+        <div class="addRow">
+          <div class="addField">
+            <label for="apiMode">Mode</label>
+            <select id="apiMode">
+              <option value="topup" selected>Top-up (new since CSV)</option>
+              <option value="full">Full import (all records)</option>
+            </select>
+          </div>
+          <div class="addField">
+            <label id="apiCapLabel" for="apiMax">Cap (new uploads)</label>
+            <input id="apiMax" type="text" value="5000"/>
+          </div>
+        </div>
+        <div class="addField">
+          <label>Scope <span class="muted small" style="font-weight:400;">— reproduce your CSV's filter</span></label>
+          <div class="muted small" id="apiScopeSummary">Not set — the first fetch will ask.</div>
+          <button type="button" id="apiScopeBtn" class="linkBtn" style="margin-top:2px; align-self:flex-start;">Set / edit scope…</button>
+        </div>
+        <div class="bar">
+          <button id="fetchApi" class="primary">Top-up</button>
+          <button id="apiTest">Test</button>
+        </div>
+        <div class="muted small" id="apiTotals"></div>
+      </div>
+
+      <hr class="addRule"/>
+
+      <!-- Maintenance · reconciles existing records (not an "add" action, kept separate) -->
+      <div class="addSection">
+        <div class="addSectionLabel">Maintenance</div>
+        <div class="bar">
+          <button id="taxonSyncBtn" title="Check iNaturalist for updated taxonomy fields">Update taxa</button>
+        </div>
+        <div class="muted small">Reconciles the taxonomy of records you already have — it doesn't add any.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="scopeModal" aria-hidden="true">
   <div class="dialog scopeDialog" role="dialog" aria-modal="true" aria-labelledby="scopeTitle">
     <div class="scopeHead">
@@ -1931,7 +2039,7 @@
     <div id="chipBar" class="chip-bar" role="region" aria-live="polite" aria-label="Active filters"></div>
 
     <div class="headerMeta">
-      <button id="loadCsvBtn" class="headerSmBtn" title="Load a new CSV file">Load new…</button>
+      <button id="openAddBtn" class="headerSmBtn" title="Add records — load a CSV file or pull from iNaturalist">Add records…</button>
     </div>
 
     <button id="themeToggle" class="headerToggleBtn" title="Switch between light and dark" aria-label="Switch between light and dark theme"></button>
@@ -2105,53 +2213,9 @@
         </div>
       </details>
 
-      <!-- 5 · ADD RECORDS — API import + Update taxa (the group phone users most need to reach) -->
-      <details class="accPanel">
-        <summary>Add records</summary>
-        <div class="accBody">
-          <div class="stack" id="addRecordsBody">
-            <div class="field">
-              <label>Usernames</label>
-              <input id="apiUsers" type="text" placeholder="iNat username(s): e.g. lily_kumpe, friend"/>
-            </div>
-
-            <div class="field">
-              <label>Project</label>
-              <input id="apiProject" type="text" placeholder="project_id or slug (optional)"/>
-            </div>
-
-            <div class="field">
-              <label>Mode</label>
-              <select id="apiMode">
-                <option value="topup" selected>Top-up (new since CSV)</option>
-                <option value="full">Full import (all records)</option>
-              </select>
-            </div>
-            <div class="field">
-              <label id="apiCapLabel">Cap (new uploads)</label>
-              <input id="apiMax" type="text" value="5000"/>
-            </div>
-
-            <div class="field">
-              <label>Scope <span class="muted small" style="font-weight:400;">— reproduce your CSV's filter</span></label>
-              <div class="muted small" id="apiScopeSummary">Not set — the first fetch will ask.</div>
-              <button type="button" id="apiScopeBtn" class="linkBtn" style="margin-top:4px;">Set / edit scope…</button>
-            </div>
-
-            <div class="bar">
-              <button id="fetchApi" class="primary">Top-up</button>
-              <button id="apiTest">Test</button>
-            </div>
-
-            <div class="muted small" id="apiTotals" style="margin-top:8px;"></div>
-
-            <div class="rule"></div>
-            <div class="bar">
-              <button id="taxonSyncBtn" title="Check iNaturalist for updated taxonomy fields">Update taxa</button>
-            </div>
-          </div>
-        </div>
-      </details>
+      <!-- (The "Add records" controls moved to the #addModal dialog, opened from the header
+           "Add records…" button. The sidebar keeps only lenses — Filters, Dates, Compare —
+           plus the warm-up progress bar below. -->
 
       <div id="warmBar" hidden role="status" aria-live="polite" aria-label="Cache warm-up progress"></div>
     </aside>
@@ -4506,15 +4570,7 @@ function refreshStaticFilters(){
       const emptyBtn = view.querySelector("#emptyLoadBtn");
       if(emptyBtn) emptyBtn.addEventListener("click", ()=>{ const inp=$("#csvA"); if(inp){inp.value="";inp.click();} });
       const apiBtn = view.querySelector("#emptyApiBtn");
-      if(apiBtn) apiBtn.addEventListener("click", ()=>{
-        const inp = $("#apiUsers");
-        const m = document.querySelector("main"); if(m) m.classList.remove("sidebar-collapsed");
-        if(inp){
-          const d = inp.closest("details"); if(d) d.open = true;
-          inp.scrollIntoView({behavior:"smooth", block:"center"});
-          setTimeout(()=>{ try{ inp.focus(); }catch(e){} }, 300);
-        }
-      });
+      if(apiBtn) apiBtn.addEventListener("click", ()=> openAddModal("#apiUsers"));
       return;
     }
 
@@ -8287,6 +8343,7 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
       setStatus("Loading CSV…");
       await loadCSVFile(f);
       setStatus("");   // clear — the toast confirms the load; no persistent header text
+      closeAddModal(); // if opened from the Add records dialog, reveal the loaded records
       showToast(`✓ Loaded ${app.rows.length.toLocaleString()} observations from ${f.name}`);
     }catch(err){
       console.error(err);
@@ -8298,14 +8355,49 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
   });
 
 
-  // "Load CSV" button: open file picker (and allow reloading same file)
-  const loadBtn = $("#loadCsvBtn");
-  if(loadBtn){
-    loadBtn.addEventListener("click", ()=>{
-      const inp = $("#csvA");
-      if(inp){ inp.value = ""; inp.click(); }
-    });
+  // ---- Add records modal (the single front door: a CSV file or a live iNat pull) ----
+  let addPrevFocus = null;
+  function openAddModal(focusSel){
+    const modal = $("#addModal");
+    if(!modal) return;
+    addPrevFocus = document.activeElement;
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden", "false");
+    document.addEventListener("keydown", addKeydown, true);
+    const first = (focusSel && modal.querySelector(focusSel)) || modal.querySelector("#addLoadCsv");
+    if(first){ try{ first.focus(); }catch(e){} }
   }
+  function closeAddModal(){
+    const modal = $("#addModal");
+    if(!modal || !modal.classList.contains("open")) return;
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+    document.removeEventListener("keydown", addKeydown, true);
+    if(addPrevFocus && document.contains(addPrevFocus)){ try{ addPrevFocus.focus(); }catch(e){} }
+  }
+  function addKeydown(e){
+    const modal = $("#addModal");
+    if(!modal.classList.contains("open")) return;
+    // Defer entirely while the scope editor is open on top of us (it runs its own trap).
+    if($("#scopeModal") && $("#scopeModal").classList.contains("open")) return;
+    if(e.key === "Escape"){ e.preventDefault(); closeAddModal(); return; }
+    if(e.key === "Tab"){
+      const f = Array.from(modal.querySelectorAll('button, select, input, [tabindex]:not([tabindex="-1"])'))
+        .filter(el => !el.disabled && el.offsetParent !== null);
+      if(!f.length) return;
+      const first = f[0], last = f[f.length-1];
+      if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+    }
+  }
+  $("#openAddBtn")?.addEventListener("click", ()=> openAddModal());
+  $("#addClose")?.addEventListener("click", ()=> closeAddModal());
+  $("#addModal")?.addEventListener("click", (e)=>{ if(e.target.id === "addModal") closeAddModal(); });
+  // "Load CSV file…" inside the modal → open the hidden file picker (allow re-loading same file).
+  $("#addLoadCsv")?.addEventListener("click", ()=>{
+    const inp = $("#csvA");
+    if(inp){ inp.value = ""; inp.click(); }
+  });
 // API button (Top-up / Full import)
   // Dynamic mode switching
   $("#apiMode").addEventListener("change", ()=>{
@@ -8526,6 +8618,7 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
   async function runApiFetch(mode){
     if(app.apiFetchActive) return; // an import/top-up is already running
     const fetchBtn = $("#fetchApi");
+    closeAddModal(); // reveal the view so import progress (setStatus) is visible behind the dialog
     app.apiFetchActive = true;
     if(fetchBtn){ fetchBtn.disabled = true; fetchBtn.setAttribute("aria-busy", "true"); }
     try{
@@ -8816,21 +8909,16 @@ $$(".bar button").forEach(btn=>{
   _drawerBackdrop?.addEventListener("click", closeDrawer);
   document.addEventListener("keydown", (e)=>{ if(e.key === "Escape" && document.body.classList.contains("drawer-open")) closeDrawer(); });
 
-  // Relocate the secondary header actions (the "Load new…" button) into the
-  // Add Records panel on mobile so the header stays compact and Snapshot leads
-  // the drawer; move them back to the header on desktop. Moving the nodes (not
-  // cloning) preserves their event listeners.
+  // Keep the sidebar layout coherent across the mobile/desktop breakpoint: on mobile the
+  // sidebar is an off-canvas drawer (never the collapsed desktop state); on desktop, make
+  // sure the drawer is closed. (The "Add records…" button lives permanently in the header
+  // now and opens the #addModal dialog, so there's no header node to relocate any more.)
   const _headerEl = document.querySelector("header");
-  const _themeBtn = $("#themeToggle");
-  const _headerMeta = document.querySelector(".headerMeta");
-  const _addRecordsBody = $("#addRecordsBody");
   function syncHeaderLayout(){
     if(isMobile()){
       _mainEl.classList.remove("sidebar-collapsed");
-      if(_headerMeta && _addRecordsBody && _headerMeta.parentElement !== _addRecordsBody) _addRecordsBody.insertBefore(_headerMeta, _addRecordsBody.firstChild);
     } else {
       closeDrawer();
-      if(_headerMeta && _headerMeta.parentElement === _addRecordsBody) _headerEl.insertBefore(_headerMeta, _themeBtn);
     }
   }
   syncHeaderLayout();
