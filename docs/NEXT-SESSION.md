@@ -5,38 +5,44 @@ The immediate-actions companion to `ROADMAP.md` (full phase plan) and `../CLAUDE
 the settled decisions a fresh session shouldn't re-litigate. **Detailed history lives in git** —
 don't turn this into a changelog.
 
-_Last refreshed 2026-07-10. Recently shipped (on `main`, live): **Field Guide stable per-taxon
-photos** (higher-rank tiles show iNaturalist's own `default_photo` for that taxon, harvested per
-`"rank|lowername"` and offline-cached, instead of borrowing the most-recent descendant's photo);
-an **integrity pass** (keyboard operability for cards/tiles, record-modal focus management,
-network-first offline shell, removed a blocking clipboard prompt). Next up: Phase 2(c) clustering
-+ spiderfy._
+_Last refreshed 2026-07-10. Just built (branch `add-records-redesign`, pending Lily's review →
+merge): the **Add records redesign** — scope inlined (the `#scopeModal` modal-over-modal retired),
+**geography on by default** (padded box round the data; place-id / Anywhere escapes), **CSV
+append** (Replace vs Add-to-current), an **Uploaded-since Clear** button, and a reserved **Fern
+brand green** on primary buttons only. See `../CLAUDE.md` → "Recent work". **Next up:** review +
+merge, then Phase 2(c) clustering or Phase 3 species deep-dive._
 
 ---
 
-## Start here next — Phase 2 (c): clustering + spiderfy
+## Start here next — review + merge the Add records redesign, then roadmap
 
-House rules apply: single-file `index.html`, **no build**; branch off `main`; verify in-browser
-**light + dark + mobile (375px)**; console clean; focused commits; **don't push until Lily asks**.
-(Local test data: a git-ignored `sample-inat.csv`; the real export `observations-755169.csv` is
-also git-ignored and has valid taxon ids for photo/common-name checks.)
+House rules apply: single-file `index.html`, **no build**; verify in-browser **light + dark +
+mobile (375px)**; console clean; focused commits; **don't push until Lily asks**. (Local test
+data: git-ignored `sample-inat.csv`; the real export `observations-755169.csv` is also git-ignored,
+with valid taxon ids.)
 
-**Goal:** add `Leaflet.markercluster` (CDN, keyless) so co-located iNat points (identical/near
-coordinates are common) cluster and spiderfy on click, keeping dense top-ups readable and fast.
-Cluster icons should colour by the dominant category, respecting the "Colour by" control and
-`app.mapColorOverrides`. **Offline/`sw.js` precache is not needed for this** (Lily's call — she
-doesn't need the map offline). No detail specced yet — start with a plan.
+The redesign is **built and verified** on branch `add-records-redesign` (append add/dedupe, area
+box/place/anywhere + preview, Clear→backfill driven live in headless Chrome; light+dark+mobile
+screenshots good; console clean). Both semantics concerns are handled: geography is on by default,
+and the boundary already keys off **upload** date (`created_d1`) so late uploads of old in-scope
+records come in. **Remaining before closing it out:**
 
-## Planning queue (needs a design session before building)
+- **Live pass with the real export against the live iNat API** — confirm a real top-up honours the
+  box + upload boundary end-to-end (the local verification used the fabricated-taxon sample for the
+  plumbing). Then merge to `main` + push when Lily asks.
+- Key functions to know: `collectScopeFromModal()` (reads the inline controls), `areaMode()` /
+  `setAreaMode()` (the Area radios), `refreshAddScopeFromData()` (fills the controls on load /
+  append / modal-open), `loadCSVFileAppend()` (dedupe-by-id merge), `--brand` (Fern green token).
 
-- **Top-up interface simplification.** The "Top-up scope" flow (scope modal, inferred
-  constraints, paste-the-Export-Query, the two date axes with "Uploaded since" / backfill) is
-  powerful but heavy — too many concepts for a routine "get my new records" action. Worth a
-  dedicated planning session to find the minimal interface that still reproduces the CSV's
-  original iNat filter. Likely directions: lead with the common case (top-up by username/project,
-  scope inferred silently and shown as a quiet, editable summary) and tuck the full scope editor
-  behind an "advanced" affordance; reconsider whether the confirm gate needs to be a modal.
-  Don't start building until the simpler model is agreed.
+Then, back-burnered: Phase 2(c) **clustering + spiderfy** and Phase 3 **species deep-dive**.
+
+## Planning queue / back-burnered
+
+- **Phase 2(c) — map clustering + spiderfy.** `Leaflet.markercluster` (CDN, keyless) so
+  co-located points cluster and spiderfy on click; cluster icons colour by dominant category,
+  respecting the "Colour by" control + `app.mapColorOverrides`. Offline/`sw.js` precache not
+  needed (Lily's call). No detail specced — start with a plan. **Back-burnered** behind the Add
+  records interface work.
 
 ## Loose ends (low priority)
 
@@ -75,6 +81,12 @@ doesn't need the map offline). No detail specced yet — start with a plan.
 
 ## Recently shipped (newest first — one line each; git has the detail)
 
+- **Add records modal** — header **"Add records…"** opens one `#addModal` dialog: Load CSV · Pull
+  from iNaturalist (the moved top-up/import controls, ids intact) · Update taxa (under a divider).
+  Retired the sidebar accordion + the mobile header-relocation hack; onboarding routes to it;
+  focus-trap/Escape/backdrop a11y; the scope editor still opens on top; closes on load/import.
+- **Add Records collapse fix** — the last sidebar panel sat flush against the sticky sidebar's
+  scroll-clip edge and wouldn't toggle; `padding-bottom` + `scroll-padding-bottom` clear it.
 - **Field Guide stable per-taxon photos** — own `default_photo` per rank (`app.taxonRankPhoto`,
   `"rank|lowername"`, offline-cached), stable representative row (smallest obs id).
 - **Integrity pass** — keyboard-operable cards/tiles, record-modal dialog semantics + focus trap
@@ -97,8 +109,22 @@ doesn't need the map offline). No detail specced yet — start with a plan.
 
 ## Settled decisions (don't re-litigate)
 
+- **Add records is a modal front door** (`#addModal`), opened from the header **"Add records…"**
+  button and the onboarding CTA: **Load a CSV file** (Replace *or* Add-to-current) · **Sync from
+  iNaturalist** (scope inline) · (under a divider) **Update taxa**. The sidebar holds only lenses
+  (Filters, Dates, Compare) + the warm-up bar — **don't move the ingest controls back into the
+  sidebar**, and **don't reintroduce the `#scopeModal`** — the scope is inline now.
+- **Top-up geography is ON by default** — a padded box round the loaded data, editable + shown,
+  with place-id / Anywhere escapes. This **reverses** the old "bbox opt-in, off by default"
+  decision (travelling observers dragging in out-of-area records is the worse failure; over-wide
+  is mitigated by padding + visibility). The boundary keys off **upload** date (`created_d1`);
+  "Uploaded since" owns it, **Clear = backfill**.
+- **CSV append** merges deduped by observation id (`loadCSVFileAppend`, same path as an API
+  top-up); `app._csvMode` routes the shared `#csvA` handler. Drag-drop + onboarding = Replace.
+- **Reserved brand colour: Fern green** (`--brand` #3F6F53 / dark #4C8163, `--on-brand` white) on
+  **primary buttons only** — the one colour in otherwise ink chrome. Links/focus/active stay ink.
 - Interface palette is a **cool near-neutral "gallery" ramp** (light + dark) — **not** warm cream.
-  Photographs are the only colour; chrome stays quiet.
+  Photographs are the only colour; chrome stays quiet (**except** the reserved Fern primary).
 - **Wordmark is a serif (Literata)**, scoped to the masthead lockup + onboarding `.mark` via the
   `--wordmark` token — the one reserved exception to the single-typeface (Inter) system. Use
   `font-optical-sizing:auto` so it stays legible small. (Fraunces was rejected — fragile small.)

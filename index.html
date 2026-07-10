@@ -52,6 +52,9 @@
       --warn:#9A3B2E;
       --user-a:#327379;      /* compare A — teal (USER_PALETTE_LIGHT[0]) */
       --user-b:#A05838;      /* compare B — terracotta (USER_PALETTE_LIGHT[1]) */
+      --brand:#3F6F53;       /* Fern — the ONE reserved colour, primary action only */
+      --brand-strong:#35634A;/* pressed/hover */
+      --on-brand:#FFFFFF;    /* paper text on the brand fill (AA ≥4.5:1 both themes) */
       --sans:'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       --heading: var(--sans);
       --wordmark: 'Literata', Georgia, 'Times New Roman', serif; /* masthead lockup only */
@@ -89,6 +92,9 @@
       --warn:#E07A5F;
       --user-a:#61AAB0;
       --user-b:#C6947E;
+      --brand:#4C8163;       /* Fern, lifted for the dark ground */
+      --brand-strong:#3E7458;
+      --on-brand:#FFFFFF;
       --rg-color:#5FB07F;
     }
     html{ color-scheme: light; }
@@ -729,50 +735,19 @@
       z-index: 9999;
     }
     .modal.open{ display:flex; }
-    /* Top-up scope dialog — single column, flex layout: fixed header, a scrolling body,
-       and a fixed footer that content can never slide under. Selector is
-       .dialog.scopeDialog (specificity 0,2,0) so it beats the base .dialog two-col grid
-       regardless of source order; the dialog itself doesn't scroll (overflow:hidden). */
-    .dialog.scopeDialog{
-      display:flex;
-      flex-direction:column;
-      grid-template-columns:none;
-      width: min(620px, 96vw);
-      max-height: min(90vh, 820px);
-      padding:0;
-      overflow:hidden;
-    }
-    .scopeHead{ flex:0 0 auto; display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:20px 22px 12px; }
-    .scopeTitle{ font-family: var(--heading); font-weight:700; font-size:15px; color:var(--ink); }
-    .scopeBody{ flex:1 1 auto; overflow:auto; display:flex; flex-direction:column; gap:16px; padding:4px 22px 16px; }
-    .scopeSection{ display:flex; flex-direction:column; gap:6px; }
-    .scopeLabel{ font-size:12px; font-weight:600; color:var(--ink-2); }
-    .scopeDialog input[type=text], .scopeDialog select{
-      width:100%; box-sizing:border-box; padding:7px 9px;
-      border:1px solid var(--hair); border-radius:8px;
-      background:var(--field); color:var(--ink); font-family:var(--font); font-size:13px;
-    }
-    .scopeUrlRow{ display:flex; gap:8px; }
-    .scopeUrlRow input{ flex:1 1 auto; min-width:0; }
-    .scopeGrid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    /* Scope controls now live inline in the Add records dialog (see .addMore below);
+       these are the shared bits its markup still uses. */
     .scopeIconicGrid{ display:grid; grid-template-columns:repeat(2,1fr); gap:4px 14px; }
     .scopeIconicItem{ display:flex; align-items:center; gap:7px; font-size:13px; color:var(--ink); cursor:pointer; padding:2px 0; }
     .scopeIconicItem input{ margin:0; }
     .scopeIconicItem .present{ color:var(--user-a); font-weight:700; }
-    .scopeCheck{ display:flex; align-items:center; gap:7px; font-size:13px; color:var(--ink); cursor:pointer; }
     .scopeHint{
       font-size:12px; line-height:1.45; color:var(--ink-2);
       background:var(--accent-soft); border-left:2px solid var(--accent-line);
-      border-radius:0 6px 6px 0; padding:8px 10px; margin-top:6px;
-    }
-    .scopeActions{
-      flex:0 0 auto;
-      display:flex; justify-content:flex-end; gap:10px; align-items:center;
-      padding:14px 22px 18px;
-      background:var(--panel); border-top:1px solid var(--hair);
+      border-radius:0 6px 6px 0; padding:8px 10px; margin-top:2px;
     }
     @media (max-width:520px){
-      .scopeGrid2, .scopeIconicGrid{ grid-template-columns:1fr; }
+      .scopeIconicGrid{ grid-template-columns:1fr; }
     }
 
     /* Add-records dialog — single-column flex (fixed header, scrolling body), like the
@@ -800,6 +775,32 @@
     .addRow{ display:flex; gap:12px; }
     .addRow > *{ flex:1 1 0; min-width:0; }
     .addRule{ height:1px; background:var(--hair); border:0; margin:1px 0; }
+
+    /* Area chooser (radio group) — geography is on by default now. */
+    .areaBox{ display:flex; flex-direction:column; gap:8px; background:var(--raised); border:1px solid var(--hair); border-radius:8px; padding:11px 13px; }
+    .areaOpt{ display:flex; align-items:center; gap:9px; font-size:13px; color:var(--ink); cursor:pointer; flex-wrap:wrap; }
+    .areaOpt input[type=radio]{ margin:0; flex:0 0 auto; }
+    .areaVal{ font-size:12px; color:var(--muted); font-family:var(--mono, monospace); }
+    .addDialog input.areaInline{ width:auto; flex:1 1 150px; min-width:120px; padding:5px 8px; font-size:12px; }
+    .uploadRow{ display:flex; align-items:center; gap:9px; }
+    .addDialog .uploadRow input[type=date]{
+      width:auto; flex:0 0 auto; box-sizing:border-box; padding:6px 9px;
+      border:1px solid var(--hair); border-radius:8px;
+      background:var(--field); color:var(--ink); font-family:var(--font); font-size:13px;
+    }
+    /* More options — inline disclosure, replaces the old scope modal-over-modal. */
+    .addMore{ border-top:1px solid var(--hair); padding-top:10px; margin-top:2px; }
+    .addMore > summary{
+      font-family:var(--heading); font-size:12px; font-weight:600; color:var(--ink-2);
+      cursor:pointer; list-style:none; display:flex; align-items:center; gap:6px; padding:2px 0;
+    }
+    .addMore > summary::-webkit-details-marker{ display:none; }
+    .addMore > summary::before{ content:"▸"; color:var(--muted); font-size:11px; transition:transform var(--dur-fast); }
+    .addMore[open] > summary::before{ transform:rotate(90deg); }
+    .addMore > summary:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; border-radius:3px; }
+    .addMoreBody{ display:flex; flex-direction:column; gap:14px; padding:12px 0 2px; }
+    .scopeUrlRow{ display:flex; gap:8px; }
+    .scopeUrlRow input{ flex:1 1 auto; min-width:0; }
 
     .dialog{
       width: min(980px, 98vw);
@@ -1702,14 +1703,16 @@
       border-radius: 3px;
     }
 
-    /* Primary action — a filled ink button (paper text). The one strong move. */
-    .btn-primary, .pill button.primary{
-      background: var(--ink) !important;
-      color: var(--bg) !important;
-      border: 1px solid var(--ink) !important;
+    /* Primary action — a filled Fern-green button (paper text). The ONE reserved
+       colour: it marks "this is the action" and appears nowhere else. Chrome
+       (links, focus rings, active filters) stays ink. */
+    .btn-primary, .pill button.primary, button.primary{
+      background: var(--brand) !important;
+      color: var(--on-brand) !important;
+      border: 1px solid var(--brand) !important;
       font-weight: 600;
     }
-    .btn-primary:hover, .pill button.primary:hover{ background: var(--ink-2) !important; border-color: var(--ink-2) !important; filter:none; }
+    .btn-primary:hover, .pill button.primary:hover, button.primary:hover{ background: var(--brand-strong) !important; border-color: var(--brand-strong) !important; filter:none; }
 
     /* Cards: quiet definition by hairline; a whisper of lift on hover. */
     .card:hover{ box-shadow: var(--shadow); border-color: var(--hair-strong); }
@@ -1843,11 +1846,11 @@
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <!-- Export modal (copy/paste instead of auto-download) -->
-<!-- Add records — the single front door to bringing data in: a CSV file or a live
-     iNaturalist pull. Opened from the header "Add records…" button and the onboarding
-     "Pull from iNaturalist" CTA. Placed BEFORE #scopeModal in the DOM so the scope editor
-     (which opens from inside here) paints on top of it. The iNaturalist controls keep the
-     same ids they had in the old sidebar panel, so their event handlers bind unchanged. -->
+<!-- Add records — the single front door to bringing data in. Two clear things:
+     load a CSV file (replace or add to current), or sync from iNaturalist. The scope
+     that used to live in a second modal is now inline: Observers · Area · Uploaded since
+     up top for the routine top-up, everything advanced folded into "More options".
+     Opened from the header "Add records…" button and the onboarding CTA. -->
 <div class="modal" id="addModal" aria-hidden="true">
   <div class="dialog addDialog" role="dialog" aria-modal="true" aria-labelledby="addTitle">
     <div class="addHead">
@@ -1856,51 +1859,131 @@
     </div>
 
     <div class="addBody">
-      <!-- Door 1 · a CSV export -->
+      <!-- ① a CSV file — replace or add to current -->
       <div class="addSection">
-        <div class="addSectionLabel">From a file</div>
+        <div class="addSectionLabel">Load a CSV file</div>
         <div class="bar">
-          <button id="addLoadCsv" class="primary" type="button">Load CSV file…</button>
+          <button id="addLoadCsvReplace" class="primary" type="button">Replace with a file…</button>
+          <button id="addLoadCsvAppend" type="button">Add a file to current…</button>
         </div>
-        <div class="muted small">A CSV export from iNaturalist. Replaces the current record set.</div>
+        <div class="muted small">A CSV export from iNaturalist. <strong>Replace</strong> starts fresh; <strong>Add</strong> merges into your current records, deduped by observation ID.</div>
       </div>
 
       <hr class="addRule"/>
 
-      <!-- Door 2 · a live iNaturalist pull (top-up or full import) -->
+      <!-- ② a live iNaturalist sync — the routine top-up, scope inline -->
       <div class="addSection">
-        <div class="addSectionLabel">From iNaturalist</div>
+        <div class="addSectionLabel">Sync from iNaturalist</div>
+
         <div class="addField">
-          <label for="apiUsers">Usernames</label>
-          <input id="apiUsers" type="text" placeholder="iNat username(s): e.g. lily_kumpe, friend"/>
+          <label for="apiUsers">Observers</label>
+          <input id="apiUsers" type="text" placeholder="iNaturalist username(s), e.g. lily_kumpe, friend"/>
+          <div class="muted small">Defaults to the observers in your data.</div>
         </div>
+
         <div class="addField">
-          <label for="apiProject">Project</label>
-          <input id="apiProject" type="text" placeholder="project_id or slug (optional)"/>
-        </div>
-        <div class="addRow">
-          <div class="addField">
-            <label for="apiMode">Mode</label>
-            <select id="apiMode">
-              <option value="topup" selected>Top-up (new since CSV)</option>
-              <option value="full">Full import (all records)</option>
-            </select>
+          <label>Area</label>
+          <div class="areaBox" id="areaBox">
+            <label class="areaOpt">
+              <input type="radio" name="areaMode" id="areaModeBox" value="box" checked/>
+              <span>Around my records</span>
+              <span class="areaVal" id="areaBboxVal">—</span>
+            </label>
+            <label class="areaOpt">
+              <input type="radio" name="areaMode" id="areaModePlace" value="place"/>
+              <span>A place</span>
+              <input id="scopePlace" type="text" inputmode="numeric" class="areaInline" placeholder="iNaturalist place ID, e.g. 7308"/>
+            </label>
+            <label class="areaOpt">
+              <input type="radio" name="areaMode" id="areaModeAny" value="any"/>
+              <span>Anywhere</span>
+              <span class="muted small">no geographic limit</span>
+            </label>
           </div>
-          <div class="addField">
-            <label id="apiCapLabel" for="apiMax">Cap (new uploads)</label>
-            <input id="apiMax" type="text" value="5000"/>
-          </div>
         </div>
+
         <div class="addField">
-          <label>Scope <span class="muted small" style="font-weight:400;">— reproduce your CSV's filter</span></label>
-          <div class="muted small" id="apiScopeSummary">Not set — the first fetch will ask.</div>
-          <button type="button" id="apiScopeBtn" class="linkBtn" style="margin-top:2px; align-self:flex-start;">Set / edit scope…</button>
+          <label for="scopeUploaded">Uploaded since <span class="muted small" style="font-weight:400;">— the top-up boundary</span></label>
+          <div class="uploadRow">
+            <input id="scopeUploaded" type="date"/>
+            <button type="button" id="scopeUploadedClear" class="smallBtn">Clear</button>
+          </div>
+          <div class="muted small">Fetches records uploaded after this date, even if observed long ago. <strong>Clear</strong> to also pull older records newly in scope (e.g. after adding a taxon group).</div>
+          <div class="scopeHint" id="scopeBackfillHint" hidden></div>
         </div>
+
         <div class="bar">
-          <button id="fetchApi" class="primary">Top-up</button>
+          <button id="fetchApi" class="primary">Top up</button>
           <button id="apiTest">Test</button>
         </div>
         <div class="muted small" id="apiTotals"></div>
+        <div class="muted small" id="apiScopeSummary"></div>
+
+        <!-- Advanced — inline disclosure (no more modal-over-modal) -->
+        <details class="addMore" id="addMore">
+          <summary>More options</summary>
+          <div class="addMoreBody">
+            <div class="addField">
+              <label for="apiProject">Project</label>
+              <input id="apiProject" type="text" placeholder="project_id or slug (optional)"/>
+            </div>
+
+            <div class="addField">
+              <label>Taxa <span class="muted small" style="font-weight:400;">— ticked groups are fetched; ✓ marks groups in your data</span></label>
+              <div class="scopeIconicGrid" id="scopeIconic"></div>
+              <div class="muted small">Untick a group to exclude it; tick one you expect but haven't observed yet.</div>
+            </div>
+
+            <div class="addRow">
+              <div class="addField">
+                <label for="scopeGrade">Quality grade</label>
+                <select id="scopeGrade">
+                  <option value="">Any</option>
+                  <option value="research">Research</option>
+                  <option value="needs_id">Needs ID</option>
+                  <option value="casual">Casual</option>
+                </select>
+              </div>
+              <div class="addField">
+                <label id="apiCapLabel" for="apiMax">Result cap</label>
+                <input id="apiMax" type="text" value="5000"/>
+              </div>
+            </div>
+
+            <div class="addField">
+              <label for="scopeExclude">Exclude taxon IDs <span class="muted small">(comma-separated; 47126 = plants)</span></label>
+              <input id="scopeExclude" type="text" inputmode="numeric" placeholder="e.g. 47126"/>
+            </div>
+
+            <div class="addRow">
+              <div class="addField">
+                <label for="scopeObsFrom">Observed from</label>
+                <input id="scopeObsFrom" type="date"/>
+              </div>
+              <div class="addField">
+                <label for="scopeObsTo">Observed to <span class="muted small">(blank = now)</span></label>
+                <input id="scopeObsTo" type="date"/>
+              </div>
+            </div>
+
+            <div class="addField">
+              <label for="scopeUrl">Paste iNaturalist Export Query <span class="muted small" style="font-weight:400;">— most accurate</span></label>
+              <div class="scopeUrlRow">
+                <input id="scopeUrl" type="text" placeholder="has[]=photos&amp;quality_grade=research&amp;iconic_taxa[]=Insecta&amp;swlat=…"/>
+                <button type="button" id="scopeUrlApply" class="smallBtn">Read query</button>
+              </div>
+              <div class="muted small" id="scopeUrlNote">Paste the <strong>Query</strong> field from iNaturalist's Export page. Fills taxa, place, dates, and observers exactly (e.g. <code>without_taxon_id=47126</code> = no plants).</div>
+            </div>
+
+            <div class="addField">
+              <label>Full re-import <span class="muted small" style="font-weight:400;">— fetch all records, not just new uploads</span></label>
+              <div class="bar">
+                <button type="button" id="fullImportBtn">Full re-import (all records)</button>
+              </div>
+              <div class="muted small">Rebuilds the set from iNaturalist using the observers and scope above. Replaces the current records.</div>
+            </div>
+          </div>
+        </details>
       </div>
 
       <hr class="addRule"/>
@@ -1913,83 +1996,6 @@
         </div>
         <div class="muted small">Reconciles the taxonomy of records you already have — it doesn't add any.</div>
       </div>
-    </div>
-  </div>
-</div>
-
-<div class="modal" id="scopeModal" aria-hidden="true">
-  <div class="dialog scopeDialog" role="dialog" aria-modal="true" aria-labelledby="scopeTitle">
-    <div class="scopeHead">
-      <div>
-        <div class="scopeTitle" id="scopeTitle">Top-up scope</div>
-      </div>
-      <button class="close" id="scopeCancel" type="button">Cancel</button>
-    </div>
-
-    <div class="scopeBody">
-      <div class="scopeSection">
-        <div class="scopeLabel">Paste your iNaturalist Export Query <span class="muted small">(optional, most accurate)</span></div>
-        <div class="scopeUrlRow">
-          <input id="scopeUrl" type="text" placeholder="e.g. has[]=photos&amp;quality_grade=research&amp;iconic_taxa[]=Insecta&amp;swlat=…&amp;d1=2024-01-01"/>
-          <button type="button" id="scopeUrlApply" class="smallBtn">Read query</button>
-        </div>
-        <div class="small muted" id="scopeUrlNote">Paste the <strong>Query</strong> field from iNaturalist's Export page. Fills taxa, place, dates and users exactly (e.g. <code>without_taxon_id=47126</code> = no plants).</div>
-      </div>
-
-      <div class="scopeSection">
-        <div class="scopeLabel">Taxa <span class="muted small">— ticked groups are fetched; ✓ marks groups present in your data</span></div>
-        <div class="scopeIconicGrid" id="scopeIconic"></div>
-        <div class="small muted">Untick a whole group to exclude it; tick a group you expect but haven't observed yet (it stays reachable).</div>
-      </div>
-
-      <div class="scopeSection scopeGrid2">
-        <div>
-          <div class="scopeLabel">Place ID <span class="muted small">(iNat)</span></div>
-          <input id="scopePlace" type="text" inputmode="numeric" placeholder="e.g. 7308"/>
-        </div>
-        <div>
-          <div class="scopeLabel">Quality grade</div>
-          <select id="scopeGrade">
-            <option value="">Any</option>
-            <option value="research">Research</option>
-            <option value="needs_id">Needs ID</option>
-            <option value="casual">Casual</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="scopeSection">
-        <div class="scopeLabel">Exclude taxon IDs <span class="muted small">(comma-separated; 47126 = plants)</span></div>
-        <input id="scopeExclude" type="text" inputmode="numeric" placeholder="e.g. 47126"/>
-      </div>
-
-      <div class="scopeSection scopeGrid2">
-        <div>
-          <div class="scopeLabel">Observed from <span class="muted small">(d1)</span></div>
-          <input id="scopeObsFrom" type="date"/>
-        </div>
-        <div>
-          <div class="scopeLabel">Observed to <span class="muted small">(d2 — blank = up to now)</span></div>
-          <input id="scopeObsTo" type="date"/>
-        </div>
-      </div>
-
-      <div class="scopeSection">
-        <div class="scopeLabel">Uploaded since <span class="muted small">— the top-up boundary</span></div>
-        <input id="scopeUploaded" type="date"/>
-        <div class="small muted" id="scopeUploadedNote">Defaults to your CSV export. Records uploaded after this date are fetched (even if observed long ago). <strong>Clear it</strong> to backfill older in-scope records already on iNaturalist — use after widening the scope, e.g. adding plants.</div>
-        <div class="scopeHint" id="scopeBackfillHint" hidden></div>
-      </div>
-
-      <div class="scopeSection">
-        <label class="scopeCheck"><input type="checkbox" id="scopeBboxOn"/> Limit to a bounding box <span class="muted small" id="scopeBboxNote"></span></label>
-        <div class="small muted" id="scopeBboxVal" style="margin-top:2px;"></div>
-      </div>
-    </div>
-
-    <div class="scopeActions">
-      <button type="button" id="scopeSave" class="smallBtn">Save scope only</button>
-      <button type="button" id="scopeConfirm" class="primary">Save &amp; start top-up</button>
     </div>
   </div>
 </div>
@@ -2373,7 +2379,8 @@
       if(overlay) overlay.classList.remove("active");
       const file = [...(e.dataTransfer.files||[])].find(f=> f.name.toLowerCase().endsWith(".csv"));
       if(file){
-        // Trigger the same load pipeline as the file input
+        // Trigger the same load pipeline as the file input (a dropped file replaces).
+        app._csvMode = "replace";
         const inp = $("#csvA");
         if(inp){
           // Create a synthetic FileList-like object
@@ -4568,7 +4575,7 @@ function refreshStaticFilters(){
         </div>
       </div>`;
       const emptyBtn = view.querySelector("#emptyLoadBtn");
-      if(emptyBtn) emptyBtn.addEventListener("click", ()=>{ const inp=$("#csvA"); if(inp){inp.value="";inp.click();} });
+      if(emptyBtn) emptyBtn.addEventListener("click", ()=>{ app._csvMode="replace"; const inp=$("#csvA"); if(inp){inp.value="";inp.click();} });
       const apiBtn = view.querySelector("#emptyApiBtn");
       if(apiBtn) apiBtn.addEventListener("click", ()=> openAddModal("#apiUsers"));
       return;
@@ -7703,11 +7710,13 @@ $("#openRecord").onclick = () => { if(r._url) window.open(r._url, "_blank"); };
   function syncScopeSummary(){
     const el = $("#apiScopeSummary");
     if(!el) return;
-    if(app.apiQuery == null){
-      el.textContent = "Not set — the first fetch will ask.";
-    } else {
-      el.textContent = describeApiQuery(app.apiQuery);
-    }
+    // Live preview of what a top-up will fetch, read from the inline scope controls.
+    // (There's no separate confirm step any more — the controls are the scope.)
+    if(!app.loaded){ el.textContent = ""; return; }
+    const q = (typeof collectScopeFromModal === "function") ? collectScopeFromModal() : app.apiQuery;
+    el.textContent = (q && !apiQueryIsEmpty(q))
+      ? "Top-up fetches: " + describeApiQuery(q)
+      : "Top-up fetches: everything for these observers.";
   }
 
 async function fetchObservationsByUsers(userCsv, maxN, onProgress, onBatch){
@@ -8297,9 +8306,10 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     app.dateMax = dateMax;
 
     // New dataset: forget any previous top-up scope and recompute an editable
-    // suggestion. apiQuery stays null so the next top-up re-opens the confirm gate.
+    // suggestion. apiQuery stays null until a fetch reads it from the inline controls.
     app.apiQuery = null;
     app.apiQuerySuggested = inferApiConstraints();
+    refreshAddScopeFromData();
     syncScopeSummary();
 
     // Default compare users
@@ -8336,15 +8346,92 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     scheduleWarmUp();
   }
 
+  // Add a second/third CSV to the current set instead of replacing it. Rows are
+  // normalised to the same row objects as the primary CSV and API records, then merged
+  // deduped by observation id (same path as an API top-up). The current column map is
+  // preserved for export; the appended file is mapped against its own headers.
+  async function loadCSVFileAppend(file){
+    const text = await file.text();
+    const grid = parseCSV(text);
+    if(grid.length < 2) throw new Error("CSV parsed but looks empty.");
+    const headers = grid[0].map(h=>safe(h));
+    const col = {};
+    for(let i=0;i<headers.length;i++) col[normalizeHeader(headers[i])] = i;
+    const rows = grid.slice(1);
+
+    // buildRowObj() reads app.col; map the appended rows against this file's own headers,
+    // then restore the primary set's column map (raw export still refers to that set).
+    const prevCol = app.col;
+    app.col = col;
+    let objs, appendMaxCreated = -Infinity;
+    try{
+      objs = rows.map(buildRowObj);
+      if(col["created_at"] != null){
+        const ci = col["created_at"];
+        for(const row of rows){
+          const t = parseTime(safe(row[ci]).trim());
+          if(Number.isFinite(t) && t > appendMaxCreated) appendMaxCreated = t;
+        }
+      }
+    } finally {
+      app.col = prevCol;
+    }
+
+    const byId = new Map();
+    for(let i=0;i<app.rows.length;i++){
+      const rid = safe(app.rows[i]._id).trim();
+      if(rid) byId.set(rid, i);
+    }
+    let added = 0, patched = 0;
+    for(const obj of objs){
+      const rid = safe(obj._id).trim();
+      if(!rid) continue;
+      if(byId.has(rid)){
+        if(mergePreferCSV(app.rows[byId.get(rid)], obj)) patched += 1;
+      } else {
+        obj._source = obj._source || "csv";
+        app.rows.push(obj);
+        byId.set(rid, app.rows.length - 1);
+        added += 1;
+      }
+    }
+
+    // Advance the top-up boundary if this file carries newer uploads.
+    if(Number.isFinite(appendMaxCreated) && appendMaxCreated > app.csvMaxCreatedAtTms){
+      app.csvMaxCreatedAtTms = appendMaxCreated;
+    }
+
+    finalizeDataMerge();
+    // Widen the scope suggestion to the combined data (e.g. a new iconic group), and keep
+    // any confirmed scope; refresh the inline scope controls so the box/area reflect the merge.
+    app.apiQuerySuggested = inferApiConstraints();
+    refreshAddScopeFromData();
+    syncScopeSummary();
+    scheduleWarmUp();
+    return { added, patched };
+  }
+
   $("#csvA").addEventListener("change", async (e)=>{
     const f = e.target.files && e.target.files[0];
     if(!f) return;
+    // Which button opened the picker: "append" merges into the current set, anything
+    // else (incl. onboarding / drag-drop) replaces it. Falls back to replace when nothing loaded.
+    const append = (app._csvMode === "append") && app.loaded && app.rows && app.rows.length;
+    app._csvMode = null;
     try{
-      setStatus("Loading CSV…");
-      await loadCSVFile(f);
-      setStatus("");   // clear — the toast confirms the load; no persistent header text
-      closeAddModal(); // if opened from the Add records dialog, reveal the loaded records
-      showToast(`✓ Loaded ${app.rows.length.toLocaleString()} observations from ${f.name}`);
+      if(append){
+        setStatus("Adding CSV…");
+        const res = await loadCSVFileAppend(f);
+        setStatus("");
+        closeAddModal();
+        showToast(`✓ Added ${res.added.toLocaleString()} new observations from ${f.name} (${app.rows.length.toLocaleString()} total)`);
+      } else {
+        setStatus("Loading CSV…");
+        await loadCSVFile(f);
+        setStatus("");   // clear — the toast confirms the load; no persistent header text
+        closeAddModal(); // if opened from the Add records dialog, reveal the loaded records
+        showToast(`✓ Loaded ${app.rows.length.toLocaleString()} observations from ${f.name}`);
+      }
     }catch(err){
       console.error(err);
       setStatus("Load failed: " + safe(err && (err.message || err)));
@@ -8364,7 +8451,11 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     modal.classList.add("open");
     modal.setAttribute("aria-hidden", "false");
     document.addEventListener("keydown", addKeydown, true);
-    const first = (focusSel && modal.querySelector(focusSel)) || modal.querySelector("#addLoadCsv");
+    // Populate the inline scope the first time (e.g. a from-scratch import before any CSV);
+    // once a dataset is loaded, loadCSVFile has already filled it, so don't clobber edits.
+    const grid = $("#scopeIconic");
+    if(grid && !grid.children.length) refreshAddScopeFromData();
+    const first = (focusSel && modal.querySelector(focusSel)) || modal.querySelector("#addLoadCsvReplace");
     if(first){ try{ first.focus(); }catch(e){} }
   }
   function closeAddModal(){
@@ -8378,8 +8469,6 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
   function addKeydown(e){
     const modal = $("#addModal");
     if(!modal.classList.contains("open")) return;
-    // Defer entirely while the scope editor is open on top of us (it runs its own trap).
-    if($("#scopeModal") && $("#scopeModal").classList.contains("open")) return;
     if(e.key === "Escape"){ e.preventDefault(); closeAddModal(); return; }
     if(e.key === "Tab"){
       const f = Array.from(modal.querySelectorAll('button, select, input, [tabindex]:not([tabindex="-1"])'))
@@ -8393,30 +8482,17 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
   $("#openAddBtn")?.addEventListener("click", ()=> openAddModal());
   $("#addClose")?.addEventListener("click", ()=> closeAddModal());
   $("#addModal")?.addEventListener("click", (e)=>{ if(e.target.id === "addModal") closeAddModal(); });
-  // "Load CSV file…" inside the modal → open the hidden file picker (allow re-loading same file).
-  $("#addLoadCsv")?.addEventListener("click", ()=>{
+  // Two CSV doors: Replace starts fresh, Add merges into the current set. A flag tells
+  // the shared #csvA change handler which path to take (the file picker is one input).
+  function openCsvPicker(mode){
+    app._csvMode = mode;
     const inp = $("#csvA");
     if(inp){ inp.value = ""; inp.click(); }
-  });
-// API button (Top-up / Full import)
-  // Dynamic mode switching
-  $("#apiMode").addEventListener("change", ()=>{
-    const mode = $("#apiMode").value;
-    const isFull = mode === "full";
-    $("#fetchApi").textContent = isFull ? "Full import" : "Top-up";
-    const capLabel = $("#apiCapLabel");
-    if(capLabel) capLabel.textContent = isFull ? "Cap (max records)" : "Cap (new uploads)";
-    // Adjust default cap
-    const capInput = $("#apiMax");
-    if(capInput){
-      const cur = parseInt(capInput.value, 10);
-      if(isFull && (Number.isNaN(cur) || cur <= 5000)) capInput.value = "10000";
-      if(!isFull && (Number.isNaN(cur) || cur >= 10000)) capInput.value = "5000";
-    }
-  });
+  }
+  $("#addLoadCsvReplace")?.addEventListener("click", ()=> openCsvPicker("replace"));
+  $("#addLoadCsvAppend")?.addEventListener("click", ()=> openCsvPicker("append"));
 
-  // ---- Top-up scope confirm gate ----
-  let scopePrevFocus = null;
+  // ---- Inline top-up scope (was a modal-over-modal; now lives in the Add records dialog) ----
   let scopeWorking = null; // holds taxon_id + bbox (not simple text/checkbox inputs)
   let scopePresentSet = new Set(); // iconic taxa present in the loaded data (for the backfill hint)
 
@@ -8424,19 +8500,31 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     return Number.isFinite(app.csvMaxCreatedAtTms) ? isoDate(new Date(app.csvMaxCreatedAtTms)) : "";
   }
 
+  // The chosen Area radio: "box" (padded box round the data, the default), "place"
+  // (an iNaturalist place id), or "any" (no geographic limit).
+  function areaMode(){
+    const r = document.querySelector('#addModal input[name="areaMode"]:checked');
+    return r ? r.value : "box";
+  }
+  function setAreaMode(mode){
+    const r = document.querySelector(`#addModal input[name="areaMode"][value="${mode}"]`);
+    if(r) r.checked = true;
+  }
+
   function collectScopeFromModal(){
-    const modal = $("#scopeModal");
-    const iconic = Array.from(modal.querySelectorAll(".scopeIconicItem input:checked")).map(cb=>cb.value);
-    const place_id = safe($("#scopePlace").value).trim();
+    const grid = $("#scopeIconic");
+    const iconic = grid ? Array.from(grid.querySelectorAll('input[type=checkbox]:checked')).map(cb=>cb.value) : [];
+    const mode = areaMode();
+    const place_id = (mode === "place") ? safe($("#scopePlace").value).trim() : "";
+    const bbox = (mode === "box" && scopeWorking && scopeWorking.bbox) ? scopeWorking.bbox : null;
     const grade = $("#scopeGrade").value || "";
     const without = safe($("#scopeExclude").value).split(",").map(x=>parseInt(x,10)).filter(Number.isFinite);
     const taxon_id = (scopeWorking && scopeWorking.taxon_id) ? scopeWorking.taxon_id.slice() : [];
-    const bbox = ($("#scopeBboxOn").checked && !place_id && scopeWorking && scopeWorking.bbox) ? scopeWorking.bbox : null;
     const d1 = safe($("#scopeObsFrom").value).trim();
     const d2 = safe($("#scopeObsTo").value).trim();
-    // uploaded_since: undefined = automatic (advancing CSV cutoff); "" = backfill all;
-    // a date = a fixed floor. The field is pre-filled with the auto date, so leaving it
-    // equal to that means "automatic".
+    // uploaded_since: undefined = automatic (advancing CSV/data cutoff); "" = backfill all
+    // (the Clear button); a date = a fixed floor. The field is pre-filled with the auto
+    // date, so leaving it equal to that means "automatic".
     const upVal = safe($("#scopeUploaded").value).trim();
     const autoDate = scopeAutoUploadDate();
     let uploaded_since;
@@ -8447,15 +8535,53 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     return { iconic_taxa: iconic, place_id, without_taxon_id: without, taxon_id, quality_grade: grade, bbox, d1, d2, uploaded_since, extra };
   }
 
-  function scopeUpdateSummary(){
+  function renderScopeIconic(baseIconic, presentSet){
+    const grid = $("#scopeIconic");
+    if(!grid) return;
+    const set = new Set(baseIconic || []);
+    grid.innerHTML = ICONIC_TAXA.map(([key,label])=>{
+      const checked = set.has(key) ? "checked" : "";
+      const present = presentSet.has(key) ? ' <span class="present" title="present in your data">✓</span>' : '';
+      return `<label class="scopeIconicItem"><input type="checkbox" value="${key}" ${checked}/> <span>${escapeHtml(label)}${present}</span></label>`;
+    }).join("");
+  }
+
+  // Push the confirmed/suggested scope into the inline controls. Called on CSV load and
+  // append (data changed) and whenever the modal opens. Geography is ON by default now:
+  // a place if the scope names one, else the padded box round the data, else Anywhere.
+  function refreshAddScopeFromData(){
+    if(!$("#scopeIconic")) return;
+    const src = app.apiQuery || app.apiQuerySuggested || inferApiConstraints();
+    const derived = inferApiConstraints();
+    scopePresentSet = new Set(derived.iconic_taxa);
+    renderScopeIconic((src.iconic_taxa||[]), scopePresentSet);
+    $("#scopePlace").value = src.place_id || "";
+    $("#scopeGrade").value = src.quality_grade || "";
+    $("#scopeExclude").value = (src.without_taxon_id||[]).join(",");
+    $("#scopeObsFrom").value = src.d1 || "";
+    $("#scopeObsTo").value = src.d2 || "";
+    const autoDate = scopeAutoUploadDate();
+    $("#scopeUploaded").value = (src.uploaded_since === "") ? ""
+      : (typeof src.uploaded_since === "string" && src.uploaded_since) ? src.uploaded_since
+      : autoDate;
+    const availBbox = (src.bbox || derived.bbox) ? Object.assign({}, src.bbox || derived.bbox) : null;
+    scopeWorking = { taxon_id: (src.taxon_id||[]).slice(), bbox: availBbox, extra: src.extra ? Object.assign({}, src.extra) : {} };
+    let mode = "box";
+    if(src.place_id && String(src.place_id).trim()) mode = "place";
+    else if(!availBbox) mode = "any";
+    setAreaMode(mode);
+    const boxRadio = $("#areaModeBox");
+    if(boxRadio) boxRadio.disabled = !availBbox;
+    const bv = $("#areaBboxVal");
+    if(bv) bv.textContent = availBbox
+      ? `SW ${availBbox.swlat}, ${availBbox.swlng} · NE ${availBbox.nelat}, ${availBbox.nelng}`
+      : "no coordinates in your data";
+    onAddScopeChange();
+  }
+
+  // Live housekeeping as the user edits: the backfill hint + the "will fetch" preview.
+  function onAddScopeChange(){
     const q = collectScopeFromModal();
-    const place = safe($("#scopePlace").value).trim();
-    const note = $("#scopeBboxNote");
-    if(note) note.textContent = place ? "(ignored — a place is set)" : "";
-    // Guided backfill: if a taxon group NOT in the current data is now ticked but the
-    // upload cutoff is still set, a normal top-up won't reach existing older records of
-    // that group — point the user at "clear Uploaded since". Hides itself once backfill
-    // is on (upload field cleared).
     const hint = $("#scopeBackfillHint");
     if(hint){
       const absentAdded = (q.iconic_taxa||[]).filter(k => !scopePresentSet.has(k));
@@ -8463,138 +8589,39 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
       if(absentAdded.length && uploadSet){
         const names = absentAdded.map(k => ICONIC_LABEL[k] || k).join(", ");
         hint.hidden = false;
-        hint.innerHTML = `You've added <strong>${escapeHtml(names)}</strong>, not in your current data. A normal top-up only fetches records <em>uploaded since your CSV</em>, so existing ${escapeHtml(names)} already on iNaturalist won't come in — <strong>clear “Uploaded since” above</strong> to backfill them (their photos then warm up automatically).`;
+        hint.innerHTML = `You've added <strong>${escapeHtml(names)}</strong>, not in your current data. A top-up only fetches records <em>uploaded since the boundary</em>, so existing ${escapeHtml(names)} already on iNaturalist won't come in — <strong>Clear “Uploaded since”</strong> to backfill them (their photos warm up automatically).`;
       } else {
         hint.hidden = true;
       }
     }
-  }
-
-  function fillScopeModal(base, presentSet, availBbox, bboxActive){
-    const grid = $("#scopeIconic");
-    grid.innerHTML = ICONIC_TAXA.map(([key,label])=>{
-      const checked = (base.iconic_taxa && base.iconic_taxa.includes(key)) ? "checked" : "";
-      const present = presentSet.has(key) ? ' <span class="present" title="present in your data">✓</span>' : '';
-      return `<label class="scopeIconicItem"><input type="checkbox" value="${key}" ${checked}/> <span>${escapeHtml(label)}${present}</span></label>`;
-    }).join("");
-    $("#scopePlace").value = base.place_id || "";
-    $("#scopeGrade").value = base.quality_grade || "";
-    $("#scopeExclude").value = (base.without_taxon_id||[]).join(",");
-    $("#scopeObsFrom").value = base.d1 || "";
-    $("#scopeObsTo").value = base.d2 || "";
-    // Uploaded-since: undefined = automatic → show the CSV cutoff; "" = backfill → blank;
-    // a fixed date → show it.
-    const autoDate = scopeAutoUploadDate();
-    $("#scopeUploaded").value = (base.uploaded_since === "") ? ""
-      : (typeof base.uploaded_since === "string" && base.uploaded_since) ? base.uploaded_since
-      : autoDate;
-    // The derived box is offered as an available value but left OFF by default on a
-    // fresh suggestion — a rectangle drawn round the current points would silently
-    // reject a legitimate new record just outside the spread, so geography is opt-in.
-    scopeWorking = { taxon_id: (base.taxon_id||[]).slice(), bbox: availBbox || null, extra: base.extra ? Object.assign({}, base.extra) : {} };
-    const bboxOn = $("#scopeBboxOn");
-    const bv = $("#scopeBboxVal");
-    bboxOn.disabled = !availBbox;
-    bboxOn.checked = !!(availBbox && bboxActive);
-    if(availBbox){
-      bv.textContent = `SW ${availBbox.swlat}, ${availBbox.swlng} · NE ${availBbox.nelat}, ${availBbox.nelng} (padded from your data) — a place ID is more accurate.`;
-    } else {
-      bv.textContent = "No coordinates in the current data to derive a box.";
-    }
-  }
-
-  function openScopeModal(){
-    scopePrevFocus = document.activeElement;
-    const src = app.apiQuery || app.apiQuerySuggested || inferApiConstraints();
-    const base = {
-      iconic_taxa: (src.iconic_taxa||[]).slice(),
-      place_id: src.place_id || "",
-      without_taxon_id: (src.without_taxon_id||[]).slice(),
-      taxon_id: (src.taxon_id||[]).slice(),
-      quality_grade: src.quality_grade || "",
-      bbox: src.bbox ? Object.assign({}, src.bbox) : null,
-      d1: src.d1 || "",
-      d2: src.d2 || "",
-      uploaded_since: src.uploaded_since,
-      extra: src.extra ? Object.assign({}, src.extra) : {}
-    };
-    const derived = inferApiConstraints();
-    const presentSet = new Set(derived.iconic_taxa);
-    scopePresentSet = presentSet;
-    // A box value is available if the saved scope has one or the data can derive one;
-    // it is "active" (ticked) only when a confirmed scope already had it on.
-    const availBbox = base.bbox || derived.bbox || null;
-    const bboxActive = !!(app.apiQuery && app.apiQuery.bbox);
-    $("#scopeUrl").value = "";
-    $("#scopeUrlNote").textContent = "Fills place and taxa exclusions exactly (e.g. without_taxon_id=47126 = no plants).";
-    fillScopeModal(base, presentSet, availBbox, bboxActive);
-    scopeUpdateSummary();
-    const startBtn = $("#scopeConfirm");
-    if(startBtn) startBtn.textContent = (scopeCurrentMode() === "full") ? "Save & start full import" : "Save & start top-up";
-    const modal = $("#scopeModal");
-    modal.classList.add("open");
-    modal.setAttribute("aria-hidden", "false");
-    document.addEventListener("keydown", scopeKeydown, true);
-    const first = $("#scopeUrl");
-    if(first) first.focus();
-  }
-
-  function closeScopeModal(){
-    const modal = $("#scopeModal");
-    modal.classList.remove("open");
-    modal.setAttribute("aria-hidden", "true");
-    document.removeEventListener("keydown", scopeKeydown, true);
-    if(scopePrevFocus && document.contains(scopePrevFocus)){ try{ scopePrevFocus.focus(); }catch(e){} }
-  }
-
-  function scopeKeydown(e){
-    const modal = $("#scopeModal");
-    if(!modal.classList.contains("open")) return;
-    if(e.key === "Escape"){ e.preventDefault(); closeScopeModal(); return; }
-    if(e.key === "Tab"){
-      const f = Array.from(modal.querySelectorAll('button, select, input, [tabindex]:not([tabindex="-1"])'))
-        .filter(el => !el.disabled && el.offsetParent !== null);
-      if(!f.length) return;
-      const first = f[0], last = f[f.length-1];
-      if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
-      else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
-    }
-  }
-
-  function scopeCurrentMode(){ return ($("#apiMode") && $("#apiMode").value === "full") ? "full" : "topup"; }
-
-  // Primary: save the scope AND begin the fetch (this is the "start" button, whether the
-  // dialog opened as the first-fetch gate or via "Set / edit scope…").
-  $("#scopeConfirm").addEventListener("click", ()=>{
-    app.apiQuery = collectScopeFromModal();
     syncScopeSummary();
-    const mode = scopeCurrentMode();
-    closeScopeModal();
-    runApiFetch(mode);
-  });
-  // Secondary: save the scope without fetching (edit now, run later).
-  $("#scopeSave").addEventListener("click", ()=>{
-    app.apiQuery = collectScopeFromModal();
-    syncScopeSummary();
-    closeScopeModal();
-  });
-  $("#scopeCancel").addEventListener("click", ()=> closeScopeModal());
-  $("#scopeModal").addEventListener("click", (e)=>{ if(e.target.id === "scopeModal") closeScopeModal(); });
-  $("#scopeModal").addEventListener("input", scopeUpdateSummary);
-  $("#scopeModal").addEventListener("change", scopeUpdateSummary);
+  }
 
-  $("#scopeUrlApply").addEventListener("click", ()=>{
+  // Typing a place id, or focusing the field, implies the "A place" radio.
+  $("#scopePlace")?.addEventListener("focus", ()=> setAreaMode("place"));
+  $("#scopePlace")?.addEventListener("input", ()=>{ if(safe($("#scopePlace").value).trim()) setAreaMode("place"); });
+  // Clear the top-up boundary → backfill older in-scope records.
+  $("#scopeUploadedClear")?.addEventListener("click", ()=>{
+    const el = $("#scopeUploaded"); if(el) el.value = "";
+    onAddScopeChange();
+  });
+  // One delegated listener keeps the preview + hint live as any control changes.
+  $("#addModal")?.addEventListener("input", onAddScopeChange);
+  $("#addModal")?.addEventListener("change", onAddScopeChange);
+
+  $("#scopeUrlApply")?.addEventListener("click", ()=>{
     const parsed = parseInatQuery($("#scopeUrl").value);
     if(!Object.keys(parsed).length){
       $("#scopeUrlNote").textContent = "No recognisable filters found in that query.";
       return;
     }
-    if(parsed.place_id != null) $("#scopePlace").value = parsed.place_id;
+    if(!scopeWorking) scopeWorking = { taxon_id:[], bbox:null, extra:{} };
+    if(parsed.place_id != null){ $("#scopePlace").value = parsed.place_id; setAreaMode("place"); }
     if(parsed.without_taxon_id) $("#scopeExclude").value = parsed.without_taxon_id.join(",");
     if(parsed.quality_grade) $("#scopeGrade").value = parsed.quality_grade;
     if(parsed.iconic_taxa){
       const set = new Set(parsed.iconic_taxa);
-      $("#scopeModal").querySelectorAll(".scopeIconicItem input").forEach(cb=>{ cb.checked = set.has(cb.value); });
+      $("#scopeIconic").querySelectorAll('input[type=checkbox]').forEach(cb=>{ cb.checked = set.has(cb.value); });
     }
     if(parsed.taxon_id) scopeWorking.taxon_id = parsed.taxon_id;
     if(parsed.d1 != null) $("#scopeObsFrom").value = parsed.d1;
@@ -8602,17 +8629,17 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     if(parsed.extra) scopeWorking.extra = Object.assign({}, scopeWorking.extra||{}, parsed.extra);
     if(parsed.bbox){
       scopeWorking.bbox = parsed.bbox;
-      const bboxOn = $("#scopeBboxOn");
-      bboxOn.disabled = false;
-      bboxOn.checked = !safe($("#scopePlace").value).trim();
-      $("#scopeBboxVal").textContent = `SW ${parsed.bbox.swlat}, ${parsed.bbox.swlng} · NE ${parsed.bbox.nelat}, ${parsed.bbox.nelng} (from query)`;
+      const boxRadio = $("#areaModeBox"); if(boxRadio) boxRadio.disabled = false;
+      const bv = $("#areaBboxVal");
+      if(bv) bv.textContent = `SW ${parsed.bbox.swlat}, ${parsed.bbox.swlng} · NE ${parsed.bbox.nelat}, ${parsed.bbox.nelng} (from query)`;
+      if(parsed.place_id == null) setAreaMode("box");
     }
-    // Fill the panel's Usernames / Project from the query (the export's source of truth).
+    // Fill the Observers / Project from the query (the export's source of truth).
     const filled = [];
-    if(parsed.user_id && parsed.user_id.length){ const el=$("#apiUsers"); if(el){ el.value = parsed.user_id.join(", "); filled.push("users"); } }
+    if(parsed.user_id && parsed.user_id.length){ const el=$("#apiUsers"); if(el){ el.value = parsed.user_id.join(", "); filled.push("observers"); } }
     if(parsed.project){ const el=$("#apiProject"); if(el){ el.value = parsed.project; filled.push("project"); } }
     $("#scopeUrlNote").textContent = "Applied filters from the query" + (filled.length ? " (also filled "+filled.join(" + ")+")." : ".");
-    scopeUpdateSummary();
+    onAddScopeChange();
   });
 
   async function runApiFetch(mode){
@@ -8638,19 +8665,19 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     }
   }
 
+  // Scope is now the inline controls — read them at fetch time, no separate gate.
   $("#fetchApi").addEventListener("click", ()=>{
     if(app.apiFetchActive) return;
-    const mode = ($("#apiMode") && $("#apiMode").value) ? $("#apiMode").value : "topup";
-    // First fetch on a dataset opens the scope gate (nothing applied silently); the
-    // gate's "Save & start" button begins the fetch. Once a scope exists, run straight away.
-    if(app.apiQuery == null){
-      openScopeModal();
-    } else {
-      runApiFetch(mode);
-    }
+    app.apiQuery = collectScopeFromModal();
+    syncScopeSummary();
+    runApiFetch("topup");
   });
-
-  $("#apiScopeBtn").addEventListener("click", ()=> openScopeModal());
+  $("#fullImportBtn")?.addEventListener("click", ()=>{
+    if(app.apiFetchActive) return;
+    app.apiQuery = collectScopeFromModal();
+    syncScopeSummary();
+    runApiFetch("full");
+  });
 $("#apiUsers").addEventListener("blur", async ()=>{
     const u = parseUserList($("#apiUsers").value || "");
     if(!u.length){ const el=$("#apiTotals"); if(el) el.textContent=""; return; }
