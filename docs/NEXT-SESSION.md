@@ -5,35 +5,36 @@ The immediate-actions companion to `ROADMAP.md` (full phase plan) and `../CLAUDE
 the settled decisions a fresh session shouldn't re-litigate. **Detailed history lives in git** —
 don't turn this into a changelog.
 
-_Last refreshed 2026-07-10. Just built (branch `add-records-redesign`, pending Lily's review →
-merge): the **Add records redesign** — scope inlined (the `#scopeModal` modal-over-modal retired),
-**geography on by default** (padded box round the data; place-id / Anywhere escapes), **CSV
-append** (Replace vs Add-to-current), and an **Uploaded-since Clear** button. (A Fern-green
-primary was trialled and **rejected** — the chrome stays ink/white/grey, no accent colour; radios
-tick ink via `accent-color`.) See `../CLAUDE.md` → "Recent work". **Next up:** review + merge,
-then Phase 2(c) clustering or Phase 3 species deep-dive._
+_Last refreshed 2026-07-10. Just shipped (branch `add-records-streamline`, **merged to `main`**):
+the **Add records streamline** — the dialog is now **two source tabs** (From a file / From
+iNaturalist), the iNaturalist tab a **plain-English scope sentence** + inline **Preview count** +
+**one context-aware Sync button** (full import when empty or boundary-cleared, else top-up; the
+separate Full re-import button is gone) + **Adjust scope / More options** disclosures. Also fixed
+the "strange sentence" bug (append now nulls a stale `app.apiQuery`), and **trimmed the panels**
+(no Taxa prose, no Exclude / Observed-to fields). See `../CLAUDE.md` → "Recent work". **Next up:**
+a live real-export Sync pass, then Phase 2(c) clustering or Phase 3 species deep-dive._
 
 ---
 
-## Start here next — review + merge the Add records redesign, then roadmap
+## Start here next — live real-export Sync pass, then roadmap
 
 House rules apply: single-file `index.html`, **no build**; verify in-browser **light + dark +
 mobile (375px)**; console clean; focused commits; **don't push until Lily asks**. (Local test
 data: git-ignored `sample-inat.csv`; the real export `observations-755169.csv` is also git-ignored,
 with valid taxon ids.)
 
-The redesign is **built and verified** on branch `add-records-redesign` (append add/dedupe, area
-box/place/anywhere + preview, Clear→backfill driven live in headless Chrome; light+dark+mobile
-screenshots good; console clean). Both semantics concerns are handled: geography is on by default,
-and the boundary already keys off **upload** date (`created_d1`) so late uploads of old in-scope
-records come in. **Remaining before closing it out:**
+The streamline is **built, verified, and merged** (tabs, sentence, Preview count, one smart button,
+leaner panels — driven live on the real 41,891-row export; append + Preview count hit the live API;
+light+dark+mobile good; console clean). **Remaining before closing it out:**
 
-- **Live pass with the real export against the live iNat API** — confirm a real top-up honours the
-  box + upload boundary end-to-end (the local verification used the fabricated-taxon sample for the
-  plumbing). Then merge to `main` + push when Lily asks.
-- Key functions to know: `collectScopeFromModal()` (reads the inline controls), `areaMode()` /
-  `setAreaMode()` (the Area radios), `refreshAddScopeFromData()` (fills the controls on load /
-  append / modal-open), `loadCSVFileAppend()` (dedupe-by-id merge), `--brand` (Fern green token).
+- **Live pass with the real export against the live iNat API** — Preview count + append were driven
+  live, but a **full Sync fetch** wasn't. Confirm a real Sync honours the box + upload boundary
+  end-to-end, and that a **cleared-boundary** Sync runs the big-cap full-import path as intended.
+- Key functions to know: `collectScopeFromModal()` (reads the inline controls; `taxon_id` /
+  `without_taxon_id` / `d2` live on `scopeWorking`, paste-only), `syncScopeSummary()` +
+  `describeAdvancedScope()` (the scope sentence), `previewCount()` (`#apiTest`), the `#fetchApi`
+  handler (smart full-vs-topup routing), `refreshAddScopeFromData()` (fills controls on load /
+  append / modal-open), `loadCSVFileAppend()` (dedupe-by-id merge; now nulls `app.apiQuery`).
 
 Then, back-burnered: Phase 2(c) **clustering + spiderfy** and Phase 3 **species deep-dive**.
 
@@ -82,10 +83,17 @@ Then, back-burnered: Phase 2(c) **clustering + spiderfy** and Phase 3 **species 
 
 ## Recently shipped (newest first — one line each; git has the detail)
 
-- **Add records modal** — header **"Add records…"** opens one `#addModal` dialog: Load CSV · Pull
-  from iNaturalist (the moved top-up/import controls, ids intact) · Update taxa (under a divider).
-  Retired the sidebar accordion + the mobile header-relocation hack; onboarding routes to it;
-  focus-trap/Escape/backdrop a11y; the scope editor still opens on top; closes on load/import.
+- **Add records streamline** — two source **tabs** (File / iNaturalist); iNaturalist tab = scope
+  **sentence** + inline **Preview count** + **one smart Sync button** (full when empty/backfill,
+  else top-up; Full re-import removed) + Adjust scope / More options. Fixed the stale-scope
+  "strange sentence" (append nulls `app.apiQuery`); trimmed panels (no Taxa prose, no Exclude /
+  Observed-to). Update taxa → quiet footer.
+- **Add records redesign** — inline scope (Observers · Area · Uploaded since + More options),
+  geography on by default, CSV append (Replace vs Add-to-current), Uploaded-since Clear; Fern-green
+  primary trialled + rejected (chrome stays ink/white/grey).
+- **Add records modal** — header **"Add records…"** opens one `#addModal` dialog. Retired the
+  sidebar accordion + the mobile header-relocation hack; onboarding routes to it;
+  focus-trap/Escape/backdrop a11y; closes on load/import.
 - **Add Records collapse fix** — the last sidebar panel sat flush against the sticky sidebar's
   scroll-clip edge and wouldn't toggle; `padding-bottom` + `scroll-padding-bottom` clear it.
 - **Field Guide stable per-taxon photos** — own `default_photo` per rank (`app.taxonRankPhoto`,
@@ -111,10 +119,13 @@ Then, back-burnered: Phase 2(c) **clustering + spiderfy** and Phase 3 **species 
 ## Settled decisions (don't re-litigate)
 
 - **Add records is a modal front door** (`#addModal`), opened from the header **"Add records…"**
-  button and the onboarding CTA: **Load a CSV file** (Replace *or* Add-to-current) · **Sync from
-  iNaturalist** (scope inline) · (under a divider) **Update taxa**. The sidebar holds only lenses
-  (Filters, Dates, Compare) + the warm-up bar — **don't move the ingest controls back into the
-  sidebar**, and **don't reintroduce the `#scopeModal`** — the scope is inline now.
+  button and the onboarding CTA, with **two source tabs**: **From a file** (Replace *or*
+  Add-to-current) and **From iNaturalist** (scope sentence + Preview count + **one smart Sync
+  button** + Adjust scope / More options). **Update taxa** is a quiet maintenance footer. The
+  sidebar holds only lenses (Filters, Dates, Compare) + the warm-up bar — **don't move the ingest
+  controls back into the sidebar**, **don't reintroduce the `#scopeModal`** (scope is inline), and
+  **don't re-add** the Full re-import button or the Exclude / Observed-to fields. The scope always
+  describes the loaded data (replace + append both null a stale `app.apiQuery`).
 - **Top-up geography is ON by default** — a padded box round the loaded data, editable + shown,
   with place-id / Anywhere escapes. This **reverses** the old "bbox opt-in, off by default"
   decision (travelling observers dragging in out-of-area records is the worse failure; over-wide
