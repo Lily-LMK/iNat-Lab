@@ -28,8 +28,12 @@ generic CSV export modal.
 
 ## Current capabilities
 
-- **Ingest:** CSV upload (`#csvA`) and live **iNat API top-up** (`#fetchApi`) by username(s)
-  and/or project, with a top-up / full-import mode and a result cap.
+- **Ingest:** all via the **"Add records…" modal** (`#addModal`, opened from the header button /
+  onboarding CTA): **Load a CSV file** — Replace *or* Add-to-current (`#csvA`; append merges deduped
+  by observation id) — and **Sync from iNaturalist** (`#fetchApi`) by observer(s) and/or project.
+  The top-up **scope is inline** (Observers · Area · Uploaded since, plus a "More options" section
+  for taxa/grade/exclusions/observed dates/paste-Export-Query/**Full re-import**); geography is on
+  by default. *(Redesigned 2026-07-10 — see "Recent work".)*
 - **Filter cascade:** kingdom → phylum → class → order → superfamily → family → subfamily →
   tribe → genus → species, plus user, quality grade, date range, and free-text search. Active
   filters render as a **chip bar** in the header; removing a chip (its ×) clears that filter, and
@@ -127,6 +131,36 @@ CSV handy (`sample-inat.csv`, git-ignored) for local testing — do not commit i
 Newest first, and deliberately brief — **git history and commit messages hold the detail.** This
 section is orientation, not a changelog. Everything below is on `main` and live unless noted.
 
+- **Add records redesign — inline scope + Fern brand green** (2026-07-10, branch
+  `add-records-redesign`, not yet merged). Reworked the whole ingest interface (design session
+  first, forks agreed with Lily). (1) The `#scopeModal` modal-over-modal is **retired**: the scope
+  now lives **inline** in `#addModal` — Observers · **Area** · **Uploaded since** up top for the
+  routine top-up, with everything advanced (Project, taxa groups, quality grade, exclude taxa,
+  observed-date window, paste Export Query, **Full re-import**) folded into a **More options**
+  `<details>`. There's no confirm gate any more — `collectScopeFromModal()` reads the inline
+  controls at fetch time; `refreshAddScopeFromData()` fills them on CSV load / append / modal-open.
+  (2) **Geography is ON by default** — the Area radio defaults to a padded box round the data
+  (`scopeWorking.bbox`), switchable to a place id or Anywhere; this **reverses** the old opt-in-off
+  bbox decision (the fix for travelling observers dragging in out-of-area records). (3) **CSV
+  append** — two doors, "Replace with a file…" and "Add a file to current…" (`loadCSVFileAppend`,
+  deduped by observation id, same merge path as an API top-up; `app._csvMode` routes the shared
+  `#csvA` handler). (4) **Uploaded since gets a Clear button** (blank = backfill). (5) UI wording
+  is **"iNaturalist"**, not "iNat". (6) **No accent colour** — a Fern-green primary was trialled
+  and **rejected** by Lily; the chrome stays ink/white/grey (content + type are the design). Form
+  controls now use `accent-color: var(--ink)` so radios/checkboxes tick ink, not the browser's
+  blue. Verified light + dark + mobile 375px, console clean; append add/dedupe and area/clear
+  preview driven live.
+- **Add records modal + collapse fix** (2026-07-10). The header **"Add records…"** button now
+  opens a single dialog (`#addModal`) with three doors — **From a file** (Load CSV), **From
+  iNaturalist** (the top-up/import controls, moved from the sidebar with their ids intact so
+  handlers bind unchanged), and **Maintenance** (Update taxa, under a divider). This retires the
+  old sidebar "Add records" accordion and the `syncHeaderLayout` mobile header-relocation hack;
+  onboarding routes to the same modal; the modal closes on load/import so the view is visible; the
+  scope editor (`#scopeModal`) still opens on top with its own focus trap. Also fixed the reported
+  **collapse bug**: once the page is tall the sticky sidebar becomes an internal-scroll container,
+  and its last panel sat flush against the scroll-clip edge (hit-testing as the `<aside>`, so it
+  wouldn't toggle) — `padding-bottom` + `scroll-padding-bottom` on `aside` clear it. *(The scope
+  model/semantics inside the modal are deliberately unchanged — the next focus.)*
 - **Field Guide: stable per-taxon photos** (2026-07-10). Higher-rank tiles (phylum, class,
   order, family…) now show iNaturalist's own `default_photo` for *that* taxon, not the photo of
   their most-recently-observed descendant record (which used to change and re-fetch whenever new
@@ -165,15 +199,35 @@ section is orientation, not a changelog. Everything below is on `main` and live 
 - **Common names:** iNat only, verbatim, Australian English; climb to the nearest ancestor up to
   Order; the Taxa tree shows own names only; a blank beats a mislabel.
 - **Tab label** stays **"Field Guide"**.
+- **Add records is a modal front door** (`#addModal` + the header "Add records…" button): **Load a
+  CSV file** (Replace *or* Add-to-current) · **Sync from iNaturalist** (scope inline: Observers ·
+  Area · Uploaded since, with the rest under "More options") · **Update taxa** (maintenance, under
+  a divider). The sidebar holds only lenses; don't put the ingest controls back there. **Don't
+  reintroduce the `#scopeModal` modal-over-modal** — the scope is inline now.
+- **Top-up geography is ON by default** — a padded box round the loaded data, editable/visible,
+  with escapes to a place id or Anywhere. This deliberately **reverses** the earlier "bbox opt-in,
+  off by default" decision (Lily's call: a travelling observer dragging in out-of-area records is
+  the worse failure; over-wide is mitigated by padding + visibility, not by defaulting to Anywhere).
+- **The top-up boundary is upload date** (`created_d1`), never observed date, so a months-late
+  upload of an old in-scope observation still comes in. "Uploaded since" owns it; **Clear** =
+  backfill. Don't default an observed-date window that would suppress late uploads.
+- **No accent colour in the chrome** — the interface stays **ink / white / grey** (the Gallery
+  system); content and type are the design, photographs are the only colour. Primary action is the
+  established filled-ink `.btn-primary`; form controls use `accent-color: var(--ink)` so radios and
+  checkboxes tick **ink, not browser-blue**. *(A Fern-green primary was trialled 2026-07-10 and
+  **rejected** by Lily — no green, no blue. Don't reintroduce a brand accent colour.)*
 - **Publication export** has two modes: a real-basemap screenshot (CORS-safe basemaps only) and a
   clean vector plot (no basemap tiles, always light palette).
 - The removed features stay removed: the chip-bar "Clear all" / `clearAllFilters()`, the
-  Lightroom title/caption/keyword dropdowns, and GBIF common-name enrichment.
+  Lightroom title/caption/keyword dropdowns, GBIF common-name enrichment, and the `#apiMode`
+  Top-up/Full dropdown + the `#scopeModal` scope gate (folded inline).
 - See `docs/NEXT-SESSION.md` → "Settled decisions" for the fuller list and the working backlog.
 
 ## Next up
 
-Phase 2(c) **clustering + spiderfy** (`Leaflet.markercluster`; back-burnered, offline not
-needed), or Phase 3 **species deep-dive**. A **top-up interface simplification** is queued for a
-dedicated planning session. See `docs/ROADMAP.md` for the phased plan and `docs/NEXT-SESSION.md`
-for immediate next actions and the backlog.
+The **Add records redesign** (inline scope, geography-on-by-default, CSV append, Fern brand green)
+is **built and verified on branch `add-records-redesign`** — pending Lily's review, then merge to
+`main` + push. After that, back-burnered: **Phase 2(c) clustering + spiderfy** and **Phase 3
+species deep-dive**. Still worth a live pass with the **real** export against the live iNat API:
+confirm a real top-up honours the box + upload boundary end-to-end. See `docs/NEXT-SESSION.md` and
+`docs/ROADMAP.md`.
