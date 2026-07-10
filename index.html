@@ -1954,9 +1954,8 @@
             </div>
 
             <div class="addField">
-              <label>Taxa <span class="muted small" style="font-weight:400;">— ticked groups are fetched; ✓ marks groups in your data</span></label>
+              <label>Taxa</label>
               <div class="scopeIconicGrid" id="scopeIconic"></div>
-              <div class="muted small">Untick a group to exclude it; tick one you expect but haven't observed yet.</div>
             </div>
 
             <div class="addRow">
@@ -1976,19 +1975,8 @@
             </div>
 
             <div class="addField">
-              <label for="scopeExclude">Exclude taxon IDs <span class="muted small">(comma-separated; 47126 = plants)</span></label>
-              <input id="scopeExclude" type="text" inputmode="numeric" placeholder="e.g. 47126"/>
-            </div>
-
-            <div class="addRow">
-              <div class="addField">
-                <label for="scopeObsFrom">Observed from</label>
-                <input id="scopeObsFrom" type="date"/>
-              </div>
-              <div class="addField">
-                <label for="scopeObsTo">Observed to <span class="muted small">(blank = now)</span></label>
-                <input id="scopeObsTo" type="date"/>
-              </div>
+              <label for="scopeObsFrom">Observed since</label>
+              <input id="scopeObsFrom" type="date"/>
             </div>
 
             <div class="addField">
@@ -1997,7 +1985,7 @@
                 <input id="scopeUrl" type="text" placeholder="has[]=photos&amp;quality_grade=research&amp;iconic_taxa[]=Insecta&amp;swlat=…"/>
                 <button type="button" id="scopeUrlApply" class="smallBtn">Read query</button>
               </div>
-              <div class="muted small" id="scopeUrlNote">Paste the <strong>Query</strong> field from iNaturalist's Export page. Fills taxa, place, dates, and observers exactly (e.g. <code>without_taxon_id=47126</code> = no plants).</div>
+              <div class="muted small" id="scopeUrlNote"></div>
             </div>
           </div>
         </details>
@@ -2011,7 +1999,7 @@
            to a quiet footer rather than a co-equal section. -->
       <div class="addMaint">
         <button id="taxonSyncBtn" class="smallBtn" title="Check iNaturalist for updated taxonomy fields">Update taxa</button>
-        <span class="muted small">Reconciles the taxonomy of records you already have — it doesn't add any.</span>
+        <span class="muted small">Updates the taxonomy of records you already have.</span>
       </div>
     </div>
   </div>
@@ -8585,10 +8573,12 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     const place_id = (mode === "place") ? safe($("#scopePlace").value).trim() : "";
     const bbox = (mode === "box" && scopeWorking && scopeWorking.bbox) ? scopeWorking.bbox : null;
     const grade = $("#scopeGrade").value || "";
-    const without = safe($("#scopeExclude").value).split(",").map(x=>parseInt(x,10)).filter(Number.isFinite);
+    // taxon_id / without_taxon_id / d2 have no field of their own — they only arrive via a
+    // pasted Export Query, held on scopeWorking, and surface in the scope sentence.
+    const without = (scopeWorking && scopeWorking.without_taxon_id) ? scopeWorking.without_taxon_id.slice() : [];
     const taxon_id = (scopeWorking && scopeWorking.taxon_id) ? scopeWorking.taxon_id.slice() : [];
     const d1 = safe($("#scopeObsFrom").value).trim();
-    const d2 = safe($("#scopeObsTo").value).trim();
+    const d2 = (scopeWorking && scopeWorking.d2) ? scopeWorking.d2 : "";
     // uploaded_since: undefined = automatic (advancing CSV/data cutoff); "" = backfill all
     // (the Clear button); a date = a fixed floor. The field is pre-filled with the auto
     // date, so leaving it equal to that means "automatic".
@@ -8624,15 +8614,13 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     renderScopeIconic((src.iconic_taxa||[]), scopePresentSet);
     $("#scopePlace").value = src.place_id || "";
     $("#scopeGrade").value = src.quality_grade || "";
-    $("#scopeExclude").value = (src.without_taxon_id||[]).join(",");
     $("#scopeObsFrom").value = src.d1 || "";
-    $("#scopeObsTo").value = src.d2 || "";
     const autoDate = scopeAutoUploadDate();
     $("#scopeUploaded").value = (src.uploaded_since === "") ? ""
       : (typeof src.uploaded_since === "string" && src.uploaded_since) ? src.uploaded_since
       : autoDate;
     const availBbox = (src.bbox || derived.bbox) ? Object.assign({}, src.bbox || derived.bbox) : null;
-    scopeWorking = { taxon_id: (src.taxon_id||[]).slice(), bbox: availBbox, extra: src.extra ? Object.assign({}, src.extra) : {} };
+    scopeWorking = { taxon_id: (src.taxon_id||[]).slice(), without_taxon_id: (src.without_taxon_id||[]).slice(), bbox: availBbox, d2: src.d2 || "", extra: src.extra ? Object.assign({}, src.extra) : {} };
     let mode = "box";
     if(src.place_id && String(src.place_id).trim()) mode = "place";
     else if(!availBbox) mode = "any";
@@ -8682,9 +8670,9 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
       $("#scopeUrlNote").textContent = "No recognisable filters found in that query.";
       return;
     }
-    if(!scopeWorking) scopeWorking = { taxon_id:[], bbox:null, extra:{} };
+    if(!scopeWorking) scopeWorking = { taxon_id:[], without_taxon_id:[], bbox:null, d2:"", extra:{} };
     if(parsed.place_id != null){ $("#scopePlace").value = parsed.place_id; setAreaMode("place"); }
-    if(parsed.without_taxon_id) $("#scopeExclude").value = parsed.without_taxon_id.join(",");
+    if(parsed.without_taxon_id) scopeWorking.without_taxon_id = parsed.without_taxon_id;
     if(parsed.quality_grade) $("#scopeGrade").value = parsed.quality_grade;
     if(parsed.iconic_taxa){
       const set = new Set(parsed.iconic_taxa);
@@ -8692,7 +8680,7 @@ const maxRaw = ($("#apiMax").value || "2000").trim().toLowerCase();
     }
     if(parsed.taxon_id) scopeWorking.taxon_id = parsed.taxon_id;
     if(parsed.d1 != null) $("#scopeObsFrom").value = parsed.d1;
-    if(parsed.d2 != null) $("#scopeObsTo").value = parsed.d2;
+    if(parsed.d2 != null) scopeWorking.d2 = parsed.d2;
     if(parsed.extra) scopeWorking.extra = Object.assign({}, scopeWorking.extra||{}, parsed.extra);
     if(parsed.bbox){
       scopeWorking.bbox = parsed.bbox;
